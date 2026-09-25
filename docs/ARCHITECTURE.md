@@ -1,0 +1,92 @@
+# Architecture
+
+How the Alibi Monkey Bar website is put together.
+
+## Overview
+
+```
+Browser ──► static pages (HTML/CSS/JS/images)          served as plain files
+   │
+   ├──► api/menu.php ──► Square Online store feed      live menu (cached 15 min)
+   │         └─ fallback: data/menu.json
+   ├──► api/checkout.php ──► Square Orders + Payments API
+   ├──► api/contact.php ──► api/data/*.csv + email
+   ├──► api/subscribe.php ──► api/data/newsletter.csv + Square Customers
+   │
+   ├──► Square Web Payments SDK (card field, loaded on the menu page)
+   └──► Elfsight widgets (Google reviews, Instagram feed)
+```
+
+There is **no build step**. What's in the repository is exactly what gets
+uploaded to the server.
+
+## Pages
+
+Every page is a standalone HTML file with the same header, navigation and
+footer, copied into each page. **Change the header or footer on every page**
+when you edit them.
+
+| File | Scripts loaded | Notes |
+| --- | --- | --- |
+| `index.html` | `main.js`, `elfsight-badge.js`, `upcoming.js` | Hero slider; upcoming-events slider built from `events.html` |
+| `menu.html` | `main.js`, `order.js` | Ordering UI renders into `#order-menu` |
+| `events.html` | `main.js`, `events.js` | The single source of the weekly lineup |
+| `gallery.html` | `main.js`, `instagram-more.js` | Instagram feed through Elfsight |
+| `contact.html` | `main.js` | Forms post to `api/contact.php` |
+| other pages | `main.js` | Static content |
+
+## JavaScript (`js/`)
+
+| File | Purpose |
+| --- | --- |
+| `main.js` | Shared by every page: header style on scroll, mobile nav, hero slider, lazy loading for background images and Elfsight widgets, and AJAX form submission (any `<form data-endpoint="…">`) |
+| `order.js` | The whole ordering flow: menu, item options, cart (saved in `localStorage` as `alibi-cart-v1`), pickup/delivery, tip, quote and Square card payment |
+| `events.js` | Turns the weekly lineup on `events.html` into day tabs and opens on today's day in restaurant time (America/New_York) |
+| `upcoming.js` | Home page slider. It fetches `events.html`, reads the lineup and shows events starting with the next one. It pauses on hover and respects reduced motion |
+| `instagram-more.js` | Gallery paging: shows 20 posts, then 8 more per click |
+| `elfsight-badge.js` | Tidies the Elfsight widget badge |
+
+All scripts are plain ES2017+ with no dependencies. Each one checks for its
+container element and exits quietly on pages that don't have it.
+
+## CSS (`css/style.css`)
+
+One stylesheet for the whole site:
+
+- `@font-face` rules for the self-hosted fonts in `fonts/`
+- the layout and components for every page
+- **icons**: classes like `fas fa-phone` are *not* Font Awesome. Each one is
+  defined near the end of the file as an inline SVG mask. To add an icon, copy
+  an existing rule and paste in the new SVG path.
+
+## Images (`images/`)
+
+| Folder | Contents |
+| --- | --- |
+| `images/site/` | Photos in three widths (`-640`, `-1024`, `-1600`) used with `srcset` |
+| `images/events/` | Event posters (480×600) |
+| `images/dancers/` | Dancer photos (600×600) |
+| `images/` | Logo, hero banners, award badges, favicons |
+
+All photos are **WebP**. Keep the `width`/`height` attributes on `<img>` tags
+so the page doesn't jump while images load.
+
+## Back end (`api/`)
+
+PHP with no framework and no database. See [API.md](API.md) for each endpoint.
+
+- `lib.php` holds the shared helpers: config loading, Square requests, JSON
+  responses, same-site checks, rate limiting, CSV saving, email and caching.
+- `config.php` (private, not in git) holds the Square credentials and email settings.
+- `cache/` is created automatically for the menu cache and rate-limit counters.
+- `data/` is created automatically for the form submission CSVs.
+
+## Security
+
+- `api/.htaccess` blocks `config.php`, `lib.php`, `cache/` and `data/` from the web.
+- The root `.htaccess` blocks `.md` files, dot-files and the `.git` folder,
+  disables directory listings and sets security headers.
+- The endpoints only accept same-site JSON POSTs and are rate-limited.
+- Checkout **re-prices every cart item on the server** from the live menu, so
+  a tampered browser can't change prices.
+- Card details go straight into Square's hosted field and never touch this server.

@@ -1,0 +1,81 @@
+# Speed and security settings for Apache / cPanel hosting.
+# (api/.htaccess separately keeps the API's config, data and cache private.)
+
+Options -Indexes
+DirectoryIndex index.html
+# Branded "page not found" page (assumes the site sits at the domain root).
+ErrorDocument 404 /404.html
+
+# ---------- Private files ----------
+# Notes and dot-files (e.g. ORDERING-SETUP.md) are never served.
+<FilesMatch "(\.(md|log|bak|sql|ini|sh|zip|bat)|^\..*)$">
+    Require all denied
+</FilesMatch>
+# Git repository data and developer docs, in case they get uploaded by mistake.
+RedirectMatch 404 ^/(\.git|docs)(/|$)
+
+# ---------- HTTPS ----------
+# Turn this on once the site's SSL certificate is active (most hosts include
+# one free): remove the # from the five lines below.
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTPS} off
+#     RewriteCond %{HTTP:X-Forwarded-Proto} !https
+#     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
+# ---------- Clean URLs ----------
+# /events loads events.html (links on the site use .html, so this is a bonus).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME}.html -f
+    RewriteRule ^(.+?)/?$ $1.html [L]
+</IfModule>
+
+# ---------- File types ----------
+<IfModule mod_mime.c>
+    AddType image/webp .webp
+    AddType font/woff2 .woff2
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
+# ---------- Compression ----------
+<IfModule mod_brotli.c>
+    AddOutputFilterByType BROTLI_COMPRESS text/html text/css text/plain text/xml application/javascript text/javascript application/json image/svg+xml
+</IfModule>
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/javascript text/javascript application/json image/svg+xml
+</IfModule>
+
+# ---------- Browser caching ----------
+# CSS and JS links carry ?v=... — change that value in the pages after editing
+# css/style.css or a js/ file so visitors get the new version straight away.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresDefault                          "access plus 1 hour"
+    ExpiresByType text/html                 "access plus 0 seconds"
+    ExpiresByType application/json          "access plus 0 seconds"
+    ExpiresByType text/css                  "access plus 1 month"
+    ExpiresByType application/javascript    "access plus 1 month"
+    ExpiresByType text/javascript           "access plus 1 month"
+    ExpiresByType image/webp                "access plus 6 months"
+    ExpiresByType image/png                 "access plus 6 months"
+    ExpiresByType image/jpeg                "access plus 6 months"
+    ExpiresByType image/svg+xml             "access plus 6 months"
+    ExpiresByType image/x-icon              "access plus 6 months"
+    ExpiresByType font/woff2                "access plus 1 year"
+</IfModule>
+
+# ---------- Security headers ----------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), usb=(), interest-cohort=()"
+    # Tell browsers to always use HTTPS (only sent over HTTPS connections).
+    Header always set Strict-Transport-Security "max-age=15552000" env=HTTPS
+    Header unset X-Powered-By
+    Header always unset X-Powered-By
+</IfModule>

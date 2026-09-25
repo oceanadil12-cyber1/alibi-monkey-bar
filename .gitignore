@@ -1,0 +1,19 @@
+# ---- Secrets: never commit ----
+# Square access token + email settings (copy config.example.php to create it)
+api/config.php
+
+# ---- Server-generated ----
+# Menu cache and rate-limit files
+api/cache/
+# Customer form submissions (contact, reservations, newsletter CSVs)
+api/data/
+
+# ---- OS / editor clutter ----
+Thumbs.db
+desktop.ini
+.DS_Store
+*.log
+*.bak
+.vscode/
+.idea/
+node_modules/

@@ -1,0 +1,274 @@
+<?php
+/**
+ * POST api/checkout.php   (JSON body)
+ *
+ *   { "action": "quote", "cart": [...], "fulfillment": {...} }
+ *       → validates the cart and returns subtotal, tax, delivery fee and total.
+ *
+ *   { "action": "pay", "cart": [...], "fulfillment": {...}, "customer": {...},
+ *     "tip": 350, "sourceId": "<card token from Square Web Payments SDK>",
+ *     "idempotencyKey": "<uuid>" }
+ *       → creates the order in Square (it appears in the POS like any online
+ *         order) and charges the card.
+ *
+ * Cart line: { "itemId": "1513", "variationId": "<square id>", "qty": 2,
+ *              "modifiers": ["<choice square id>", ...], "note": "..." }
+ * Prices always come from the menu data on the server, never from the browser.
+ */
+require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/menu.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail('Use POST.', 405);
+require_same_site();
+$req = json_decode((string) file_get_contents('php://input'), true);
+if (!is_array($req)) fail('Invalid request.');
+
+$menu = load_menu();
+if (!$menu) fail('The menu is temporarily unavailable. Please try again shortly.', 503);
+$store = $menu['store'];
+
+/** Check the cart against the menu; returns [lines, subtotalCents]. */
+function validate_cart(array $cart, array $menu): array
+{
+    if (!$cart) fail('Your order is empty.');
+    if (count($cart) > 50) fail('That order is too large to place online. Please call us.');
+    $lines = [];
+    $subtotal = 0;
+    foreach ($cart as $n => $line) {
+        $item = $menu['items'][(string) ($line['itemId'] ?? '')] ?? null;
+        if (!$item) fail('An item in your order is no longer on the menu. Please remove it and try again.');
+        if (!empty($item['soldOut'])) fail("{$item['name']} is sold out.");
+
+        $variation = null;
+        foreach ($item['variations'] as $v) if ($v['id'] === ($line['variationId'] ?? '')) $variation = $v;
+        if (!$variation) fail("Please choose an option for {$item['name']}.");
+        if (!empty($variation['soldOut'])) fail("{$item['name']} ({$variation['name']}) is sold out.");
+
+        $qty = (int) ($line['qty'] ?? 0);
+        $maxQty = $item['maxQty'] ?: 50;
+        if ($qty < 1 || $qty > $maxQty) fail("Please choose a quantity between 1 and $maxQty for {$item['name']}.");
+
+        $chosen = array_values(array_unique(array_map('strval', $line['modifiers'] ?? [])));
+        $mods = [];
+        $unit = $variation['price'];
+        foreach ($item['modifiers'] as $group) {
+            $picked = [];
+            foreach ($group['choices'] as $c) {
+                if (in_array($c['id'], $chosen, true)) {
+                    if (!empty($c['soldOut'])) fail("{$c['name']} is not available right now.");
+                    $picked[] = $c;
+                }
+            }
+            $count = count($picked);
+            if ($count < $group['min']) fail("Please choose {$group['name']} for {$item['name']}.");
+            if ($group['max'] > 0 && $count > $group['max']) fail("Too many choices for {$group['name']} on {$item['name']}.");
+            foreach ($picked as $c) {
+                $mods[] = $c;
+                $unit += $c['price'];
+            }
+        }
+        if (count($mods) !== count($chosen)) fail("Some options for {$item['name']} are no longer available. Please re-add it.");
+
+        $note = trim(mb_substr((string) ($line['note'] ?? ''), 0, 200));
+        $lines[] = ['item' => $item, 'variation' => $variation, 'qty' => $qty, 'mods' => $mods, 'note' => $note, 'unit' => $unit];
+        $subtotal += $unit * $qty;
+    }
+    return [$lines, $subtotal];
+}
+
+/** Is the kitchen taking pickup/delivery orders right now (store time zone)? */
+function is_open(array $hours, string $tz): bool
+{
+    $now = new DateTime('now', new DateTimeZone($tz));
+    $day = strtoupper($now->format('D'));
+    $time = $now->format('H:i:s');
+    foreach ($hours[$day] ?? [] as $slot) {
+        if ($time >= $slot['open'] && $time < $slot['close']) return true;
+    }
+    return false;
+}
+
+/**
+ * $complete = false (price quotes while the customer is still typing) only
+ * checks what has been entered so far; the full address is required to pay.
+ */
+function validate_fulfillment(array $f, array $store, int $subtotal, bool $complete = true): array
+{
+    $type = ($f['type'] ?? 'pickup') === 'delivery' ? 'delivery' : 'pickup';
+    if ($type === 'delivery') {
+        if (empty($store['deliveryEnabled'])) fail('Delivery is not available right now.');
+        $a = $f['address'] ?? [];
+        if ($complete) {
+            foreach (['line1' => 'street address', 'city' => 'city', 'zip' => 'ZIP code'] as $k => $label) {
+                if (trim((string) ($a[$k] ?? '')) === '') fail("Please enter your $label for delivery.");
+            }
+        }
+        $zip = substr(preg_replace('/\D/', '', (string) ($a['zip'] ?? '')), 0, 5);
+        if (($complete || $zip !== '') && $store['deliveryZips'] && !in_array($zip, $store['deliveryZips'], true)) {
+            fail('Sorry, we only deliver to ZIP ' . implode(', ', $store['deliveryZips']) . '. Please choose pickup instead.');
+        }
+        if ($subtotal < $store['deliveryMinimum']) {
+            fail('Delivery orders need a subtotal of at least $' . number_format($store['deliveryMinimum'] / 100, 2) . '.');
+        }
+        if (!is_open($store['deliveryHours'], $store['timezone'])) fail('We are not delivering right now. Please check our delivery hours.');
+    } else {
+        if ($subtotal < $store['pickupMinimum']) fail('Your order is below the pickup minimum.');
+        if (!is_open($store['pickupHours'], $store['timezone'])) fail('The kitchen is closed for online orders right now. Please check our hours.');
+    }
+    return ['type' => $type, 'address' => $f['address'] ?? []];
+}
+
+function money(int $cents): array
+{
+    return ['amount' => $cents, 'currency' => 'USD'];
+}
+
+/** Square Orders API order body. */
+function square_order(array $lines, array $fulfillment, array $customer, array $store): array
+{
+    $lineItems = [];
+    foreach ($lines as $l) {
+        $li = [
+            'catalog_object_id' => $l['variation']['id'],
+            'quantity'          => (string) $l['qty'],
+            'modifiers'         => array_map(fn($m) => ['catalog_object_id' => $m['id']], $l['mods']),
+        ];
+        if ($l['note'] !== '') $li['note'] = $l['note'];
+        $lineItems[] = $li;
+    }
+
+    $recipient = array_filter([
+        'display_name'  => $customer['name'] ?? null,
+        'phone_number'  => $customer['phone'] ?? null,
+        'email_address' => $customer['email'] ?? null,
+    ]);
+    if ($fulfillment['type'] === 'delivery') {
+        $a = $fulfillment['address'];
+        $recipient['address'] = array_filter([
+            'address_line_1' => trim((string) $a['line1']),
+            'address_line_2' => trim((string) ($a['line2'] ?? '')),
+            'locality'       => trim((string) $a['city']),
+            'administrative_district_level_1' => trim((string) ($a['state'] ?? 'FL')),
+            'postal_code'    => trim((string) $a['zip']),
+            'country'        => 'US',
+        ]);
+        $f = ['type' => 'DELIVERY', 'state' => 'PROPOSED', 'delivery_details' => array_filter([
+            'recipient'     => $recipient,
+            'schedule_type' => 'ASAP',
+            'prep_time_duration' => 'PT' . $store['prepMinutes'] . 'M',
+            'note'          => trim(mb_substr((string) ($a['instructions'] ?? ''), 0, 500)) ?: null,
+        ])];
+    } else {
+        $f = ['type' => 'PICKUP', 'state' => 'PROPOSED', 'pickup_details' => [
+            'recipient'          => $recipient,
+            'schedule_type'      => 'ASAP',
+            'prep_time_duration' => 'PT' . $store['prepMinutes'] . 'M',
+            'note'               => 'Ordered on the website',
+        ]];
+    }
+
+    $order = [
+        'location_id'     => config()['location_id'],
+        'source'          => ['name' => 'Alibi Website'],
+        'line_items'      => $lineItems,
+        'fulfillments'    => [$f],
+        'pricing_options' => ['auto_apply_taxes' => true, 'auto_apply_discounts' => false],
+    ];
+    if ($fulfillment['type'] === 'delivery' && $store['deliveryFee'] > 0) {
+        $order['service_charges'] = [[
+            'name'              => 'Delivery fee',
+            'amount_money'      => money($store['deliveryFee']),
+            'calculation_phase' => 'SUBTOTAL_PHASE',
+            'taxable'           => false,
+        ]];
+    }
+    return $order;
+}
+
+function totals_from(array $order): array
+{
+    return [
+        'subtotal'    => (int) (($order['total_money']['amount'] ?? 0) - ($order['total_tax_money']['amount'] ?? 0) - ($order['total_service_charge_money']['amount'] ?? 0) + ($order['total_discount_money']['amount'] ?? 0)),
+        'tax'         => (int) ($order['total_tax_money']['amount'] ?? 0),
+        'deliveryFee' => (int) ($order['total_service_charge_money']['amount'] ?? 0),
+        'discount'    => (int) ($order['total_discount_money']['amount'] ?? 0),
+        'total'       => (int) ($order['total_money']['amount'] ?? 0),
+    ];
+}
+
+// ------------------------------------------------------------------------
+
+$action = $req['action'] ?? '';
+[$lines, $subtotal] = validate_cart($req['cart'] ?? [], $menu);
+$fulfillment = validate_fulfillment($req['fulfillment'] ?? [], $store, $subtotal, $action === 'pay');
+$fee = $fulfillment['type'] === 'delivery' ? $store['deliveryFee'] : 0;
+
+if ($action === 'quote') {
+    if (!payments_enabled()) {
+        // Without Square credentials we can't ask Square for the tax, so show the pre-tax total.
+        send_json(['ok' => true, 'paymentsEnabled' => false, 'totals' => [
+            'subtotal' => $subtotal, 'tax' => null, 'deliveryFee' => $fee, 'discount' => 0, 'total' => $subtotal + $fee,
+        ]]);
+    }
+    // Tax doesn't depend on who/where, so quote without the (possibly half-typed) recipient.
+    $quoteOrder = square_order($lines, $fulfillment, [], $store);
+    unset($quoteOrder['fulfillments']);
+    [$status, $res] = square_request('POST', '/v2/orders/calculate', ['order' => $quoteOrder]);
+    if ($status !== 200) fail(square_error_message($res), 502);
+    send_json(['ok' => true, 'paymentsEnabled' => true, 'totals' => totals_from($res['order'])]);
+}
+
+if ($action === 'pay') {
+    if (!payments_enabled()) fail('Online payment is being set up. Please call us to place your order.', 503);
+    rate_limit('pay', 8, 900); // card-testing guard: 8 payment attempts per 15 min per visitor
+
+    $c = $req['customer'] ?? [];
+    $customer = [
+        'name'  => trim(mb_substr((string) ($c['name'] ?? ''), 0, 80)),
+        'phone' => trim(mb_substr((string) ($c['phone'] ?? ''), 0, 20)),
+        'email' => trim(mb_substr((string) ($c['email'] ?? ''), 0, 120)),
+    ];
+    if ($customer['name'] === '') fail('Please enter your name.');
+    if (strlen(preg_replace('/\D/', '', $customer['phone'])) < 10) fail('Please enter a valid phone number.');
+    if (!filter_var($customer['email'], FILTER_VALIDATE_EMAIL)) fail('Please enter a valid email address.');
+
+    $sourceId = (string) ($req['sourceId'] ?? '');
+    $key = preg_replace('/[^A-Za-z0-9-]/', '', (string) ($req['idempotencyKey'] ?? ''));
+    if ($sourceId === '' || strlen($key) < 16) fail('Payment details are missing. Please re-enter your card.');
+    $tip = max(0, min((int) ($req['tip'] ?? 0), 100000));
+
+    [$status, $res] = square_request('POST', '/v2/orders', [
+        'idempotency_key' => "order-$key",
+        'order'           => square_order($lines, $fulfillment, $customer, $store),
+    ]);
+    if ($status !== 200) fail(square_error_message($res), 502);
+    $order = $res['order'];
+    $totals = totals_from($order);
+
+    $payment = [
+        'idempotency_key'     => "pay-$key",
+        'source_id'           => $sourceId,
+        'amount_money'        => money($totals['total']),
+        'order_id'            => $order['id'],
+        'location_id'         => config()['location_id'],
+        'buyer_email_address' => $customer['email'],
+        'note'                => 'Alibi website order',
+    ];
+    if ($tip > 0) $payment['tip_money'] = money($tip);
+    if (!empty($req['verificationToken'])) $payment['verification_token'] = (string) $req['verificationToken'];
+
+    [$status, $res] = square_request('POST', '/v2/payments', $payment);
+    if ($status !== 200 || ($res['payment']['status'] ?? '') === 'FAILED') fail(square_error_message($res), 402);
+
+    send_json([
+        'ok'          => true,
+        'orderId'     => $order['id'],
+        'orderNumber' => strtoupper(substr($order['id'], -6)),
+        'receiptUrl'  => $res['payment']['receipt_url'] ?? null,
+        'totals'      => $totals + ['tip' => $tip, 'charged' => $totals['total'] + $tip],
+        'fulfillment' => $fulfillment['type'],
+        'readyInMinutes' => $store['prepMinutes'],
+    ]);
+}
+
+fail('Unknown action.');
