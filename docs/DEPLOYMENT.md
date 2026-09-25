@@ -13,7 +13,7 @@ Upload the **contents** of this repository to the web root (usually
 | --- | --- |
 | `.git/` | Repository history. It's also blocked by `.htaccess` as a safety net |
 | `docs/`, `README.md` | Developer notes. `.md` files are blocked anyway |
-| `Start Website.bat`, `.gitignore` | Only used on your own computer |
+| `Start Website.bat`, `Save to GitHub.bat`, `.gitignore`, `.gitattributes` | Only used on your own computer |
 
 Must upload: all `*.html`, `css/`, `js/`, `images/`, `fonts/`, `data/`, `api/`,
 `.htaccess`, `api/.htaccess` and `robots.txt`.

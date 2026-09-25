@@ -141,6 +141,14 @@ cd alibi-monkey-bar
 # then start it with one of the options above
 ```
 
+### Saving your work to GitHub
+
+- **Working with Claude Code:** changes are committed and pushed automatically
+  every time Claude finishes a reply. A user-level Stop hook in
+  `~/.claude/hooks/alibi-auto-push.sh` does this.
+- **Editing by hand:** double-click **`Save to GitHub.bat`** to commit and push everything.
+- Either way, `api/config.php` and customer data (`api/data/`) are never uploaded.
+
 After editing `css/style.css` or any `js/` file, bump the `?v=YYYYMMDD` value
 where the pages link to it, so visitors get the new version (see
 [docs/CONTENT-GUIDE.md](docs/CONTENT-GUIDE.md#cache-busting)).
