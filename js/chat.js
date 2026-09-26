@@ -59,7 +59,7 @@
       '<textarea rows="1" maxlength="600" placeholder="Type your question&hellip;" aria-label="Your message"></textarea>' +
       '<button type="submit" class="chat-send" aria-label="Send">' + ICONS.send + '</button>' +
     '</form>' +
-    '<p class="chat-foot">AI assistant &middot; it can make mistakes. To book or for anything urgent, call <a href="tel:+19545652526">' + PHONE + '</a>.</p>';
+    '<p class="chat-foot">To book or for anything urgent, call <a href="tel:+19545652526">' + PHONE + '</a>.</p>';
 
   document.body.append(launcher, panel);
   const log = panel.querySelector('.chat-log');
