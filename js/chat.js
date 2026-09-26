@@ -6,17 +6,23 @@
   const script = document.currentScript;
   const SITE = new URL('../', script.src);               // site root, wherever this page lives
   const ENDPOINT = new URL('api/chat.php', SITE).href;
+  const LOGO = new URL('images/apple-touch-icon.png', SITE).href;
   const STORE = 'alibi-chat-v1';
   const MAX_KEEP = 30;                                   // messages remembered per tab
   const PHONE = '(954) 565-2526';
-  const GREETING = "Hi! I'm the Alibi's virtual assistant. Ask me about tonight's shows, the menu, Happy Hour, reservations or private events.";
-  const SUGGESTIONS = ["What's on tonight?", 'Happy Hour deals', 'How do I book a table?', 'Private party packages'];
+  const GREETING = "I'm the Alibi's virtual assistant. Ask me about tonight's shows, the menu, Happy Hour, reservations or private events.";
+  const SUGGESTIONS = [
+    { icon: '\u{1F3AD}', label: "Tonight's shows", text: "What's on tonight?" },
+    { icon: '\u{1F379}', label: 'Happy Hour', text: 'What are the Happy Hour deals?' },
+    { icon: '\u{1F4C5}', label: 'Book a table', text: 'How do I book a table?' },
+    { icon: '\u{1F389}', label: 'Private parties', text: 'Tell me about private party packages.' },
+  ];
 
   const ICONS = {
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20.5l1.5-4.9A8 8 0 1 1 21 12z"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     restart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
-    send: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4l17.5-7.5a1 1 0 0 0 0-1.8L3.4 3.6a.9.9 0 0 0-1.3 1L4 11l9 1-9 1-1.9 6.4a.9.9 0 0 0 1.3 1z"/></svg>',
+    send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
   };
 
   // ---------- saved state ----------
@@ -37,8 +43,8 @@
   launcher.className = 'chat-launcher';
   launcher.setAttribute('aria-controls', 'chat-panel');
   launcher.setAttribute('aria-expanded', 'false');
-  launcher.innerHTML = ICONS.chat + '<span>Ask us</span>';
   launcher.setAttribute('aria-label', 'Chat with the Alibi assistant');
+  launcher.innerHTML = ICONS.chat + '<span>Ask us</span>';
 
   const panel = document.createElement('section');
   panel.className = 'chat-panel';
@@ -47,34 +53,46 @@
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', 'Chat with the Alibi assistant');
   panel.innerHTML =
+    '<div class="chat-pride" aria-hidden="true"></div>' +
     '<div class="chat-head">' +
-      '<img class="chat-avatar" src="' + new URL('images/apple-touch-icon.png', SITE).href + '" alt="" width="38" height="38">' +
-      '<div class="chat-title"><strong>Ask the Alibi</strong><span>Virtual assistant &middot; 24/7</span></div>' +
+      '<span class="chat-avatar-wrap"><img class="chat-avatar" src="' + LOGO + '" alt="" width="42" height="42"><i class="chat-online" aria-hidden="true"></i></span>' +
+      '<div class="chat-title"><strong>Ask the Alibi</strong><span>Online now &middot; virtual assistant</span></div>' +
       '<button type="button" class="chat-icon-btn" data-restart aria-label="Start a new chat" title="New chat">' + ICONS.restart + '</button>' +
       '<button type="button" class="chat-icon-btn" data-close aria-label="Close chat" title="Close">' + ICONS.close + '</button>' +
     '</div>' +
-    '<div class="chat-log" role="log" aria-live="polite"></div>' +
-    '<div class="chat-suggest"></div>' +
+    '<div class="chat-body">' +
+      '<div class="chat-welcome">' +
+        '<img class="chat-welcome-logo" src="' + LOGO + '" alt="" width="64" height="64">' +
+        '<h3>Hey there! \u{1F44B}</h3>' +
+        '<p>' + GREETING + '</p>' +
+        '<div class="chat-chips"></div>' +
+      '</div>' +
+      '<div class="chat-log" role="log" aria-live="polite"></div>' +
+    '</div>' +
     '<form class="chat-form">' +
-      '<textarea rows="1" maxlength="600" placeholder="Type your question&hellip;" aria-label="Your message"></textarea>' +
-      '<button type="submit" class="chat-send" aria-label="Send">' + ICONS.send + '</button>' +
+      '<div class="chat-compose">' +
+        '<textarea rows="1" maxlength="600" placeholder="Ask about shows, food, bookings&hellip;" aria-label="Your message"></textarea>' +
+        '<button type="submit" class="chat-send" aria-label="Send" disabled>' + ICONS.send + '</button>' +
+      '</div>' +
     '</form>' +
     '<p class="chat-foot">To book or for anything urgent, call <a href="tel:+19545652526">' + PHONE + '</a>.</p>';
 
   document.body.append(launcher, panel);
+  const body = panel.querySelector('.chat-body');
   const log = panel.querySelector('.chat-log');
-  const suggest = panel.querySelector('.chat-suggest');
+  const chips = panel.querySelector('.chat-chips');
   const form = panel.querySelector('.chat-form');
   const input = form.querySelector('textarea');
   const sendBtn = form.querySelector('.chat-send');
   let busy = false;
 
-  SUGGESTIONS.forEach((text) => {
+  SUGGESTIONS.forEach((s) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = text;
-    b.addEventListener('click', () => send(text));
-    suggest.append(b);
+    b.innerHTML = '<span class="chat-chip-icon" aria-hidden="true">' + s.icon + '</span>';
+    b.append(s.label);
+    b.addEventListener('click', () => send(s.text));
+    chips.append(b);
   });
 
   // ---------- rendering ----------
@@ -101,31 +119,49 @@
     el.append(text.slice(last));
   }
 
-  function bubble(role, text, extraClass) {
-    const div = document.createElement('div');
-    div.className = 'chat-msg ' + (role === 'user' ? 'from-user' : 'from-bot') + (extraClass ? ' ' + extraClass : '');
-    linkify(div, text);
-    log.append(div);
-    log.scrollTop = log.scrollHeight;
-    return div;
+  function scrollDown() { body.scrollTop = body.scrollHeight; }
+
+  // One message: bot replies get the logo beside them. Returns the bubble.
+  function row(role, animate) {
+    const r = document.createElement('div');
+    r.className = 'chat-row ' + (role === 'user' ? 'from-user' : 'from-bot') + (animate ? ' is-new' : '');
+    if (role !== 'user') {
+      const img = document.createElement('img');
+      img.className = 'chat-row-avatar';
+      img.src = LOGO;
+      img.alt = '';
+      r.append(img);
+    }
+    const msg = document.createElement('div');
+    msg.className = 'chat-msg';
+    r.append(msg);
+    log.append(r);
+    return msg;
+  }
+
+  function bubble(role, text, opts) {
+    opts = opts || {};
+    const msg = row(role, opts.animate !== false);
+    if (opts.error) msg.classList.add('is-error');
+    linkify(msg, text);
+    scrollDown();
+    return msg;
   }
 
   function render() {
     log.textContent = '';
-    bubble('assistant', GREETING);
-    state.messages.forEach((m) => bubble(m.role, m.content));
-    suggest.hidden = state.messages.length > 0;
+    state.messages.forEach((m) => bubble(m.role, m.content, { animate: false }));
+    chips.hidden = state.messages.length > 0;
   }
 
   function typing() {
-    const div = document.createElement('div');
-    div.className = 'chat-msg from-bot chat-typing';
-    div.innerHTML = '<span class="chat-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
-    log.append(div);
-    log.scrollTop = log.scrollHeight;
+    const msg = row('assistant', true);
+    msg.classList.add('chat-typing');
+    msg.innerHTML = '<span class="chat-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+    scrollDown();
     // Local test models can be slow; let the guest know it's still working.
-    const slow = setTimeout(() => div.append('Still thinking…'), 12000);
-    return () => { clearTimeout(slow); div.remove(); };
+    const slow = setTimeout(() => { msg.append('Still thinking…'); scrollDown(); }, 12000);
+    return () => { clearTimeout(slow); msg.parentNode.remove(); };
   }
 
   // ---------- talking to the server ----------
@@ -134,8 +170,7 @@
     text = text.trim().slice(0, 600);
     if (!text || busy) return;
     busy = true;
-    sendBtn.disabled = true;
-    suggest.hidden = true;
+    chips.hidden = true;
     state.messages.push({ role: 'user', content: text });
     save();
     bubble('user', text);
@@ -162,16 +197,16 @@
       // Failed turns aren't kept, so the guest can simply ask again.
       state.messages.pop();
       save();
-      const err = bubble('assistant', (data && data.error) || "Sorry, I can't connect right now. Please call us at " + PHONE + '.', 'is-error');
+      const err = bubble('assistant', (data && data.error) || "Sorry, I can't connect right now. Please call us at " + PHONE + '.', { error: true });
       if (data && data.detail) {
         const s = document.createElement('small');
         s.textContent = 'For the developer: ' + data.detail;
         err.append(s);
-        log.scrollTop = log.scrollHeight;
+        scrollDown();
       }
     }
     busy = false;
-    sendBtn.disabled = false;
+    grow();
     if (!panel.hidden) input.focus();
   }
 
@@ -180,16 +215,20 @@
   function setOpen(open, focus) {
     panel.hidden = !open;
     launcher.setAttribute('aria-expanded', String(open));
+    launcher.classList.remove('is-pulse');
     state.open = open;
     save();
+    if (open) { scrollDown(); requestAnimationFrame(scrollDown); } // again once fonts/layout settle
     if (open && focus) input.focus();
     if (!open && focus) launcher.focus();
   }
 
+  // Grow the box with the text (up to ~5 lines); the send button lights up once there's something to send.
   function grow() {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
     input.style.overflowY = input.scrollHeight > 120 ? 'auto' : 'hidden';
+    sendBtn.disabled = busy || !input.value.trim();
   }
 
   launcher.addEventListener('click', () => setOpen(true, true));
@@ -209,5 +248,7 @@
   });
 
   render();
+  window.addEventListener('load', scrollDown);
   if (state.open) setOpen(true, false); // stay open when moving between pages
+  else if (!state.messages.length) launcher.classList.add('is-pulse'); // a gentle "hello" on first visit
 })();
