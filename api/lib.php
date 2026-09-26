@@ -29,6 +29,13 @@ function config(): array
             'notify_email'    => '',
             'from_email'      => '',
             'data_dir'        => '',
+            'chat_provider'     => 'ollama',
+            'ollama_url'        => 'http://localhost:11434',
+            'ollama_model'      => 'llama3.2:3b',
+            'anthropic_api_key' => '',
+            'claude_model'      => 'claude-opus-5',
+            'chat_daily_limit'  => 500,
+            'chat_log'          => true,
         ];
     }
     return $cfg;

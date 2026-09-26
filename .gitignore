@@ -5,8 +5,10 @@ api/config.php
 # ---- Server-generated ----
 # Menu cache and rate-limit files
 api/cache/
-# Customer form submissions (contact, reservations, newsletter CSVs)
+# Customer form submissions (contact, reservations, newsletter CSVs) and the chat log
 api/data/
+# Anthropic PHP SDK for the chat assistant (reinstall with: composer install, in api/)
+api/vendor/
 
 # ---- OS / editor clutter ----
 Thumbs.db

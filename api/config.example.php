@@ -42,4 +42,31 @@ return [
     // On hosts that ignore .htaccess (e.g. Nginx), use a folder OUTSIDE the
     // public web root, e.g. '/home/USERNAME/alibi-data'.
     'data_dir'       => '',
+
+    // ---------- Chat assistant (js/chat.js → api/chat.php) ----------
+
+    // Which AI answers the chat:
+    //   'ollama' — free, runs on your own computer; for testing (https://ollama.com)
+    //   'claude' — Anthropic's API; for the live site. Needs PHP 8.1+ and the
+    //              Anthropic SDK: run  composer require anthropic-ai/sdk  in api/
+    'chat_provider'     => 'ollama',
+
+    // Ollama settings (the model must be downloaded first: ollama pull llama3.2:3b).
+    'ollama_url'        => 'http://localhost:11434',
+    'ollama_model'      => 'llama3.2:3b',
+
+    // Claude settings. Create the key at https://console.anthropic.com with the
+    // restaurant's own account (it is billed per message; set a monthly spend
+    // limit there). Model options, most capable to cheapest:
+    // 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'.
+    'anthropic_api_key' => '',
+    'claude_model'      => 'claude-opus-5',
+
+    // Most chat messages the whole site will answer per day (0 = no limit).
+    // A safety net against spam running up the AI bill.
+    'chat_daily_limit'  => 500,
+
+    // Save each question, answer and token count to api/data/chat-log.csv
+    // (private) so you can see what guests ask and what it costs.
+    'chat_log'          => true,
 ];
