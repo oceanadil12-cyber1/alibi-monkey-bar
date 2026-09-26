@@ -49,7 +49,7 @@
   panel.innerHTML =
     '<div class="chat-head">' +
       '<span class="chat-avatar" aria-hidden="true">A</span>' +
-      '<div class="chat-title"><strong>Ask the Alibi</strong><span>Virtual assistant &middot; replies in seconds</span></div>' +
+      '<div class="chat-title"><strong>Ask the Alibi</strong><span>Virtual assistant &middot; 24/7</span></div>' +
       '<button type="button" class="chat-icon-btn" data-restart aria-label="Start a new chat" title="New chat">' + ICONS.restart + '</button>' +
       '<button type="button" class="chat-icon-btn" data-close aria-label="Close chat" title="Close">' + ICONS.close + '</button>' +
     '</div>' +
@@ -163,7 +163,12 @@
       state.messages.pop();
       save();
       const err = bubble('assistant', (data && data.error) || "Sorry, I can't connect right now. Please call us at " + PHONE + '.', 'is-error');
-      if (data && data.detail) { const s = document.createElement('small'); s.textContent = 'For the developer: ' + data.detail; err.append(s); }
+      if (data && data.detail) {
+        const s = document.createElement('small');
+        s.textContent = 'For the developer: ' + data.detail;
+        err.append(s);
+        log.scrollTop = log.scrollHeight;
+      }
     }
     busy = false;
     sendBtn.disabled = false;
@@ -184,6 +189,7 @@
   function grow() {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    input.style.overflowY = input.scrollHeight > 120 ? 'auto' : 'hidden';
   }
 
   launcher.addEventListener('click', () => setOpen(true, true));

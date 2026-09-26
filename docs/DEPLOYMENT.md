@@ -36,6 +36,28 @@ Must upload: all `*.html`, `css/`, `js/`, `images/`, `fonts/`, `data/`, `api/`,
    domain if you create a sitemap.
 6. **Apple Pay / Google Pay** (optional): register the domain in the Square
    Developer Dashboard.
+7. **Chat assistant**: see below.
+
+## Chat assistant on the live site
+
+On your own computer the chat uses **Ollama** (free, local). The live site
+uses **Claude** instead, because shared hosting can't run an AI model.
+
+1. The restaurant creates an account at <https://console.anthropic.com>,
+   adds a card, buys some credit and **sets a monthly spend limit**. Then it
+   creates an API key.
+2. Check the host runs **PHP 8.1 or newer** (cPanel → *Select PHP Version*).
+3. Install the Anthropic SDK: in cPanel's *Terminal*, `cd public_html/api`
+   and run `composer require anthropic-ai/sdk`. Without Terminal, run
+   the same command in `api/` on your computer and upload the `api/vendor/`
+   folder it creates.
+4. In `api/config.php`, set `'chat_provider' => 'claude'`, paste the key into
+   `'anthropic_api_key'` and choose `'claude_model'`.
+5. Ask the chat a few questions on the live site. Check the replies and
+   `api/data/chat-log.csv`, which records the token counts behind the bill.
+
+`chat_daily_limit` in `config.php` caps how many messages the site answers per
+day (default 500), so spam can't run up the bill.
 
 ## Updating the live site
 
@@ -55,6 +77,8 @@ Must upload: all `*.html`, `css/`, `js/`, `images/`, `fonts/`, `data/`, `api/`,
 - [ ] Contact form sends and the email arrives at `notify_email`
 - [ ] `https://DOMAIN/api/config.php` is **blocked** (403), not downloadable
 - [ ] `https://DOMAIN/api/data/` is **blocked** (403)
+- [ ] The "Ask us" chat answers a question, and `https://DOMAIN/api/vendor/` and
+      `https://DOMAIN/data/chatbot-knowledge.md` are **blocked**
 - [ ] A made-up URL shows the branded 404 page
 - [ ] The site looks right on a phone
 

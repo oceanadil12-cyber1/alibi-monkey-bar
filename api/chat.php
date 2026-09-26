@@ -346,7 +346,10 @@ try {
     error_log('chat.php: ' . $e->getMessage());
     $out = ['ok' => false, 'error' => "Sorry, I can't answer right now. Please call us at (954) 565-2526."];
     // Show the real problem when testing on this computer, never to visitors.
-    if (in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) $out['detail'] = $e->getMessage();
+    $host = preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? '');
+    if (in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true) && in_array($host, ['localhost', '127.0.0.1'], true)) {
+        $out['detail'] = $e->getMessage();
+    }
     send_json($out, 502);
 }
 if ($reply === '') $reply = "Sorry, I didn't catch that. Could you ask another way? You can also call us at (954) 565-2526.";

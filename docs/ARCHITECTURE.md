@@ -12,6 +12,8 @@ Browser ──► static pages (HTML/CSS/JS/images)          served as plain fil
    ├──► api/checkout.php ──► Square Orders + Payments API
    ├──► api/contact.php ──► api/data/*.csv + email
    ├──► api/subscribe.php ──► api/data/newsletter.csv + Square Customers
+   ├──► api/chat.php ──► Ollama (local testing) or Claude API (live)
+   │         └─ facts: data/chatbot-knowledge.md + events.html + menu.html + Square menu
    │
    ├──► Square Web Payments SDK (card field, loaded on the menu page)
    └──► Elfsight widgets (Google reviews, Instagram feed)
@@ -45,6 +47,7 @@ when you edit them.
 | `upcoming.js` | Home page slider. It fetches `events.html`, reads the lineup and shows events starting with the next one. It pauses on hover and respects reduced motion |
 | `instagram-more.js` | Gallery paging: shows 20 posts, then 8 more per click |
 | `elfsight-badge.js` | Tidies the Elfsight widget badge |
+| `chat.js` | Loaded on every page. Adds the "Ask us" chat button and panel, which post to `api/chat.php`. The conversation is kept for the browser tab (`sessionStorage`, `alibi-chat-v1`) |
 
 All scripts are plain ES2017+ with no dependencies. Each one checks for its
 container element and exits quietly on pages that don't have it.

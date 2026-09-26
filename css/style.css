@@ -3747,6 +3747,7 @@ body:has(.mobile-nav.open) .chat-panel { display: none; }
   max-height: 120px;
   padding: 10px 12px;
   resize: none;
+  overflow-y: hidden;
   border: 1px solid #2a2a2a;
   border-radius: 10px;
   background: var(--bg-card);

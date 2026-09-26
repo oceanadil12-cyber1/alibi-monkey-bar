@@ -78,6 +78,25 @@ elements, sent by `main.js`. Submissions are emailed to `notify_email` in
 `api/config.php` and saved in `api/data/*.csv` on the server. You can download
 the CSVs from the host's file manager.
 
+## Chat assistant
+
+The "Ask us" chat answers guests from:
+
+| What | Where it comes from | How to change it |
+| --- | --- | --- |
+| Hours, policies, reservations, private events, FAQs | `data/chatbot-knowledge.md` | Edit the file (plain text) |
+| Weekly show lineup | `events.html` | Edit the lineup as usual |
+| Happy Hour and drinks | `menu.html` | Edit the page as usual |
+| Food menu, prices, pickup/delivery | Square | Change it in Square |
+
+Changes take effect on the next chat message. To see exactly what the
+assistant knows, run `php api/chat.php --prompt`. To try a question without the
+website, run `php api/chat.php "Are you open now?"`.
+
+If it gives a wrong or vague answer, add the fact to `chatbot-knowledge.md` in
+plain words. `api/data/chat-log.csv` on the server lists every question and
+answer, so you can see what guests ask.
+
 ## Google reviews and Instagram
 
 These are **Elfsight** widgets (`<div class="elfsight-app-…">`). Their content

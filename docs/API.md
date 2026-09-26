@@ -109,6 +109,36 @@ field records which page the visitor signed up from.
 - When Square is configured, also adds the person to the **Square Customer
   Directory**, so the restaurant can email them with Square Marketing.
 
+## `POST api/chat.php`
+
+The "Ask us" chat assistant, used by `js/chat.js`.
+
+```json
+{ "messages": [ { "role": "user", "content": "What's on tonight?" },
+                { "role": "assistant", "content": "..." },
+                { "role": "user", "content": "..." } ] }
+→ { "ok": true, "reply": "..." }
+```
+
+- The browser sends the whole conversation, because the server keeps no chat
+  state. The server keeps the last 12 messages and limits each guest message to
+  600 characters.
+- The system prompt is built on every request. It combines the rules in
+  `chat.php` with `data/chatbot-knowledge.md`, the lineup from `events.html`,
+  Happy Hour and drinks from `menu.html`, and the food menu from `load_menu()`.
+  The prompt is byte-identical between requests, so the AI can cache it. The
+  current time goes on the newest message instead.
+- `chat_provider` picks the AI: `ollama` (local testing) or `claude` (live,
+  in `chat-claude.php`; needs PHP 8.1+ and `api/vendor/` from Composer).
+- Protections: same-site JSON only, 30 messages per visitor per 10 minutes, and
+  `chat_daily_limit` messages per day for the whole site (then 503).
+- Every exchange is logged with token counts to `api/data/chat-log.csv` when
+  `chat_log` is on.
+- Errors return 502 with a "please call us" message. On `localhost` the reply
+  also includes `detail` with the real cause.
+- CLI: `php api/chat.php --prompt` prints the prompt, and
+  `php api/chat.php "question"` asks one question.
+
 ## Testing locally
 
 ```bash
