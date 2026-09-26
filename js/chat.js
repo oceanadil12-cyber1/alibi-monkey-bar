@@ -48,7 +48,7 @@
   panel.setAttribute('aria-label', 'Chat with the Alibi assistant');
   panel.innerHTML =
     '<div class="chat-head">' +
-      '<span class="chat-avatar" aria-hidden="true">A</span>' +
+      '<img class="chat-avatar" src="' + new URL('images/apple-touch-icon.png', SITE).href + '" alt="" width="38" height="38">' +
       '<div class="chat-title"><strong>Ask the Alibi</strong><span>Virtual assistant &middot; 24/7</span></div>' +
       '<button type="button" class="chat-icon-btn" data-restart aria-label="Start a new chat" title="New chat">' + ICONS.restart + '</button>' +
       '<button type="button" class="chat-icon-btn" data-close aria-label="Close chat" title="Close">' + ICONS.close + '</button>' +

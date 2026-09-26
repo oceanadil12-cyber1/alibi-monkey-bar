@@ -3648,15 +3648,13 @@ body:has(.mobile-nav.open) .chat-panel { display: none; }
 }
 
 .chat-avatar {
-  display: grid;
-  place-items: center;
   width: 38px;
   height: 38px;
   flex: none;
   border-radius: 50%;
-  background: var(--gold);
-  color: var(--black);
-  font: 700 17px/1 'Playfair Display', serif;
+  border: 1px solid var(--gold-dark);
+  background: var(--black);
+  object-fit: cover;
 }
 
 .chat-title { flex: 1; min-width: 0; }
