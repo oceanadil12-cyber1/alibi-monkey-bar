@@ -43,6 +43,8 @@ function config(): array
             'gemini_model'      => 'gemini-3.8-flash',
             'chat_daily_limit'  => 500,
             'chat_log'          => true,
+            'chat_log_days'     => 120,
+            'chat_admin_password' => '',
         ];
     }
     return $cfg;

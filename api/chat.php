@@ -20,6 +20,7 @@
 require_once __DIR__ . '/lib.php';
 require_once __DIR__ . '/menu.php'; // load_menu()
 require_once __DIR__ . '/chat-order.php'; // the add_to_order tool
+require_once __DIR__ . '/chat-log.php';   // chat history (read with api/chats.php)
 
 const CHAT_MAX_MESSAGES = 12;   // history sent to the AI (older turns are dropped)
 const CHAT_MAX_USER_CHARS = 600;
@@ -568,25 +569,6 @@ function ask_ai(array $messages): array
     }
 }
 
-/** Save each exchange to api/data/chat-log.csv (private) to review questions and costs. */
-function log_chat(string $question, string $reply, array $usage, float $seconds): void
-{
-    if (!config()['chat_log']) return;
-    $c = config();
-    save_row('chat-log', [
-        'time'          => date('c'),
-        'provider'      => $usage['provider'] ?? $c['chat_provider'],
-        'model'         => $usage['model'] ?? '',
-        'question'      => $question,
-        'reply'         => $reply,
-        'input_tokens'  => $usage['input_tokens'] ?? 0,
-        'cache_read'    => $usage['cache_read'] ?? 0,
-        'cache_write'   => $usage['cache_write'] ?? 0,
-        'output_tokens' => $usage['output_tokens'] ?? 0,
-        'seconds'       => round($seconds, 1),
-    ]);
-}
-
 // ---------- entry points ----------
 
 if (PHP_SAPI === 'cli') {
@@ -635,6 +617,6 @@ if ($reply === '') $reply = $cart
     ? 'Added to your order! Tap "Review & pay" to choose pickup or delivery and check out.'
     : "Sorry, I didn't catch that. Could you ask another way? You can also call us at (954) 565-2526.";
 
-log_chat(end($messages)['content'], $reply, $usage, microtime(true) - $start);
+log_chat(chat_log_cid($in['cid'] ?? null), end($messages)['content'], $reply, $usage, microtime(true) - $start, array_column($cart, 'label'));
 // Cart lines go to the browser, which adds them to the site's normal cart (js/order.js).
 send_json(['ok' => true, 'reply' => $reply] + ($cart ? ['cart' => $cart] : []));

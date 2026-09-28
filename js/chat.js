@@ -34,7 +34,10 @@
     state.messages = state.messages.slice(-MAX_KEEP);
     try { sessionStorage.setItem(STORE, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
   }
+  // Anonymous id that groups one conversation in the chat history (api/chats.php).
+  const newCid = () => 'c-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const state = load();
+  if (!state.cid) state.cid = newCid();
 
   // ---------- markup ----------
 
@@ -75,7 +78,8 @@
         '<button type="submit" class="chat-send" aria-label="Send" disabled>' + ICONS.send + '</button>' +
       '</div>' +
     '</form>' +
-    '<p class="chat-foot">To book or for anything urgent, call <a href="tel:+19545652526">' + PHONE + '</a>.</p>';
+    '<p class="chat-foot">To book or for anything urgent, call <a href="tel:+19545652526">' + PHONE + '</a>.' +
+      '<br>Chats are saved for 120 days to improve our service.</p>';
 
   document.body.append(launcher, panel);
   const body = panel.querySelector('.chat-body');
@@ -243,6 +247,7 @@
         body: JSON.stringify({
           messages: state.messages.map((m) => ({ role: m.role, content: m.content })),
           cart: currentCart(), // so the assistant knows what's already ordered
+          cid: state.cid,
         }),
       });
       data = await res.json().catch(() => null);
@@ -302,6 +307,7 @@
   panel.querySelector('[data-restart]').addEventListener('click', () => {
     if (busy) return;
     state.messages = [];
+    state.cid = newCid(); // a new chat is a new conversation in the history
     save();
     render();
     input.focus();

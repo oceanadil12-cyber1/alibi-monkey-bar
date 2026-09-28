@@ -148,8 +148,21 @@ The "Ask us" chat assistant, used by `js/chat.js`.
   everything.
 - Protections: same-site JSON only, 30 messages per visitor per 10 minutes, and
   `chat_daily_limit` messages per day for the whole site (then 503).
-- Every exchange is logged with token counts to `api/data/chat-log.csv` when
-  `chat_log` is on.
+- When `chat_log` is on, every exchange is saved (`chat-log.php`) to
+  `data_dir()/chats/YYYY-MM-DD.jsonl`, one JSON line each. A line holds the
+  time, an anonymous conversation id (`cid`, made per browser tab by
+  `chat.js`), the question, the reply, the dishes added, the AI used, token
+  counts and seconds. Days older than `chat_log_days` (120) are deleted
+  automatically.
+
+## `GET api/chats.php`
+
+A private chat history page, protected by `chat_admin_password` in
+`config.php`. If that's empty, the page is off. It lists conversations from
+today or the last 7 / 30 / 120 days, with totals. `?c=<id>` shows one
+conversation as a chat, and `?csv=1&days=N` downloads a spreadsheet. Sign-in
+uses a PHP session cookie, and failed attempts are rate-limited (10 per 15
+minutes). Guests' text is always escaped.
 - Errors return 502 with a "please call us" message. On `localhost` the reply
   also includes `detail` with the real cause.
 - CLI: `php api/chat.php --prompt` prints the prompt, and

@@ -92,7 +92,15 @@ return [
     // A safety net against spam running up the AI bill.
     'chat_daily_limit'  => 500,
 
-    // Save each question, answer and token count to api/data/chat-log.csv
-    // (private) so you can see what guests ask and what it costs.
+    // Save every chat (question, answer, dishes ordered, token counts) in
+    // api/data/chats/ (private), one file per day, with an anonymous
+    // conversation id: no names, emails or IP addresses.
     'chat_log'          => true,
+
+    // Days to keep chat history; older days are deleted automatically.
+    'chat_log_days'     => 120,
+
+    // Password for the chat history page, /api/chats.php. Leave empty to turn
+    // the page off. Use a long password nobody else knows.
+    'chat_admin_password' => '',
 ];

@@ -47,8 +47,12 @@ into the server's `api/config.php`: `chat_provider`, `chat_fallback`,
 `groq_api_key` and `gemini_api_key`. No Composer or PHP 8.1 is needed. Use a
 Groq account in the restaurant's name, and turn on Zero Data Retention in the
 Groq console (Settings → Data Controls). The free plans allow a few questions
-per minute across all the fallbacks. Check `api/data/chat-log.csv` now and
-then. If guests often hit the limit, switch to a paid plan.
+per minute across all the fallbacks. Check the chat history
+(`/api/chats.php`) now and then. If guests often hit the limit, switch to a paid plan.
+
+**Chat history page:** set a long `chat_admin_password` in the server's
+`api/config.php`, then open `https://DOMAIN/api/chats.php`. Keep the password
+private, since the page shows every conversation.
 
 **Paid option (Claude):**
 
@@ -62,8 +66,8 @@ then. If guests often hit the limit, switch to a paid plan.
    folder it creates.
 4. In `api/config.php`, set `'chat_provider' => 'claude'`, paste the key into
    `'anthropic_api_key'` and choose `'claude_model'`.
-5. Ask the chat a few questions on the live site. Check the replies and
-   `api/data/chat-log.csv`, which records the token counts behind the bill.
+5. Ask the chat a few questions on the live site. Check the replies in the
+   chat history (`/api/chats.php`), which also shows the token counts behind the bill.
 
 `chat_daily_limit` in `config.php` caps how many messages the site answers per
 day (default 500), so spam can't run up the bill.

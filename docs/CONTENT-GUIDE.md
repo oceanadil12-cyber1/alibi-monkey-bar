@@ -94,8 +94,13 @@ assistant knows, run `php api/chat.php --prompt`. To try a question without the
 website, run `php api/chat.php "Are you open now?"`.
 
 If it gives a wrong or vague answer, add the fact to `chatbot-knowledge.md` in
-plain words. `api/data/chat-log.csv` on the server lists every question and
-answer, so you can see what guests ask.
+plain words.
+
+**Chat history:** open `https://YOUR-DOMAIN/api/chats.php` and sign in with
+`chat_admin_password` from `api/config.php`. You can read every conversation,
+see which ones ordered food, and download a spreadsheet. Chats are anonymous
+and are deleted automatically after 120 days (`chat_log_days`). Guests are
+told this in the chat window.
 
 ## Google reviews and Instagram
 
