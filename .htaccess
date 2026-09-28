@@ -28,6 +28,10 @@ RedirectMatch 404 ^/(\.git|docs)(/|$)
 # /events loads events.html (links on the site use .html, so this is a bonus).
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    # The home page has one address: /index.html (typed or from an old link) → /
+    RewriteCond %{THE_REQUEST} \s/+(.*/)?index\.html[\s?] [NC]
+    RewriteRule ^(.*/)?index\.html$ /$1 [R=301,L]
+
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME}.html -f
