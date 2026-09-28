@@ -62,10 +62,16 @@ function save_food_overrides(array $base): void
     foreach ($base['items'] as $id => $it) {
         foreach ($it['variations'] as $v) $basePrice[$id][$v['id']] = (int) $v['price'];
     }
-    $out = ['items' => [], 'custom' => read_menu_overrides()['custom'] ?? []]; // keep custom items
+    $existing = read_menu_overrides();
+    $existingItems = $existing['items'] ?? [];
+    $out = ['items' => [], 'custom' => $existing['custom'] ?? []]; // keep custom items
     foreach (array_map('strval', (array) ($_POST['ids'] ?? [])) as $id) {
         if (!isset($base['items'][$id])) continue;
         $o = [];
+        // Preserve per-item option/description edits made on the item editor page.
+        foreach (['description', 'hideGroups', 'hideChoices', 'choicePrices'] as $k) {
+            if (isset($existingItems[$id][$k])) $o[$k] = $existingItems[$id][$k];
+        }
         if (!isset($_POST['avail'][$id])) $o['hidden'] = true;
         if (!empty($_POST['pickup'][$id])) $o['pickupOnly'] = true;
         $dfee = dollars_to_cents((string) ($_POST['dfee'][$id] ?? ''));
@@ -230,6 +236,76 @@ function settings_html(array $store, string $csrf, bool $saved): string
         . '<div class="fbar"><button type="submit" class="fsave">Save settings</button></div></form>';
 }
 
+// ---------- per-item options editor ----------
+
+/** Save description + option-group edits for one item (keeps its price/pickup/etc.). */
+function save_item_options(array $base): void
+{
+    $id = (string) ($_POST['item'] ?? '');
+    if (!isset($base['items'][$id])) return;
+    $baseItem = $base['items'][$id];
+    $basePrice = [];
+    foreach ($baseItem['modifiers'] as $g) foreach ($g['choices'] as $c) $basePrice[(string) $c['id']] = (int) $c['price'];
+
+    $ov = read_menu_overrides();
+    $ov['items'] = $ov['items'] ?? [];
+    $o = $ov['items'][$id] ?? []; // keep existing basic fields (price/pickup/fee/prep)
+
+    $desc = trim(mb_substr((string) ($_POST['description'] ?? ''), 0, 300));
+    if ($desc !== '' && $desc !== (string) ($baseItem['description'] ?? '')) $o['description'] = $desc;
+    else unset($o['description']);
+
+    $hideG = array_values(array_map('strval', (array) ($_POST['hidegroup'] ?? [])));
+    $hideC = array_values(array_map('strval', (array) ($_POST['hidechoice'] ?? [])));
+    if ($hideG) $o['hideGroups'] = $hideG; else unset($o['hideGroups']);
+    if ($hideC) $o['hideChoices'] = $hideC; else unset($o['hideChoices']);
+
+    $cp = [];
+    foreach ((array) ($_POST['chprice'] ?? []) as $cid => $val) {
+        $c = dollars_to_cents((string) $val);
+        if ($c !== null && isset($basePrice[(string) $cid]) && $c !== $basePrice[(string) $cid]) $cp[(string) $cid] = $c;
+    }
+    if ($cp) $o['choicePrices'] = $cp; else unset($o['choicePrices']);
+
+    if ($o) $ov['items'][$id] = $o; else unset($ov['items'][$id]);
+    write_menu_overrides($ov);
+}
+
+/** The per-item editor: description + each option group's choices (re-price / hide). */
+function item_editor_html(array $item, array $o, string $csrf, bool $saved): string
+{
+    $id = (string) $item['id'];
+    $hideG = array_flip($o['hideGroups'] ?? []);
+    $hideC = array_flip($o['hideChoices'] ?? []);
+    $cp = $o['choicePrices'] ?? [];
+    $desc = $o['description'] ?? ($item['description'] ?? '');
+
+    $groups = '';
+    foreach ($item['modifiers'] as $g) {
+        $choices = '';
+        foreach ($g['choices'] as $c) {
+            $price = $cp[$c['id']] ?? $c['price'];
+            $choices .= '<tr>'
+                . '<td>' . h($c['name']) . '</td>'
+                . '<td><span class="fp-in">$<input name="chprice[' . h($c['id']) . ']" inputmode="decimal" value="' . number_format((int) $price / 100, 2, '.', '') . '"></span> <small class="muted">Square $' . number_format((int) $c['price'] / 100, 2) . '</small></td>'
+                . '<td><label class="fchk"><input type="checkbox" name="hidechoice[]" value="' . h($c['id']) . '" ' . (isset($hideC[$c['id']]) ? 'checked' : '') . '> Hide</label></td></tr>';
+        }
+        $groups .= '<section class="fgrp"><div class="fgrp-head"><strong>' . h($g['name']) . '</strong>'
+            . '<label class="fchk fdel"><input type="checkbox" name="hidegroup[]" value="' . h($g['id']) . '" ' . (isset($hideG[$g['id']]) ? 'checked' : '') . '> Hide whole group</label></div>'
+            . '<table class="ftable"><tbody>' . $choices . '</tbody></table></section>';
+    }
+    if ($groups === '') $groups = '<p class="muted">This item has no options to edit.</p>';
+
+    return '<p><a href="?view=food">&larr; Food &amp; menu</a></p>'
+        . '<h1>' . h($item['name']) . '</h1>'
+        . ($saved ? '<div class="fsaved">&#10003; Saved. The website updates within a couple of minutes.</div>' : '')
+        . '<form method="post" action="?view=food&amp;item=' . rawurlencode($id) . '"><input type="hidden" name="csrf" value="' . h($csrf) . '"><input type="hidden" name="op" value="item"><input type="hidden" name="item" value="' . h($id) . '">'
+        . '<label class="fa fa-wide"><span>Description</span><textarea name="description" maxlength="300" rows="2">' . h($desc) . '</textarea></label>'
+        . '<h2 style="margin-top:22px">Options</h2><p class="muted">Re-price or hide individual choices, or hide a whole group.</p>'
+        . $groups
+        . '<div class="fbar"><button type="submit" class="fsave">Save item</button></div></form>';
+}
+
 /** The Food tab body: a form to hide / re-price / restrict / surcharge each item. */
 function food_html(array $base, array $over, string $csrf, bool $saved): string
 {
@@ -256,8 +332,9 @@ function food_html(array $base, array $over, string $csrf, bool $saved): string
             }
             $items .= '<tr class="' . ($hidden ? 'is-off' : '') . '">'
                 . '<td><label class="fsw"><input type="checkbox" name="avail[' . h($id) . ']" value="1" ' . ($hidden ? '' : 'checked') . '><span></span></label></td>'
-                . '<td class="fname"><strong>' . h($it['name']) . '</strong>'
-                . (!empty($it['soldOut']) ? ' <span class="fbadge">sold out on Square</span>' : '') . '</td>'
+                . '<td class="fname"><a href="?view=food&amp;item=' . rawurlencode($id) . '" title="Edit options &amp; description">' . h($it['name']) . '</a>'
+                . (!empty($it['soldOut']) ? ' <span class="fbadge">sold out on Square</span>' : '')
+                . (($it['modifiers'] ?? []) ? ' <span class="fopts">' . count($it['modifiers']) . ' option' . (count($it['modifiers']) === 1 ? '' : 's') . '</span>' : '') . '</td>'
                 . '<td class="fprices">' . $priceInputs . '</td>'
                 . '<td><label class="fchk"><input type="checkbox" name="pickup[' . h($id) . ']" value="1" ' . (!empty($o['pickupOnly']) ? 'checked' : '') . '> Pickup only</label></td>'
                 . '<td><span class="fp-in">$<input inputmode="decimal" name="dfee[' . h($id) . ']" value="' . (!empty($o['deliveryFee']) ? number_format($o['deliveryFee'] / 100, 2, '.', '') : '') . '" placeholder="0.00"></span></td>'
@@ -503,6 +580,14 @@ select { color-scheme: dark; }
 .shours th { text-align: left; padding: 6px 8px; font-size: 11px; color: var(--muted-2); text-transform: uppercase; letter-spacing: .5px; }
 .shours td { padding: 5px 8px; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; }
 .shours input[type=time] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: #0f0f10; color: var(--text); font-size: 13px; color-scheme: dark; }
+.fname a { font-weight: 600; font-size: 13.5px; }
+.fopts { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--card-2); border: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.fa textarea { padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: #0f0f10; color: var(--text); font-size: 14px; font-family: inherit; resize: vertical; color-scheme: dark; }
+.fgrp { margin: 14px 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.fgrp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.fgrp-head strong { font-size: 14.5px; color: var(--gold-light); }
+.fgrp .ftable { min-width: 0; }
+.fgrp .ftable td { border-bottom: 1px solid var(--line-soft); }
 CSS;
 
 // ---------- Insights tab ----------
@@ -638,6 +723,21 @@ if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 // Food & menu tab (edit the Square menu locally: hide/price/pickup/surcharge/prep).
 if (($_GET['view'] ?? '') === 'food') {
     $base = load_menu_base();
+    $navF = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food" class="on">Food</a><a href="?view=settings">Settings</a></nav>';
+
+    // Per-item options editor (?view=food&item=<id>).
+    if (isset($_GET['item'])) {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            if ($base && hash_equals($_SESSION['csrf'], (string) ($_POST['csrf'] ?? '')) && ($_POST['op'] ?? '') === 'item') save_item_options($base);
+            header('Location: ?view=food&item=' . rawurlencode((string) $_GET['item']) . '&saved=1');
+            exit;
+        }
+        $iid = (string) $_GET['item'];
+        if (!$base || !isset($base['items'][$iid])) page('Item', $navF . '<p><a href="?view=food">&larr; Food &amp; menu</a></p><p class="empty">Item not found. (Items you added are edited on the Food tab itself.)</p>');
+        $ov = read_menu_overrides();
+        page('Item', $navF . item_editor_html($base['items'][$iid], ($ov['items'] ?? [])[$iid] ?? [], $_SESSION['csrf'], isset($_GET['saved'])));
+    }
+
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         if ($base && hash_equals($_SESSION['csrf'], (string) ($_POST['csrf'] ?? ''))) {
             $op = $_POST['op'] ?? 'items';
@@ -648,7 +748,6 @@ if (($_GET['view'] ?? '') === 'food') {
         header('Location: ?view=food&saved=1'); // post/redirect/get: no resubmit on refresh
         exit;
     }
-    $navF = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food" class="on">Food</a><a href="?view=settings">Settings</a></nav>';
     if (!$base) page('Food', $navF . '<h1>Food &amp; menu</h1><p class="empty">The menu is temporarily unavailable. Please try again shortly.</p>');
     page('Food', $navF . food_html($base, read_menu_overrides(), $_SESSION['csrf'], isset($_GET['saved'])));
 }

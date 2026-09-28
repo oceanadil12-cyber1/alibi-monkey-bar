@@ -113,6 +113,29 @@ function apply_menu_overrides(array $menu): array
         if (!empty($o['pickupOnly']))  $item['pickupOnly'] = true;
         if (!empty($o['deliveryFee'])) $item['deliveryFee'] = max(0, (int) $o['deliveryFee']);
         if (!empty($o['prepMinutes'])) $item['prepMinutes'] = max(0, (int) $o['prepMinutes']);
+        if (isset($o['description']) && $o['description'] !== '') $item['description'] = (string) $o['description'];
+
+        // Option-group edits: hide groups/choices and re-price choices.
+        if (!empty($item['modifiers']) && (!empty($o['hideGroups']) || !empty($o['hideChoices']) || !empty($o['choicePrices']))) {
+            $hideG = array_flip($o['hideGroups'] ?? []);
+            $hideC = array_flip($o['hideChoices'] ?? []);
+            $cp = $o['choicePrices'] ?? [];
+            $groups = [];
+            foreach ($item['modifiers'] as $g) {
+                if (isset($hideG[$g['id']])) continue;
+                $choices = [];
+                foreach ($g['choices'] as $c) {
+                    if (isset($hideC[$c['id']])) continue;
+                    if (isset($cp[$c['id']])) $c['price'] = max(0, (int) $cp[$c['id']]);
+                    $choices[] = $c;
+                }
+                if (!$choices) continue;
+                $g['choices'] = $choices;
+                if ($g['min'] > count($choices)) $g['min'] = count($choices);
+                $groups[] = $g;
+            }
+            $item['modifiers'] = $groups;
+        }
     }
     unset($item);
 
