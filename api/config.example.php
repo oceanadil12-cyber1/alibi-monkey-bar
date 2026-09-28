@@ -47,11 +47,22 @@ return [
 
     // Which AI answers the chat:
     //   'ollama' — free, runs on your own computer; for testing (https://ollama.com)
-    //   'gemini' — Google's API; has a free plan, good for testing. Key from
-    //              https://aistudio.google.com/apikey
-    //   'claude' — Anthropic's API; for the live site. Needs PHP 8.1+ and the
+    //   'groq'   — Groq's API; free plan (about 1,000 questions/day), very fast.
+    //              Key from https://console.groq.com/keys
+    //   'gemini' — Google's API; small free plan (about 20 questions/day).
+    //              Key from https://aistudio.google.com/apikey
+    //   'claude' — Anthropic's API; paid. Needs PHP 8.1+ and the
     //              Anthropic SDK: run  composer require anthropic-ai/sdk  in api/
     'chat_provider'     => 'ollama',
+
+    // A second AI to ask when the first one fails (free limit reached, busy or
+    // down), e.g. 'gemini'. Leave empty for none.
+    'chat_fallback'     => '',
+
+    // Groq settings. In the Groq console, turn on Zero Data Retention
+    // (Settings → Data Controls) so guests' chats are never stored.
+    'groq_api_key'      => '',
+    'groq_model'        => 'openai/gpt-oss-120b',
 
     // Gemini settings. On Google's free plan, Google may use the chats to improve
     // its products, so use a paid plan (or Claude) for the live site.

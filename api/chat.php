@@ -306,25 +306,46 @@ function ask_ollama(string $system, array $messages): array
 }
 
 /**
- * Google Gemini (free plan available: key from aistudio.google.com), through
- * Google's OpenAI-compatible endpoint. Returns [reply, usage].
+ * Cloud AIs that speak the common "OpenAI-style" chat API. Both have free plans:
+ * Groq (key from console.groq.com/keys) and Google Gemini (aistudio.google.com/apikey).
+ * Settings in config.php are '<name>_api_key' and '<name>_model'.
  */
-function ask_gemini(string $system, array $messages): array
+const OPENAI_STYLE = [
+    'groq' => [
+        'label' => 'Groq',
+        'url'   => 'https://api.groq.com/openai/v1/chat/completions',
+        'keys'  => 'console.groq.com/keys',
+        // GPT-OSS models reason before answering; a quick FAQ needs only a little.
+        // Every token counts toward Groq's free per-minute limit, so cap the reply.
+        'extra' => ['reasoning_effort' => 'low', 'max_completion_tokens' => 1024],
+    ],
+    'gemini' => [
+        'label' => 'Gemini',
+        'url'   => 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        'keys'  => 'aistudio.google.com/apikey',
+        'extra' => [],
+    ],
+];
+
+/** Returns [reply, usage]. Throws RuntimeException with a message for the site owner. */
+function ask_openai_style(string $provider, string $system, array $messages): array
 {
+    $p = OPENAI_STYLE[$provider];
     $c = config();
-    if ($c['gemini_api_key'] === '') throw new RuntimeException("Add your key to 'gemini_api_key' in api/config.php (free at aistudio.google.com/apikey).");
+    $key = $c["{$provider}_api_key"];
+    if ($key === '') throw new RuntimeException("Add your key to '{$provider}_api_key' in api/config.php (free at $p[keys]).");
     $payload = json_encode([
-        'model'       => $c['gemini_model'],
+        'model'       => $c["{$provider}_model"],
         'messages'    => array_merge([['role' => 'system', 'content' => $system]], $messages),
         'temperature' => 0.3,
-    ]);
-    // "High demand" (503) spikes are common on the free plan and usually pass in
-    // a second or two, so try up to three times before giving up.
+    ] + $p['extra']);
+    // "Busy" (503) spikes are common on free plans and usually pass in a second
+    // or two, so try up to three times before giving up.
     for ($attempt = 1; $attempt <= 3; $attempt++) {
         if ($attempt > 1) usleep(1500000);
-        $ch = curl_handle('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', [
+        $ch = curl_handle($p['url'], [
             CURLOPT_POST       => true,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . $c['gemini_api_key']],
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', "Authorization: Bearer $key"],
             CURLOPT_POSTFIELDS => $payload,
             CURLOPT_TIMEOUT    => 60,
         ]);
@@ -334,40 +355,57 @@ function ask_gemini(string $system, array $messages): array
         curl_close($ch);
         if ($status !== 503) break;
     }
-    if ($res === false || $status === 0) throw new RuntimeException("Could not reach Gemini: $netErr");
+    if ($res === false || $status === 0) throw new RuntimeException("Could not reach $p[label]: $netErr");
     $body = json_decode((string) $res, true);
-    $body = is_array($body) ? ($body[0] ?? $body) : [];  // errors sometimes arrive wrapped in a list
+    $body = is_array($body) ? ($body[0] ?? $body) : [];  // Gemini sometimes wraps errors in a list
     if ($status !== 200) {
         $err = $body['error']['message'] ?? "HTTP $status";
-        if ($status === 429) $err = "Gemini's free limit was reached for now; try again in a minute. ($err)";
-        if ($status === 400 || $status === 401 || $status === 403) $err = "Gemini rejected the request (check 'gemini_api_key' and 'gemini_model' in config.php): $err";
+        if ($status === 429) $err = "$p[label]'s free limit was reached for now. ($err)";
+        if (in_array($status, [400, 401, 403, 404], true)) $err = "$p[label] rejected the request (check '{$provider}_api_key' and '{$provider}_model' in config.php): $err";
         throw new RuntimeException($err);
     }
     return [trim($body['choices'][0]['message']['content'] ?? ''), [
         'input_tokens'  => $body['usage']['prompt_tokens'] ?? 0,
+        'cache_read'    => $body['usage']['prompt_tokens_details']['cached_tokens'] ?? 0,
         'output_tokens' => $body['usage']['completion_tokens'] ?? 0,
     ]];
 }
 
+function ask_provider(string $provider, string $system, array $messages): array
+{
+    if ($provider === 'claude') {
+        require_once __DIR__ . '/chat-claude.php'; // needs PHP 8.1+, so only loaded when used
+        return ask_claude($system, $messages);
+    }
+    if (isset(OPENAI_STYLE[$provider])) return ask_openai_style($provider, $system, $messages);
+    return ask_ollama($system, $messages);
+}
+
+/**
+ * Asks config 'chat_provider'; if that fails (free limit reached, busy, down) and
+ * 'chat_fallback' names another AI, asks that one instead. The usage returned
+ * says which one answered.
+ */
 function ask_ai(array $messages): array
 {
     $system = chat_system_prompt();
     $messages = with_time_note($messages);
-    switch (config()['chat_provider']) {
-        case 'claude':
-            require_once __DIR__ . '/chat-claude.php'; // needs PHP 8.1+, so only loaded when used
-            return ask_claude($system, $messages);
-        case 'gemini':
-            return ask_gemini($system, $messages);
-        default:
-            return ask_ollama($system, $messages);
+    $c = config();
+    $order = array_values(array_unique(array_filter([$c['chat_provider'], $c['chat_fallback']])));
+    foreach ($order as $i => $provider) {
+        try {
+            [$reply, $usage] = ask_provider($provider, $system, $messages);
+            return [$reply, $usage + ['provider' => $provider, 'model' => chat_model($provider)]];
+        } catch (Throwable $e) {
+            if ($i === count($order) - 1) throw $e;
+            error_log("chat.php: $provider failed, trying the fallback: " . $e->getMessage());
+        }
     }
 }
 
-function chat_model(): string
+function chat_model(string $provider): string
 {
-    $c = config();
-    return $c[['claude' => 'claude_model', 'gemini' => 'gemini_model'][$c['chat_provider']] ?? 'ollama_model'];
+    return (string) (config()["{$provider}_model"] ?? '');
 }
 
 /** Save each exchange to api/data/chat-log.csv (private) to review questions and costs. */
@@ -377,8 +415,8 @@ function log_chat(string $question, string $reply, array $usage, float $seconds)
     $c = config();
     save_row('chat-log', [
         'time'          => date('c'),
-        'provider'      => $c['chat_provider'],
-        'model'         => chat_model(),
+        'provider'      => $usage['provider'] ?? $c['chat_provider'],
+        'model'         => $usage['model'] ?? '',
         'question'      => $question,
         'reply'         => $reply,
         'input_tokens'  => $usage['input_tokens'] ?? 0,
