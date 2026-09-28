@@ -47,9 +47,16 @@ return [
 
     // Which AI answers the chat:
     //   'ollama' — free, runs on your own computer; for testing (https://ollama.com)
+    //   'gemini' — Google's API; has a free plan, good for testing. Key from
+    //              https://aistudio.google.com/apikey
     //   'claude' — Anthropic's API; for the live site. Needs PHP 8.1+ and the
     //              Anthropic SDK: run  composer require anthropic-ai/sdk  in api/
     'chat_provider'     => 'ollama',
+
+    // Gemini settings. On Google's free plan, Google may use the chats to improve
+    // its products, so use a paid plan (or Claude) for the live site.
+    'gemini_api_key'    => '',
+    'gemini_model'      => 'gemini-flash-latest',
 
     // Ollama settings (the model must be downloaded first: ollama pull llama3.2:3b).
     'ollama_url'        => 'http://localhost:11434',

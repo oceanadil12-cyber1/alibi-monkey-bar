@@ -305,15 +305,62 @@ function ask_ollama(string $system, array $messages): array
     ]];
 }
 
+/**
+ * Google Gemini (free plan available: key from aistudio.google.com), through
+ * Google's OpenAI-compatible endpoint. Returns [reply, usage].
+ */
+function ask_gemini(string $system, array $messages): array
+{
+    $c = config();
+    if ($c['gemini_api_key'] === '') throw new RuntimeException("Add your key to 'gemini_api_key' in api/config.php (free at aistudio.google.com/apikey).");
+    $ch = curl_handle('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', [
+        CURLOPT_POST        => true,
+        CURLOPT_HTTPHEADER  => ['Content-Type: application/json', 'Authorization: Bearer ' . $c['gemini_api_key']],
+        CURLOPT_POSTFIELDS  => json_encode([
+            'model'       => $c['gemini_model'],
+            'messages'    => array_merge([['role' => 'system', 'content' => $system]], $messages),
+            'temperature' => 0.3,
+        ]),
+        CURLOPT_TIMEOUT     => 60,
+    ]);
+    $res = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $netErr = curl_error($ch);
+    curl_close($ch);
+    if ($res === false || $status === 0) throw new RuntimeException("Could not reach Gemini: $netErr");
+    $body = json_decode((string) $res, true);
+    $body = is_array($body) ? ($body[0] ?? $body) : [];  // errors sometimes arrive wrapped in a list
+    if ($status !== 200) {
+        $err = $body['error']['message'] ?? "HTTP $status";
+        if ($status === 429) $err = "Gemini's free limit was reached for now; try again in a minute. ($err)";
+        if ($status === 400 || $status === 401 || $status === 403) $err = "Gemini rejected the request (check 'gemini_api_key' and 'gemini_model' in config.php): $err";
+        throw new RuntimeException($err);
+    }
+    return [trim($body['choices'][0]['message']['content'] ?? ''), [
+        'input_tokens'  => $body['usage']['prompt_tokens'] ?? 0,
+        'output_tokens' => $body['usage']['completion_tokens'] ?? 0,
+    ]];
+}
+
 function ask_ai(array $messages): array
 {
     $system = chat_system_prompt();
     $messages = with_time_note($messages);
-    if (config()['chat_provider'] === 'claude') {
-        require_once __DIR__ . '/chat-claude.php'; // needs PHP 8.1+, so only loaded when used
-        return ask_claude($system, $messages);
+    switch (config()['chat_provider']) {
+        case 'claude':
+            require_once __DIR__ . '/chat-claude.php'; // needs PHP 8.1+, so only loaded when used
+            return ask_claude($system, $messages);
+        case 'gemini':
+            return ask_gemini($system, $messages);
+        default:
+            return ask_ollama($system, $messages);
     }
-    return ask_ollama($system, $messages);
+}
+
+function chat_model(): string
+{
+    $c = config();
+    return $c[['claude' => 'claude_model', 'gemini' => 'gemini_model'][$c['chat_provider']] ?? 'ollama_model'];
 }
 
 /** Save each exchange to api/data/chat-log.csv (private) to review questions and costs. */
@@ -324,7 +371,7 @@ function log_chat(string $question, string $reply, array $usage, float $seconds)
     save_row('chat-log', [
         'time'          => date('c'),
         'provider'      => $c['chat_provider'],
-        'model'         => $c['chat_provider'] === 'claude' ? $c['claude_model'] : $c['ollama_model'],
+        'model'         => chat_model(),
         'question'      => $question,
         'reply'         => $reply,
         'input_tokens'  => $usage['input_tokens'] ?? 0,

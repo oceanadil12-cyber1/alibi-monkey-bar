@@ -34,6 +34,8 @@ function config(): array
             'ollama_model'      => 'llama3.2:3b',
             'anthropic_api_key' => '',
             'claude_model'      => 'claude-opus-5',
+            'gemini_api_key'    => '',
+            'gemini_model'      => 'gemini-flash-latest',
             'chat_daily_limit'  => 500,
             'chat_log'          => true,
         ];
