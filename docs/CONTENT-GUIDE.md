@@ -99,8 +99,9 @@ plain words.
 **Chat history:** open `https://YOUR-DOMAIN/api/chats.php` and sign in with
 `chat_admin_password` from `api/config.php`. You can read every conversation,
 see which ones ordered food, and download a spreadsheet. Chats are anonymous
-and are deleted automatically after 120 days (`chat_log_days`). Guests are
-told this in the chat window.
+and are deleted automatically after 120 days (`chat_log_days`). The chat
+window doesn't mention this, so cover chat storage in the site's privacy
+policy.
 
 ## Google reviews and Instagram
 

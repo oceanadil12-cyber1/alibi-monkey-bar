@@ -93,8 +93,7 @@
         '<button type="submit" class="chat-send" aria-label="Send" disabled>' + ICONS.send + '</button>' +
       '</div>' +
     '</form>' +
-    '<p class="chat-foot">To book or for anything urgent, call <a href="' + PHONE_TEL + '">' + PHONE + '</a>.' +
-      '<br>Chats are saved for 120 days to improve our service.</p>';
+    '<p class="chat-foot">To book or for anything urgent, call <a href="' + PHONE_TEL + '">' + PHONE + '</a>.</p>';
 
   document.body.append(launcher);
   (embedded ? embedHost : document.body).append(panel);
