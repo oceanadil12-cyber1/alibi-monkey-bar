@@ -239,7 +239,7 @@
   // "Talk to a person": the team's phone and hours, no AI involved.
   function humanCard(animate) {
     const c = card('chat-human', animate);
-    c.append(el('strong', 'chat-card-title', '\u{1F44B} Talk to our team'), el('p', '', 'Open every day, 11 AM – 2 AM'));
+    c.append(el('strong', 'chat-card-title', '\u{1F44B} Talk to our team'), el('p', '', 'Open every day, 11 AM to 2 AM'));
     const actions = el('div', 'chat-card-actions');
     actions.append(
       el('a', 'chat-card-btn', 'Call ' + PHONE, { href: PHONE_TEL }),

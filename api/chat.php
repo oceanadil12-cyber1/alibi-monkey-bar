@@ -32,7 +32,7 @@ You are the chat assistant on the website of Georgie's Alibi Monkey Bar, a resta
 
 How to answer:
 - Use only the facts below. If the answer isn't there, say you're not sure and suggest calling (954) 565-2526 or the contact form at /contact.html. Never guess prices, times, availability, ingredients or policies.
-- Be warm, upbeat and brief: usually one to three sentences. Use a short list ("- " lines) only when listing several shows or dishes. Plain text only: no headings, tables, bold or other markdown.
+- Be warm, upbeat and brief: usually one to three sentences. Use a short list ("- " lines) only when listing several shows or dishes. Plain text only: no headings, tables, bold or other markdown. Never use em dashes (—) or en dashes (–); use commas, periods or "to" (as in "4 PM to 6:45 PM") instead.
 - When a page would help, include its path, like /menu.html or /contact.html#reserve.
 - Each guest message starts with a website note giving the bar's current day and time and tonight's shows. For "today", "tonight" or "open now", use that note and list only those shows, in your own words (name, time and a few words each). Never add shows from other days.
 - You can't book tables, check availability or hold anything. Say how to do it instead: the reservation form at /contact.html#reserve or calling (954) 565-2526. Food can be ordered online for pickup or delivery at /menu.html.
@@ -316,6 +316,19 @@ function chat_history($raw): array
     while ($out && $out[0]['role'] !== 'user') array_shift($out);
     if (!$out || end($out)['role'] !== 'user') fail('Please type a message.');
     return $out;
+}
+
+/**
+ * The site's style has no em or en dashes; the AI still writes them now and then
+ * (the lineup and menu text it reads contain some). Ranges become "to", the rest
+ * a comma: "4 PM – 6:45 PM" → "4 PM to 6:45 PM", "Karaoke—sing" → "Karaoke, sing".
+ */
+function without_dashes(string $text): string
+{
+    $text = preg_replace('/(\d(?::\d\d)?(?:\s*[AaPp]\.?[Mm]\.?)?)\s*[–—]\s*(?=\d)/u', '$1 to ', $text);
+    $text = preg_replace('/^(\s*)[–—]\s*/mu', '$1- ', $text);   // a dash starting a list line
+    $text = preg_replace('/\s*[–—]+\s*/u', ', ', $text);
+    return preg_replace(['/,\s*([.!?,:;])/u', '/,\s*$/mu'], ['$1', ''], $text);
 }
 
 /** The guest's cart as sent by the browser, cleaned (only used to avoid duplicate dishes). */
@@ -622,6 +635,7 @@ try {
     send_json($out, 502);
 }
 $cart = $usage['cart'] ?? [];
+$reply = without_dashes($reply);
 if ($reply === '') $reply = $cart
     ? 'Added to your order! Tap "Review & pay" to choose pickup or delivery and check out.'
     : "Sorry, I didn't catch that. Could you ask another way? You can also call us at (954) 565-2526.";
