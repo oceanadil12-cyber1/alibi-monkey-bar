@@ -102,7 +102,8 @@
   const LINKS = /(https?:\/\/[^\s)]+[^\s).,!?])|((?:^|(?<=[\s(]))\/[a-z0-9-]+\.html(?:#[\w-]+)?)|(\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]\d{4}\b)|(@alibimonkeybar\b)/gi;
 
   function linkify(el, text) {
-    text = text.replace(/\*\*(.+?)\*\*/g, '$1'); // the odd markdown bold slipping through
+    // Markdown bold/italics the AI sometimes adds despite being asked not to.
+    text = text.replace(/\*\*(.+?)\*\*/g, '$1').replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s).,!?:;])/gm, '$1$2');
     let last = 0;
     text.replace(LINKS, (match, url, path, phone, insta, offset) => {
       el.append(text.slice(last, offset));

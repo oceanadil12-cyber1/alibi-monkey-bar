@@ -65,7 +65,7 @@ return [
     // in admin.mistral.ai (API section → Privacy) so chats aren't used for
     // training, and don't enable Labs models.
     'mistral_api_key'   => '',
-    'mistral_model'     => 'mistral-small-latest',
+    'mistral_model'     => 'ministral-14b-latest',
 
     // Groq settings. In the Groq console, turn on Zero Data Retention
     // (Settings → Data Controls) so guests' chats are never stored.

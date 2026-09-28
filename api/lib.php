@@ -36,7 +36,7 @@ function config(): array
             'claude_model'      => 'claude-opus-5',
             'chat_fallback'     => '',
             'mistral_api_key'   => '',
-            'mistral_model'     => 'mistral-small-latest',
+            'mistral_model'     => 'ministral-14b-latest',
             'groq_api_key'      => '',
             'groq_model'        => 'openai/gpt-oss-120b',
             'gemini_api_key'    => '',

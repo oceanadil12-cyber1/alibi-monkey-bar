@@ -130,7 +130,7 @@ The "Ask us" chat assistant, used by `js/chat.js`.
   them (keyword lists in `CHAT_TOPICS`). This keeps a request to roughly
   1,700–4,000 tokens, which matters on free plans that limit tokens per minute.
   The current time and tonight's shows go on the newest message instead.
-- `chat_provider` picks the AI: `groq` or `gemini` (free plans), `ollama`
+- `chat_provider` picks the AI: `mistral`, `groq` or `gemini` (free plans), `ollama`
   (local), or `claude` (`chat-claude.php`; needs PHP 8.1+ and `api/vendor/`
   from Composer). If it fails, each AI in `chat_fallback` is tried in order.
   A specific model is written as `groq:openai/gpt-oss-20b`. Each Groq model

@@ -19,7 +19,8 @@
 - Phone: (954) 565-2526
 - Email: info@alibimonkeybar.com
 - Instagram: @alibimonkeybar (lineup changes and special events are posted there).
-- Open every day, Monday to Sunday, 11:00 AM to 2:00 AM.
+- Open every day, Monday to Sunday, 11:00 AM to 2:00 AM (that's the bar's hours).
+- Kitchen hours for dining in aren't listed (the kitchen is "open late"); online food orders follow the pickup hours in the ordering section. For late-night food, suggest calling to check.
 - Parking: street parking and public lots nearby.
 - Open since 1997 (29 years). An LGBTQ+ community cornerstone; everyone is welcome.
 - No cover charge for the weekly shows (every night).
