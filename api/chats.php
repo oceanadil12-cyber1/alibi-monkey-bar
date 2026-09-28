@@ -22,77 +22,138 @@ function h($s): string
     return htmlspecialchars((string) $s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/**
+ * Did the guest ask about a table reservation in this conversation? Returns the
+ * first matching question (and party size if they gave one), else null. Detected
+ * from the guest's own words, so treat it as a helpful flag, not a booking.
+ */
+function reservation_intent(array $c): ?array
+{
+    $re = '/\breserv\w*|book(?:ing)?\s+a\s+table|book\s+a\s+table|table\s+for\s+\d+|make\s+a\s+(?:booking|reservation)|hold\s+a\s+table|\btable\s+booking/i';
+    foreach ($c['turns'] as $t) {
+        $q = (string) ($t['question'] ?? '');
+        if (preg_match($re, $q)) {
+            $party = null;
+            if (preg_match('/\b(?:party of|group of|table for|for)\s+(\d{1,3})\b|\b(\d{1,3})\s*(?:people|guests|persons|pax|ppl|of us|adults)\b/i', $q, $m)) {
+                $party = (int) ($m[1] !== '' ? $m[1] : ($m[2] ?? 0)) ?: null;
+            }
+            return ['quote' => $q, 'party' => $party, 'time' => $t['time'] ?? ''];
+        }
+    }
+    return null;
+}
+
 function page(string $title, string $body): void
 {
     header('Content-Type: text/html; charset=utf-8');
+    $logout = !empty($_SESSION['chats_ok'])
+        ? '<a class="logout" href="?logout=1"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Log out</a>'
+        : '';
     echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
         . '<meta name="robots" content="noindex, nofollow"><title>' . h($title) . ' | Alibi chat history</title><style>' . PAGE_CSS . '</style></head><body>'
-        . '<header><strong>Alibi</strong> chat history' . (!empty($_SESSION['chats_ok']) ? ' <a class="out" href="?logout=1">Log out</a>' : '') . '</header>'
+        . '<header class="top"><div class="brand">'
+        . '<img src="../images/logo.webp" alt="Georgie\'s Alibi Monkey Bar" height="44">'
+        . '<span class="divider"></span><span class="wm"><b>Chat History</b><small>Team dashboard</small></span></div>'
+        . '<span class="spacer"></span>' . $logout . '</header>'
         . '<main>' . $body . '</main></body></html>';
     exit;
 }
 
 const PAGE_CSS = <<<'CSS'
-:root { --bg: #0d0d0d; --card: #161616; --line: #2a2a2a; --text: #e8e8e8; --muted: #8f8f8f; --gold: #c8a84e; --gold-light: #e0c872; }
+:root {
+  --bg: #0b0b0c; --bg-2: #121214; --card: #161618; --card-2: #1c1c1f;
+  --line: #29292d; --line-soft: #202024; --text: #ececed; --muted: #8d8d94; --muted-2: #6a6a70;
+  --gold: #c8a84e; --gold-light: #e6cd7d; --gold-dim: rgba(200,168,78,.14); --radius: 16px;
+}
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif; }
-header { display: flex; align-items: center; gap: 8px; padding: 14px 20px; border-bottom: 1px solid var(--line); color: var(--muted); }
-header strong { color: var(--gold); font-size: 17px; }
-header .out { margin-left: auto; }
-main { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(1200px 500px at 85% -10%, rgba(200,168,78,.10), transparent 60%), radial-gradient(900px 500px at 0% 0%, rgba(200,168,78,.05), transparent 55%), var(--bg);
+  color: var(--text); font: 15px/1.5 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; min-height: 100vh;
+}
 a { color: var(--gold-light); }
-h1 { font-size: 22px; margin: 0 0 4px; }
+header.top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px; padding: 13px 24px; background: rgba(12,12,13,.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line-soft); }
+header.top::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, rgba(200,168,78,.5), transparent); }
+.brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.brand img { height: 44px; width: auto; display: block; }
+.brand .divider { width: 1px; height: 28px; background: var(--line); }
+.brand .wm { display: flex; flex-direction: column; line-height: 1.15; }
+.brand .wm b { font-size: 15px; font-weight: 700; }
+.brand .wm small { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.4px; }
+header.top .spacer { flex: 1; }
+.logout { display: inline-flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 13px; font-weight: 500; text-decoration: none; }
+.logout:hover { color: var(--text); border-color: #3a3a40; }
+main { max-width: 1060px; margin: 0 auto; padding: 26px 18px 70px; }
+h1 { font-size: 26px; font-weight: 800; letter-spacing: -.4px; margin: 0 0 4px; }
 .muted { color: var(--muted); font-size: 13px; }
-.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
-.bar a, .btn { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--text); background: var(--card); font-size: 13px; }
-.bar a.on { border-color: var(--gold); color: var(--gold-light); }
-.bar .dl { margin-left: auto; }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
-.stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
-.stat b { display: block; font-size: 22px; color: var(--gold-light); }
-.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
-table { width: 100%; border-collapse: collapse; min-width: 640px; }
-th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; background: #121212; }
-tr:last-child td { border-bottom: none; }
-td.q { max-width: 380px; }
-td.guest { font-size: 13px; line-height: 1.4; }
-td.guest a { word-break: break-all; }
-.who { margin: 0 0 4px; font-size: 14px; }
+.views { display: flex; gap: 6px; margin-bottom: 22px; }
+.views a { padding: 9px 17px; border-radius: 999px; color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; }
+.views a:hover { color: var(--text); }
+.views a.on { color: #14140f; background: linear-gradient(180deg, var(--gold-light), var(--gold)); }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 18px 0 14px; }
+.bar a { padding: 7px 15px; border-radius: 999px; text-decoration: none; color: var(--muted); background: var(--card); border: 1px solid var(--line); font-size: 13px; font-weight: 600; }
+.bar a:hover { color: var(--text); }
+.bar a.on { color: var(--gold-light); background: var(--gold-dim); border-color: rgba(200,168,78,.4); }
+.bar .dl { margin-left: auto; color: var(--gold-light); background: var(--gold-dim); border-color: rgba(200,168,78,.35); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 13px; margin-bottom: 24px; }
+.stat { position: relative; overflow: hidden; background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 16px 15px; color: var(--muted); font-size: 13px; }
+.stat::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, var(--gold), transparent); opacity: .5; }
+.stat .ico { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--gold-dim); color: var(--gold-light); margin-bottom: 11px; }
+.stat .ico svg { width: 17px; height: 17px; }
+.stat b { display: block; font-size: 28px; font-weight: 800; letter-spacing: -.5px; line-height: 1; color: var(--gold-light); margin-bottom: 5px; }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+table { width: 100%; border-collapse: collapse; min-width: 800px; }
+thead th { text-align: left; padding: 13px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-2); background: var(--bg-2); border-bottom: 1px solid var(--line); }
+tbody td { padding: 13px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; font-size: 13.5px; }
+tbody tr { transition: background .12s ease; }
+tbody tr:hover { background: #191a1d; }
+tbody tr:last-child td { border-bottom: none; }
+td.q { max-width: 320px; color: #cfcfd2; }
+td.nowrap { white-space: nowrap; color: var(--muted); }
+.gcell { display: flex; align-items: center; gap: 11px; }
+.avatar { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; color: #14140f; background: linear-gradient(180deg, var(--gold-light), var(--gold)); }
+.avatar.empty { background: #232327; color: var(--muted-2); }
+.ginfo { min-width: 0; }
+.ginfo b { display: block; font-size: 14px; font-weight: 600; }
+.ginfo a { display: inline-block; font-size: 12.5px; color: var(--muted); text-decoration: none; word-break: break-all; }
+.ginfo a:hover { color: var(--gold-light); }
+.ret { display: inline-block; margin-top: 3px; font-size: 11px; color: var(--gold-light); }
+.rez { display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 999px; background: rgba(120,170,255,.14); color: #9cc0ff; font-size: 11px; font-weight: 600; }
+.who { margin: 0 0 8px; font-size: 15px; }
 .who a { word-break: break-all; }
-td.nowrap { white-space: nowrap; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
-.chip { display: inline-block; padding: 3px 10px; border-radius: 999px; background: #1a1a1a; border: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.chip { display: inline-block; padding: 4px 11px; border-radius: 999px; background: var(--card-2); border: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
 .chip.gold { background: #2a2210; border-color: rgba(200,168,78,.4); color: var(--gold-light); }
-.ret { display: inline-block; margin-top: 3px; font-size: 11.5px; color: var(--gold-light); }
-form.dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 18px; font-size: 13px; color: var(--muted); }
-form.dates label { display: inline-flex; align-items: center; gap: 6px; }
-form.dates input[type=date] { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0f0f0f; color: var(--text); font-size: 13px; color-scheme: dark; }
-form.dates button { padding: 7px 14px; border: none; border-radius: 999px; background: var(--gold); color: #111; font-weight: 700; font-size: 13px; cursor: pointer; }
-form.dates .clear { color: var(--muted); }
-.prev { margin: 14px 0 4px; padding: 12px 14px; background: #17140b; border: 1px solid rgba(200,168,78,.35); border-radius: 12px; }
+.prev, .resv { margin: 14px 0 4px; padding: 13px 15px; border-radius: 13px; }
+.prev { background: #17140b; border: 1px solid rgba(200,168,78,.35); }
 .prev strong { color: var(--gold-light); font-size: 13.5px; }
-.prev ul { margin: 8px 0 0; padding-left: 2px; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.prev ul { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .prev li { font-size: 13px; }
 .prev li a { font-weight: 600; white-space: nowrap; }
-.tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #2a2210; color: var(--gold-light); font-size: 12px; }
-.chat { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
-.msg { max-width: 78%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.guest { align-self: flex-end; background: var(--gold); color: #111; border-bottom-right-radius: 5px; }
-.bot { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 5px; }
-.meta { font-size: 11.5px; color: var(--muted); margin-top: -4px; }
-.meta.r { align-self: flex-end; }
-.order { align-self: flex-start; border: 1px solid rgba(200, 168, 78, .5); border-radius: 12px; padding: 8px 12px; background: #1b170c; font-size: 13.5px; }
-form.login { max-width: 340px; margin: 60px auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
-form.login input { width: 100%; margin: 10px 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0f0f0f; color: var(--text); font-size: 16px; }
-form.login button { width: 100%; padding: 11px; border: none; border-radius: 10px; background: var(--gold); color: #111; font-weight: 700; font-size: 15px; cursor: pointer; }
+.resv { background: #0e1830; border: 1px solid rgba(120,170,255,.4); }
+.resv strong { color: #9cc0ff; font-size: 13.5px; }
+.resv p { margin: 6px 0 0; font-size: 13.5px; color: var(--text); }
+form.dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 20px; font-size: 13px; color: var(--muted); }
+form.dates label { display: inline-flex; align-items: center; gap: 6px; }
+form.dates input[type=date] { padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line); background: #0f0f10; color: var(--text); font-size: 13px; color-scheme: dark; }
+form.dates button { padding: 8px 15px; border: none; border-radius: 999px; background: var(--gold); color: #111; font-weight: 700; font-size: 13px; cursor: pointer; }
+form.dates .clear { color: var(--muted); margin-left: 2px; }
+.tag { display: inline-block; padding: 3px 9px; border-radius: 999px; background: var(--gold-dim); color: var(--gold-light); font-size: 12px; font-weight: 600; }
+.chat { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.chat .msg { max-width: 78%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat .guest { align-self: flex-end; background: var(--gold); color: #111; border-bottom-right-radius: 5px; }
+.chat .bot { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 5px; }
+.chat .meta { font-size: 11.5px; color: var(--muted); margin-top: -4px; }
+.chat .meta.r { align-self: flex-end; }
+.chat .order { align-self: flex-start; border: 1px solid rgba(200, 168, 78, .5); border-radius: 12px; padding: 8px 12px; background: #1b170c; font-size: 13.5px; }
+form.login { max-width: 360px; margin: 8vh auto; background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--line); border-radius: 16px; padding: 26px; }
+form.login h1 { font-size: 22px; }
+form.login input { width: 100%; margin: 12px 0 14px; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--line); background: #0f0f10; color: var(--text); font-size: 16px; color-scheme: dark; }
+form.login button { width: 100%; padding: 12px; border: none; border-radius: 10px; background: linear-gradient(180deg, var(--gold-light), var(--gold)); color: #111; font-weight: 700; font-size: 15px; cursor: pointer; }
 .err { color: #f3a4a4; font-size: 13.5px; }
-.empty { padding: 30px; text-align: center; color: var(--muted); }
-.views { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
-.views a { padding: 8px 14px; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 600; }
-.views a.on { color: var(--text); border-bottom-color: var(--gold); }
+.empty { padding: 36px; text-align: center; color: var(--muted); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
-.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 18px; min-width: 0; }
+.panel { background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 16px 18px; min-width: 0; }
 .panel.wide { grid-column: 1 / -1; }
 .panel h2 { margin: 0 0 2px; font-size: 16px; }
 .panel h3 { margin: 18px 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
@@ -252,13 +313,16 @@ if (isset($_GET['csv'])) {
     header('Content-Disposition: attachment; filename="alibi-chats-' . date('Y-m-d') . '.csv"');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF"); // lets Excel read accents and emoji
-    fputcsv($out, ['conversation', 'name', 'email', 'ip', 'device', 'browser', 'distance (mi)', 'location', 'time', 'guest asked', 'assistant replied', 'added to order', 'AI', 'input tokens', 'output tokens', 'seconds']);
+    fputcsv($out, ['conversation', 'name', 'email', 'ip', 'device', 'browser', 'distance (mi)', 'location', 'reservation asked', 'reservation party', 'time', 'guest asked', 'assistant replied', 'added to order', 'AI', 'input tokens', 'output tokens', 'seconds']);
     foreach (array_reverse(chat_log_conversations($days, $from, $to)) as $c) {
         $d = !empty($c['ip']) ? geo_distance($c['ip']) : null;
         $miles = $d ? round($d['miles']) : '';
         $place = $d ? $d['place'] : '';
+        $rz = reservation_intent($c);
+        $rzYes = $rz ? 'yes' : '';
+        $rzParty = ($rz && $rz['party']) ? $rz['party'] : '';
         foreach ($c['turns'] as $t) {
-            $row = [$c['cid'], $c['name'] ?? '', $c['email'] ?? '', $c['ip'] ?? '', $c['device'] ?? '', $c['browser'] ?? '', $miles, $place, $t['time'], $t['question'], $t['reply'], implode('; ', $t['ordered'] ?? []), trim(($t['provider'] ?? '') . ' ' . ($t['model'] ?? '')), $t['input_tokens'] ?? 0, $t['output_tokens'] ?? 0, $t['seconds'] ?? 0];
+            $row = [$c['cid'], $c['name'] ?? '', $c['email'] ?? '', $c['ip'] ?? '', $c['device'] ?? '', $c['browser'] ?? '', $miles, $place, $rzYes, $rzParty, $t['time'], $t['question'], $t['reply'], implode('; ', $t['ordered'] ?? []), trim(($t['provider'] ?? '') . ' ' . ($t['model'] ?? '')), $t['input_tokens'] ?? 0, $t['output_tokens'] ?? 0, $t['seconds'] ?? 0];
             // Guests' text must not run as spreadsheet formulas.
             fputcsv($out, array_map(fn($v) => preg_match('/^[=+\-@\t\r]/', (string) $v) ? "'" . $v : $v, $row));
         }
@@ -300,6 +364,13 @@ if (isset($_GET['c'])) {
         . ($chips ? '<p class="chips">' . implode(' ', $chips) . '</p>' : '')
         . '<p class="muted">' . h($when($c['start'])) . ' &ndash; ' . h($when($c['end'])) . ' &middot; '
         . count($c['turns']) . ' question' . (count($c['turns']) === 1 ? '' : 's') . ($ordered ? ' &middot; <span class="tag">ordered ' . count($ordered) . ' item' . (count($ordered) === 1 ? '' : 's') . '</span>' : '') . '</p>';
+    $rez = reservation_intent($c);
+    if ($rez) {
+        $html .= '<div class="resv"><strong>&#128197; Reservation request'
+            . ($rez['party'] ? ' &middot; party of ' . (int) $rez['party'] : '') . '</strong>'
+            . '<p>&ldquo;' . h($rez['quote']) . '&rdquo;</p>'
+            . '<p class="muted">The assistant can\'t book tables. Follow up via the reservation form (/contact.html#reserve) or call (954) 565-2526.</p></div>';
+    }
     if ($prev) {
         $html .= '<div class="prev"><strong>&#8617; Returning guest &mdash; ' . count($prev) . ' earlier ' . (count($prev) === 1 ? 'chat' : 'chats') . ' from ' . h($email) . '</strong><ul>';
         foreach ($prev as $oc) {
@@ -348,11 +419,23 @@ if ($view === 'insights') {
         . '<div class="bar">' . $tabs . '</div>' . $dateForm . insights_html(chat_insights($convos), $days));
 }
 
+// Reservation requests (from the guests' own words) keyed by conversation.
+$rezMap = [];
+foreach ($convos as $cid => $c) { $r = reservation_intent($c); if ($r) $rezMap[$cid] = $r; }
+
+// Stat-card icon (inline SVG).
+$svg = fn($p) => '<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' . $p . '</svg></div>';
+
 $html = $nav . '<h1>Conversations</h1><p class="muted">Guests give an email (and optionally a name) before chatting; their IP address, device and browser are recorded too. Kept for ' . (int) config()['chat_log_days'] . ' days, then deleted automatically.</p>'
     . '<div class="bar">' . $tabs . '<a class="dl" href="?csv=1&amp;' . $period . '">Download spreadsheet</a></div>'
     . $dateForm
-    . '<div class="stats"><div class="stat"><b>' . count($convos) . '</b>conversations</div><div class="stat"><b>' . $questions . '</b>questions</div>'
-    . '<div class="stat"><b>' . $withOrders . '</b>with food ordered</div><div class="stat"><b>' . number_format($tokens) . '</b>AI tokens used</div></div>';
+    . '<div class="stats">'
+    . '<div class="stat">' . $svg('<path d="M21 11.5a8.38 8.38 0 0 1-11.8 7L4 20.5 5.5 15.6A8.38 8.38 0 1 1 21 11.5z"/>') . '<b>' . count($convos) . '</b>conversations</div>'
+    . '<div class="stat">' . $svg('<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>') . '<b>' . $questions . '</b>questions</div>'
+    . '<div class="stat">' . $svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>') . '<b>' . count($rezMap) . '</b>reservation requests</div>'
+    . '<div class="stat">' . $svg('<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>') . '<b>' . $withOrders . '</b>with food ordered</div>'
+    . '<div class="stat">' . $svg('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>') . '<b>' . number_format($tokens) . '</b>AI tokens used</div>'
+    . '</div>';
 
 if (!$convos) {
     page('Conversations', $html . '<p class="empty">No chats in this period yet.</p>');
@@ -368,16 +451,21 @@ foreach ($convos as $c) {
     $email = $c['email'] ?? '';
     $name = $c['name'] ?? '';
     $ecount = $email !== '' ? ($emailCounts[strtolower(trim($email))] ?? 1) : 1;
-    $guest = $email !== ''
-        ? ($name !== '' ? '<b>' . h($name) . '</b><br>' : '') . '<a href="mailto:' . h($email) . '">' . h($email) . '</a>'
-            . ($ecount > 1 ? ' <span class="ret" title="' . $ecount . ' chats from this email in view">&#8617; returning</span>' : '')
-        : '<span class="muted">&ndash;</span>';
+    $hasContact = ($name !== '' || $email !== '');
+    $initial = $name !== '' ? mb_strtoupper(mb_substr($name, 0, 1)) : ($email !== '' ? mb_strtoupper(mb_substr($email, 0, 1)) : '?');
+    $badges = '';
+    if ($ecount > 1) $badges .= ' <span class="ret" title="' . $ecount . ' chats from this email in view">&#8617; returning</span>';
+    if (isset($rezMap[$c['cid']])) $badges .= ' <span class="rez" title="Asked about a reservation">&#128197; Reservation</span>';
+    $info = $hasContact
+        ? ($name !== '' ? '<b>' . h($name) . '</b>' : '') . ($email !== '' ? '<a href="mailto:' . h($email) . '">' . h($email) . '</a>' : '') . $badges
+        : '<span class="muted">No contact</span>' . $badges;
+    $guest = '<div class="gcell"><span class="avatar' . ($hasContact ? '' : ' empty') . '">' . h($initial) . '</span><span class="ginfo">' . $info . '</span></div>';
     $device = (string) ($c['device'] ?? '');
     $browser = (string) ($c['browser'] ?? '');
     $devCell = $device !== '' ? h($device) . ($browser !== '' ? '<br><span class="muted">' . h($browser) . '</span>' : '') : '<span class="muted">&ndash;</span>';
     $d = !empty($c['ip']) ? geo_distance($c['ip']) : null;
     $distCell = $d ? '~' . number_format($d['miles'], $d['miles'] < 10 ? 1 : 0) . ' mi' . ($d['place'] !== '' ? '<br><span class="muted">' . h($d['place']) . '</span>' : '') : '<span class="muted">&ndash;</span>';
-    $html .= '<tr><td class="nowrap">' . h($when($c['end'])) . '</td><td class="guest">' . $guest . '</td>'
+    $html .= '<tr><td class="nowrap">' . h($when($c['end'])) . '</td><td>' . $guest . '</td>'
         . '<td>' . $devCell . '</td><td>' . $distCell . '</td><td>' . count($c['turns']) . '</td>'
         . '<td>' . ($items ? '<span class="tag">' . $items . ' item' . ($items === 1 ? '' : 's') . '</span>' : '&ndash;') . '</td>'
         . '<td class="q">' . h(mb_strimwidth($first, 0, 90, '…')) . '</td>'
