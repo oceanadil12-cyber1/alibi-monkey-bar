@@ -640,9 +640,11 @@ if ($reply === '') $reply = $cart
     ? 'Added to your order! Tap "Review & pay" to choose pickup or delivery and check out.'
     : "Sorry, I didn't catch that. Could you ask another way? You can also call us at (954) 565-2526.";
 
-log_chat(chat_log_cid($in['cid'] ?? null), end($messages)['content'], $reply, $usage, microtime(true) - $start, array_column($cart, 'label'));
 $question = end($messages)['content'];
 $cards = chat_cards($question, $reply);
+$shownShows = [];
+foreach ($cards as $card) if ($card['type'] === 'shows') $shownShows = array_column($card['shows'], 'name');
+log_chat(chat_log_cid($in['cid'] ?? null), $question, $reply, $usage, microtime(true) - $start, array_column($cart, 'label'), $shownShows);
 // Cart lines go to the browser, which adds them to the site's normal cart (js/order.js).
 send_json(['ok' => true, 'reply' => $reply]
     + ($cart ? ['cart' => $cart] : [])

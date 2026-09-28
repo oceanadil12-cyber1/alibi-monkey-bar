@@ -99,7 +99,18 @@ plain words.
 **Chat history:** open `https://YOUR-DOMAIN/api/chats.php` and sign in with
 `chat_admin_password` from `api/config.php`. You can read every conversation,
 see which ones ordered food, and download a spreadsheet. Chats are anonymous
-and are deleted automatically after 120 days (`chat_log_days`). The chat
+and are deleted automatically after 120 days (`chat_log_days`).
+
+The **Insights** tab on that page shows trends:
+- what guests ask about
+- which foods interest them and which dishes they order through the chat
+- which shows and days they ask about
+- when they chat
+- private-party demand: occasions, group sizes, packages discussed and budget worries, in guests' own words
+- questions the assistant couldn't answer (add those facts to `chatbot-knowledge.md`)
+
+It counts with keyword lists at the top of `api/chat-insights.php`, which you
+can extend. The chat
 window doesn't mention this, so cover chat storage in the site's privacy
 policy.
 

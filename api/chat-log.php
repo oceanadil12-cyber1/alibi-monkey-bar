@@ -22,8 +22,11 @@ function chat_log_cid($raw): string
     return is_string($raw) && preg_match('/^[A-Za-z0-9-]{6,40}$/', $raw) ? $raw : 'unknown';
 }
 
-/** Saves one question and answer. $ordered: labels of dishes the chat added to the cart. */
-function log_chat(string $cid, string $question, string $reply, array $usage, float $seconds, array $ordered = []): void
+/**
+ * Saves one question and answer. $ordered: labels of dishes the chat added to
+ * the cart; $shows: names of shows its cards showed (both for the Insights tab).
+ */
+function log_chat(string $cid, string $question, string $reply, array $usage, float $seconds, array $ordered = [], array $shows = []): void
 {
     if (!config()['chat_log']) return;
     $dir = chat_log_dir();
@@ -34,6 +37,7 @@ function log_chat(string $cid, string $question, string $reply, array $usage, fl
         'question'      => $question,
         'reply'         => $reply,
         'ordered'       => array_values($ordered),
+        'shows'         => array_values($shows),
         'provider'      => $usage['provider'] ?? config()['chat_provider'],
         'model'         => $usage['model'] ?? '',
         'input_tokens'  => $usage['input_tokens'] ?? 0,

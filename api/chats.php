@@ -69,7 +69,107 @@ form.login input { width: 100%; margin: 10px 0 14px; padding: 10px 12px; border-
 form.login button { width: 100%; padding: 11px; border: none; border-radius: 10px; background: var(--gold); color: #111; font-weight: 700; font-size: 15px; cursor: pointer; }
 .err { color: #f3a4a4; font-size: 13.5px; }
 .empty { padding: 30px; text-align: center; color: var(--muted); }
+.views { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+.views a { padding: 8px 14px; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 600; }
+.views a.on { color: var(--text); border-bottom-color: var(--gold); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 18px; min-width: 0; }
+.panel.wide { grid-column: 1 / -1; }
+.panel h2 { margin: 0 0 2px; font-size: 16px; }
+.panel h3 { margin: 18px 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+.panel .sub { margin: 0 0 14px; color: var(--muted); font-size: 12.5px; }
+.bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.bars li { display: grid; grid-template-columns: minmax(96px, 36%) 1fr 34px; gap: 10px; align-items: center; font-size: 13.5px; cursor: default; }
+.bars .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars .track { height: 10px; }
+.bars .fill { display: block; height: 10px; background: var(--gold); border-radius: 0 4px 4px 0; }
+.bars li:hover .fill { background: var(--gold-light); }
+.bars li:hover .lbl { color: #fff; }
+.bars .val { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.gap { height: 16px; }
+.minis { display: flex; flex-wrap: wrap; gap: 10px; }
+.minis div { flex: 1 1 120px; background: #111; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; color: var(--muted); font-size: 12.5px; }
+.minis b { display: block; color: var(--text); font-size: 18px; }
+.quotes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.quotes li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; background: #111; border-radius: 8px; font-size: 13.5px; }
+.quotes a { color: var(--text); text-decoration: none; }
+.quotes a:hover { color: var(--gold-light); }
+.quotes small { flex: none; color: var(--muted); }
+.empty-sm { color: var(--muted); font-size: 13px; margin: 4px 0; }
+code { background: #111; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 CSS;
+
+// ---------- Insights tab ----------
+
+/**
+ * Horizontal bars, one gold series: label, bar from a common baseline, value at
+ * the tip; the row's tooltip gives the share. $ranked = false keeps the given
+ * order (days, time slots, sizes).
+ */
+function bars(array $counts, int $base, string $unit = 'questions'): string
+{
+    $counts = array_filter($counts, fn($n) => $n > 0) ?: [];
+    if (!$counts) return '<p class="empty-sm">Nothing yet in this period.</p>';
+    $max = max($counts);
+    $out = '<ul class="bars">';
+    foreach ($counts as $label => $n) {
+        $pct = $base ? round($n * 100 / $base) : 0;
+        $out .= '<li title="' . h("$label: $n $unit" . ($base ? " ($pct%)" : '')) . '"><span class="lbl">' . h($label) . '</span>'
+            . '<span class="track"><span class="fill" style="width:' . max(2, round($n * 100 / $max)) . '%"></span></span>'
+            . '<span class="val">' . $n . '</span></li>';
+    }
+    return $out . '</ul>';
+}
+
+/** Links to conversations, e.g. questions the assistant couldn't answer. */
+function quote_list(array $items, int $days): string
+{
+    if (!$items) return '<p class="empty-sm">Nothing yet in this period.</p>';
+    $out = '<ul class="quotes">';
+    foreach ($items as $i) {
+        $out .= '<li><a href="?c=' . rawurlencode($i['cid']) . '&amp;days=' . $days . '">&ldquo;' . h(mb_strimwidth($i['text'], 0, 120, '…')) . '&rdquo;</a>'
+            . '<small>' . h(date('M j, g:i A', strtotime($i['time']))) . '</small></li>';
+    }
+    return $out . '</ul>';
+}
+
+function insights_html(array $in, int $days): string
+{
+    if (!$in['questions']) return '<p class="empty">No chats in this period yet.</p>';
+    $p = $in['party'];
+    $q = $in['questions'];
+    $partyShare = $in['conversations'] ? round($p['convos'] * 100 / $in['conversations']) : 0;
+    $avgSize = $p['size_list'] ? round(array_sum($p['size_list']) / count($p['size_list'])) : null;
+
+    $panel = fn($title, $sub, $body, $wide = false) => '<section class="panel' . ($wide ? ' wide' : '') . '"><h2>' . h($title) . '</h2>'
+        . ($sub ? '<p class="sub">' . $sub . '</p>' : '') . $body . '</section>';
+
+    return '<div class="stats">'
+        . '<div class="stat"><b>' . $in['conversations'] . '</b>conversations</div>'
+        . '<div class="stat"><b>' . $q . '</b>questions</div>'
+        . '<div class="stat"><b>' . $in['items_ordered'] . '</b>dishes ordered via chat</div>'
+        . '<div class="stat"><b>' . $p['convos'] . '</b>private party inquiries</div>'
+        . '<div class="stat"><b>' . count($in['unanswered']) . '</b>questions it couldn\'t answer</div>'
+        . '</div><div class="grid">'
+        . $panel('What guests ask about', 'Share of all questions; one question can touch several topics.', bars($in['topics'], $q))
+        . $panel('Food guests ask about', 'Questions mentioning each kind of food.', bars($in['foods'], $q))
+        . $panel('Dishes ordered through the chat', $in['ordering_convos'] . ' conversation' . ($in['ordering_convos'] === 1 ? '' : 's') . ' ordered food. Counts are portions.', bars($in['ordered'], $in['items_ordered'], 'ordered'))
+        . $panel('Shows guests ask about', 'Shows the assistant showed a card for.', bars($in['shows'], 0, 'times'))
+        . $panel('Days guests ask about', '"Tonight", "tomorrow" and "this weekend" count for the day they mean.', bars($in['days_asked'], 0, 'questions'))
+        . $panel('When guests chat', 'Questions by the day and time they were asked (bar day, until 2 AM).',
+            bars($in['chat_days'], $q) . '<div class="gap"></div>' . bars($in['chat_hours'], $q))
+        . $panel('Private parties',
+            $p['convos'] . ' conversation' . ($p['convos'] === 1 ? '' : 's') . " ($partyShare% of all) asked about a private event"
+            . ($avgSize ? '; average group size ' . $avgSize : '') . '.',
+            '<div class="minis"><div><b>' . $p['price_questions'] . '</b>price questions</div><div><b>' . $p['budget_convos'] . '</b>with budget worries</div>'
+            . '<div><b>' . count($p['size_list']) . '</b>gave a group size</div></div>'
+            . '<h3>Occasions</h3>' . bars($p['occasions'], $p['convos'], 'conversations')
+            . '<h3>Group sizes</h3>' . bars($p['sizes'], count($p['size_list']), 'groups')
+            . '<h3>Packages discussed</h3>' . bars($p['packages'], 0, 'mentions')
+            . '<h3>Budget worries, in their words</h3>' . quote_list($p['budget_quotes'], $days), true)
+        . $panel("Questions it couldn't answer", 'Add the missing facts to <code>data/chatbot-knowledge.md</code> and it will answer them next time.', quote_list($in['unanswered'], $days), true)
+        . '</div>';
+}
 
 // ---------- sign in ----------
 
@@ -155,17 +255,27 @@ if (isset($_GET['c'])) {
     page('Conversation', $html . '</div>');
 }
 
-// The list.
+// The list, or the Insights tab.
 $convos = chat_log_conversations($days);
 $questions = array_sum(array_map(fn($c) => count($c['turns']), $convos));
 $withOrders = count(array_filter($convos, fn($c) => array_filter($c['turns'], fn($t) => !empty($t['ordered']))));
 $tokens = array_sum(array_map(fn($c) => array_sum(array_map(fn($t) => ($t['input_tokens'] ?? 0) + ($t['output_tokens'] ?? 0), $c['turns'])), $convos));
+$view = ($_GET['view'] ?? '') === 'insights' ? 'insights' : 'list';
 
 $tabs = '';
 foreach ([1 => 'Today', 7 => '7 days', 30 => '30 days', 120 => '120 days'] as $d => $label) {
-    $tabs .= '<a href="?days=' . $d . '"' . ($d === $days ? ' class="on"' : '') . '>' . $label . '</a>';
+    $tabs .= '<a href="?days=' . $d . ($view === 'insights' ? '&amp;view=insights' : '') . '"' . ($d === $days ? ' class="on"' : '') . '>' . $label . '</a>';
 }
-$html = '<h1>Conversations</h1><p class="muted">Anonymous: no names, emails or IP addresses. Kept for ' . (int) config()['chat_log_days'] . ' days, then deleted automatically.</p>'
+$nav = '<nav class="views"><a href="?days=' . $days . '"' . ($view === 'list' ? ' class="on"' : '') . '>Conversations</a>'
+    . '<a href="?days=' . $days . '&amp;view=insights"' . ($view === 'insights' ? ' class="on"' : '') . '>Insights</a></nav>';
+
+if ($view === 'insights') {
+    require_once __DIR__ . '/chat-insights.php';
+    page('Insights', $nav . '<h1>Insights</h1><p class="muted">What guests ask about and order in the chat. Counted from their own words, so treat it as a guide rather than exact figures. Full sales are in Square.</p>'
+        . '<div class="bar">' . $tabs . '</div>' . insights_html(chat_insights($convos), $days));
+}
+
+$html = $nav . '<h1>Conversations</h1><p class="muted">Anonymous: no names, emails or IP addresses. Kept for ' . (int) config()['chat_log_days'] . ' days, then deleted automatically.</p>'
     . '<div class="bar">' . $tabs . '<a class="dl" href="?csv=1&amp;days=' . $days . '">Download spreadsheet</a></div>'
     . '<div class="stats"><div class="stat"><b>' . count($convos) . '</b>conversations</div><div class="stat"><b>' . $questions . '</b>questions</div>'
     . '<div class="stat"><b>' . $withOrders . '</b>with food ordered</div><div class="stat"><b>' . number_format($tokens) . '</b>AI tokens used</div></div>';

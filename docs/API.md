@@ -166,7 +166,10 @@ The "Ask us" chat assistant, used by `js/chat.js`.
 A private chat history page, protected by `chat_admin_password` in
 `config.php`. If that's empty, the page is off. It lists conversations from
 today or the last 7 / 30 / 120 days, with totals. `?c=<id>` shows one
-conversation as a chat, and `?csv=1&days=N` downloads a spreadsheet. Sign-in
+conversation as a chat, `?view=insights&days=N` shows trends
+(`chat-insights.php`: topics, foods, dishes ordered, shows, days, chat times,
+private-party demand and unanswered questions, all counted from the log with
+keyword lists), and `?csv=1&days=N` downloads a spreadsheet. Sign-in
 uses a PHP session cookie, and failed attempts are rate-limited (10 per 15
 minutes). Guests' text is always escaped.
 - Errors return 502 with a "please call us" message. On `localhost` the reply
