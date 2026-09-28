@@ -146,6 +146,12 @@ The "Ask us" chat assistant, used by `js/chat.js`.
   page) or localStorage, and "Review & pay" opens the normal checkout
   (`menu.html#order`). Nothing is charged in the chat, and checkout re-prices
   everything.
+- **Cards and suggestions** (`chat-cards.php`): the reply also carries `cards`
+  (`shows`: shows the reply names, with day, time, host and poster from
+  `events.html`; `packages`: the party packages from `private-events.html` when
+  the reply goes through them) and `suggestions` (up to three follow-up
+  questions). Cards come from the site's own pages, never from the AI's words.
+  "Talk to a person" is handled in the browser and doesn't call the AI.
 - Protections: same-site JSON only, 30 messages per visitor per 10 minutes, and
   `chat_daily_limit` messages per day for the whole site (then 503).
 - When `chat_log` is on, every exchange is saved (`chat-log.php`) to

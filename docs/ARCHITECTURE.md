@@ -47,7 +47,7 @@ when you edit them.
 | `upcoming.js` | Home page slider. It fetches `events.html`, reads the lineup and shows events starting with the next one. It pauses on hover and respects reduced motion |
 | `instagram-more.js` | Gallery paging: shows 20 posts, then 8 more per click |
 | `elfsight-badge.js` | Tidies the Elfsight widget badge |
-| `chat.js` | Loaded on every page. Adds the "Ask us" chat button and panel, which post to `api/chat.php`. The conversation is kept for the browser tab (`sessionStorage`, `alibi-chat-v1`). Dishes ordered in the chat go into the same cart as `order.js` (through `window.alibiOrder`, or `localStorage` on other pages) |
+| `chat.js` | Loaded on every page. Adds the "Ask us" chat button and panel, which post to `api/chat.php`. On the home page the panel sits inside the "Ask the Alibi" section (`[data-chat-embed]`), and `[data-ask]` buttons send their question. It renders cards (shows, party packages, food order, "Talk to our team") and follow-up suggestions from the reply. The conversation is kept for the browser tab (`sessionStorage`, `alibi-chat-v1`). Dishes ordered in the chat go into the same cart as `order.js` (through `window.alibiOrder`, or `localStorage` on other pages) |
 
 All scripts are plain ES2017+ with no dependencies. Each one checks for its
 container element and exits quietly on pages that don't have it.

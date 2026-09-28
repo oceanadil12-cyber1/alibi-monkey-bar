@@ -21,6 +21,7 @@ require_once __DIR__ . '/lib.php';
 require_once __DIR__ . '/menu.php'; // load_menu()
 require_once __DIR__ . '/chat-order.php'; // the add_to_order tool
 require_once __DIR__ . '/chat-log.php';   // chat history (read with api/chats.php)
+require_once __DIR__ . '/chat-cards.php'; // show / package cards and follow-up suggestions
 
 const CHAT_MAX_MESSAGES = 12;   // history sent to the AI (older turns are dropped)
 const CHAT_MAX_USER_CHARS = 600;
@@ -75,10 +76,11 @@ function weekly_lineup(): array
 {
     static $lineup = null;
     if ($lineup !== null) return $lineup;
-    $lineup = ['days' => [], 'note' => ''];
+    $lineup = ['days' => [], 'note' => '', 'shows' => []];
     $x = load_page('events.html');
     if (!$x) return $lineup;
     foreach ($x->query('//div[' . has_class('ev-day') . '][@data-day]') as $day) {
+        $dayName = text_of($x->query('.//h3', $day)->item(0));
         $shows = [];
         foreach ($x->query('.//article[' . has_class('ev-card') . ']', $day) as $card) {
             $time = text_of($x->query('.//*[' . has_class('ev-time') . ']', $card)->item(0));
@@ -87,9 +89,15 @@ function weekly_lineup(): array
             $desc = text_of($x->query('.//*[' . has_class('ev-desc') . ']', $card)->item(0));
             $tags = [];
             foreach ($x->query('.//*[' . has_class('ev-tags') . ']/li', $card) as $li) $tags[] = text_of($li);
+            $img = $x->query('.//img', $card)->item(0);
             $shows[] = "$time $name" . ($host ? ", $host" : '') . ". $desc" . ($tags ? ' (' . implode(', ', $tags) . ')' : '');
+            // The same show as data, for the show cards in the chat (chat-cards.php).
+            $lineup['shows'][] = [
+                'day' => $dayName, 'time' => $time, 'name' => $name, 'host' => $host, 'tags' => $tags,
+                'image' => $img instanceof DOMElement ? $img->getAttribute('src') : '',
+            ];
         }
-        $lineup['days'][text_of($x->query('.//h3', $day)->item(0))] = $shows;
+        $lineup['days'][$dayName] = $shows;
     }
     $lineup['note'] = text_of($x->query('//*[' . has_class('ev-note') . ']')->item(0));
     return $lineup;
@@ -284,6 +292,7 @@ const CHAT_REMINDERS = <<<'TXT'
 - Only help with the Alibi. For anything else (poems, stories, jokes, general knowledge, homework, code), reply in one sentence that you can only help with questions about the Alibi, and write nothing else.
 - Prices: always give the regular menu price. Happy Hour prices apply only 4:00-6:45 PM; mention them only as an extra.
 - Groups of 8 or more: ask them to call (954) 565-2526.
+- Say "tonight" only for the shows listed as tonight's shows in the website note. For any other day, name the day.
 - Only state facts written above. If they don't answer the question, say you're not sure and suggest calling.
 - Never ask for card or payment details in the chat.
 TXT;
@@ -618,5 +627,10 @@ if ($reply === '') $reply = $cart
     : "Sorry, I didn't catch that. Could you ask another way? You can also call us at (954) 565-2526.";
 
 log_chat(chat_log_cid($in['cid'] ?? null), end($messages)['content'], $reply, $usage, microtime(true) - $start, array_column($cart, 'label'));
+$question = end($messages)['content'];
+$cards = chat_cards($question, $reply);
 // Cart lines go to the browser, which adds them to the site's normal cart (js/order.js).
-send_json(['ok' => true, 'reply' => $reply] + ($cart ? ['cart' => $cart] : []));
+send_json(['ok' => true, 'reply' => $reply]
+    + ($cart ? ['cart' => $cart] : [])
+    + ($cards ? ['cards' => $cards] : [])
+    + ['suggestions' => chat_suggestions($question, $reply, chat_topics($messages), $cards, (bool) $cart)]);
