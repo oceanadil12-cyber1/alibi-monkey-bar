@@ -84,36 +84,66 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(script);
   });
 
-  // Happy Hour (daily 4:00–6:45 PM, restaurant time): "happening now" status
-  // for the home-page ticker and the menu-page Happy Hour section.
-  const hhEls = document.querySelectorAll('[data-hh-status]');
-  const updateHappyHour = () => {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
-    const mins = Number(parts.find(p => p.type === 'hour').value) * 60 + Number(parts.find(p => p.type === 'minute').value);
-    const live = mins >= 16 * 60 && mins < 18 * 60 + 45;
-    hhEls.forEach(el => {
-      el.classList.toggle('is-live', live);
-      const bar = el.closest('.hh-ticker');
-      if (bar) bar.classList.toggle('is-live', live);
-      if (live) {
-        el.textContent = 'Happy Hour is on now · until 6:45 PM';
-        el.hidden = false;
-      } else if (el.dataset.hhIdle) {
-        el.innerHTML = el.dataset.hhIdle;
-      } else {
-        el.hidden = true;
-      }
-    });
-  };
-  if (hhEls.length) {
-    updateHappyHour();
-    setInterval(updateHappyHour, 60000);
-  }
+  // Happy Hour: content, hours and ticker on/off come from api/happy-hour.php
+  // (editable in the admin). The static markup already in the page is the
+  // fallback used if that can't be reached (e.g. the static preview).
+  (function initHappyHour() {
+    let startMin = 16 * 60, endMin = 18 * 60 + 45, untilLabel = 'until 6:45 PM';
+    const esc = (s) => { const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; };
+    const money = (p) => '$' + String(p).replace(/^\$/, '');
 
-  // Duplicate the ticker items so the scroll loops seamlessly.
-  document.querySelectorAll('.hh-ticker-items').forEach(list => {
-    list.parentNode.appendChild(list.cloneNode(true));
-  });
+    function renderFromConfig(hh) {
+      document.querySelectorAll('.hh-ticker').forEach((bar) => {
+        if (!hh.enabled || !hh.tickerEnabled) { bar.remove(); return; }
+        const idle = bar.querySelector('[data-hh-status]');
+        if (idle) idle.dataset.hhIdle = hh.tickerLabel;
+        const items = bar.querySelector('.hh-ticker-items');
+        if (items) {
+          const cheapest = hh.sides.map((s) => parseFloat(s.price)).filter((n) => !isNaN(n)).sort((a, b) => a - b)[0];
+          let html = hh.items.map((i) => `<span>${esc(i.name)} <b>${money(i.price)}</b></span>`).join('');
+          if (cheapest != null) html += `<span>Sides from <b>${money(cheapest)}</b></span>`;
+          html += '<span class="hh-ticker-cta">See the Happy Hour menu →</span>';
+          items.innerHTML = html;
+        }
+      });
+      const section = document.getElementById('happy-hour');
+      if (section) {
+        if (!hh.enabled) { section.hidden = true; }
+        else {
+          const label = section.querySelector('.section-label');
+          if (label) label.textContent = hh.timeLabel;
+          const note = section.querySelector('.happy-hour-head p');
+          if (note) note.textContent = hh.note;
+          const list = section.querySelector('.menu-items');
+          if (list) list.innerHTML = hh.items.map((i) => `<div class="menu-item"><div class="menu-item-info"><h4>${esc(i.name)}</h4>${i.desc ? `<p>${esc(i.desc)}</p>` : ''}</div><div class="menu-item-price"><span>${money(i.price)}</span></div></div>`).join('');
+          const sides = section.querySelector('.happy-hour-sides');
+          if (sides) sides.innerHTML = hh.sides.map((s) => `<span>${esc(s.name)} <strong>${money(s.price)}</strong></span>`).join('');
+        }
+      }
+      startMin = hh.startMin; endMin = hh.endMin; untilLabel = hh.untilLabel;
+    }
+
+    const updateStatus = () => {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+      const mins = Number(parts.find((p) => p.type === 'hour').value) * 60 + Number(parts.find((p) => p.type === 'minute').value);
+      const live = mins >= startMin && mins < endMin;
+      document.querySelectorAll('[data-hh-status]').forEach((el) => {
+        el.classList.toggle('is-live', live);
+        const bar = el.closest('.hh-ticker');
+        if (bar) bar.classList.toggle('is-live', live);
+        if (live) { el.textContent = 'Happy Hour is on now · ' + untilLabel; el.hidden = false; }
+        else if (el.dataset.hhIdle) { el.innerHTML = el.dataset.hhIdle; }
+        else { el.hidden = true; }
+      });
+    };
+
+    const duplicateTicker = () => document.querySelectorAll('.hh-ticker-items').forEach((list) => {
+      if (!list.dataset.cloned) { list.dataset.cloned = '1'; list.parentNode.appendChild(list.cloneNode(true)); }
+    });
+
+    const finish = () => { updateStatus(); setInterval(updateStatus, 60000); duplicateTicker(); };
+    fetch('api/happy-hour.php').then((r) => r.ok ? r.json() : Promise.reject()).then((hh) => { renderFromConfig(hh); finish(); }).catch(finish);
+  })();
 
   // Mobile menu toggle
   const menuToggle = document.querySelector('.menu-toggle');

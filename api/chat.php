@@ -127,17 +127,18 @@ function menu_items(DOMXPath $x, DOMNode $block): string
     return $out;
 }
 
-/** The Happy Hour menu from menu.html. */
+/** The Happy Hour menu, from the editable settings (api/happy-hour.php). */
 function happy_hour_facts(): string
 {
-    $x = load_page('menu.html');
-    $hh = $x ? $x->query('//*[@id="happy-hour"]')->item(0) : null;
-    if (!$hh) return '';
-    $when = text_of($x->query('.//*[' . has_class('section-label') . ']', $hh)->item(0));
-    $out = "## Happy Hour menu ($when only; dine-in specials, on /menu.html#happy-hour)\n"
-        . "These are special Happy Hour prices and portions. At other times the regular food menu prices apply. When asked a price, give the regular price first, then mention the Happy Hour deal if there is one.\n"
-        . menu_items($x, $hh);
-    foreach ($x->query('.//*[' . has_class('happy-hour-sides') . ']/span', $hh) as $side) $out .= '- ' . text_of($side) . "\n";
+    require_once __DIR__ . '/happy-hour.php';
+    $hh = happy_hour_public();
+    if (!$hh['enabled'] || (!$hh['items'] && !$hh['sides'])) return '';
+    $out = "## Happy Hour menu ({$hh['timeLabel']} only; dine-in specials, on /menu.html#happy-hour)\n"
+        . "These are special Happy Hour prices and portions. At other times the regular food menu prices apply. When asked a price, give the regular price first, then mention the Happy Hour deal if there is one.\n";
+    foreach ($hh['items'] as $i) {
+        $out .= '- ' . $i['name'] . ': $' . ltrim($i['price'], '$') . ($i['desc'] !== '' ? '. ' . $i['desc'] : '') . "\n";
+    }
+    foreach ($hh['sides'] as $s) $out .= '- ' . $s['name'] . ': $' . ltrim($s['price'], '$') . "\n";
     return $out;
 }
 

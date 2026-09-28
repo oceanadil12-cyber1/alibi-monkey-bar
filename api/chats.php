@@ -13,6 +13,7 @@ require_once __DIR__ . '/lib.php';
 require_once __DIR__ . '/chat-log.php';
 require_once __DIR__ . '/menu.php';          // load_menu_base(), apply_menu_overrides()
 require_once __DIR__ . '/menu-overrides.php'; // read/write local menu overrides
+require_once __DIR__ . '/happy-hour.php';     // happy_hour_data(), write_happy_hour()
 
 header('X-Robots-Tag: noindex, nofollow');
 header('Cache-Control: no-store');
@@ -304,6 +305,89 @@ function item_editor_html(array $item, array $o, string $csrf, bool $saved): str
         . '<h2 style="margin-top:22px">Options</h2><p class="muted">Re-price or hide individual choices, or hide a whole group.</p>'
         . $groups
         . '<div class="fbar"><button type="submit" class="fsave">Save item</button></div></form>';
+}
+
+// ---------- Happy Hour tab ----------
+
+/** "$6.99" / "6" → "6.99" / "6" (digits and one dot); '' otherwise. */
+function hh_clean_price(string $s): string
+{
+    $s = preg_replace('/[^0-9.]/', '', $s);
+    return preg_match('/^\d+(\.\d{1,2})?$/', $s) ? $s : '';
+}
+
+/** "16:00" kept; invalid → fallback. */
+function hh_clean_time(string $s, string $fallback): string
+{
+    return preg_match('/^(\d{1,2}):(\d{2})$/', trim($s), $m) && (int) $m[1] < 24 && (int) $m[2] < 60
+        ? sprintf('%02d:%02d', (int) $m[1], (int) $m[2]) : $fallback;
+}
+
+/** Save the Happy Hour form to happy-hour.json. */
+function save_happy_hour(): void
+{
+    $items = [];
+    foreach ((array) ($_POST['hhname'] ?? []) as $k => $n) {
+        $n = trim(mb_substr((string) $n, 0, 60));
+        if ($n === '') continue;
+        $items[] = ['name' => $n, 'desc' => trim(mb_substr((string) ($_POST['hhdesc'][$k] ?? ''), 0, 90)), 'price' => hh_clean_price((string) ($_POST['hhprice'][$k] ?? ''))];
+    }
+    $sides = [];
+    foreach ((array) ($_POST['sidename'] ?? []) as $k => $n) {
+        $n = trim(mb_substr((string) $n, 0, 60));
+        if ($n === '') continue;
+        $sides[] = ['name' => $n, 'price' => hh_clean_price((string) ($_POST['sideprice'][$k] ?? ''))];
+    }
+    write_happy_hour([
+        'enabled'       => !empty($_POST['enabled']),
+        'tickerEnabled' => !empty($_POST['tickerEnabled']),
+        'start'         => hh_clean_time((string) ($_POST['start'] ?? ''), '16:00'),
+        'end'           => hh_clean_time((string) ($_POST['end'] ?? ''), '18:45'),
+        'note'          => trim(mb_substr((string) ($_POST['note'] ?? ''), 0, 200)),
+        'items'         => $items,
+        'sides'         => $sides,
+    ]);
+}
+
+/** The Happy Hour tab body. */
+function happy_hour_html(array $hh, string $csrf, bool $saved): string
+{
+    // Existing rows plus a few blank ones to add more.
+    $items = $hh['items'];
+    for ($i = 0; $i < 3; $i++) $items[] = ['name' => '', 'desc' => '', 'price' => ''];
+    $sides = $hh['sides'];
+    for ($i = 0; $i < 2; $i++) $sides[] = ['name' => '', 'price' => ''];
+
+    $itemRows = '';
+    foreach ($items as $k => $it) {
+        $itemRows .= '<tr>'
+            . '<td><input name="hhname[' . $k . ']" value="' . h($it['name']) . '" maxlength="60" placeholder="Item name"></td>'
+            . '<td><input name="hhdesc[' . $k . ']" value="' . h($it['desc']) . '" maxlength="90" placeholder="Short description (optional)"></td>'
+            . '<td><span class="fp-in">$<input name="hhprice[' . $k . ']" value="' . h($it['price']) . '" inputmode="decimal" placeholder="0"></span></td></tr>';
+    }
+    $sideRows = '';
+    foreach ($sides as $k => $s) {
+        $sideRows .= '<tr>'
+            . '<td><input name="sidename[' . $k . ']" value="' . h($s['name']) . '" maxlength="60" placeholder="Side name"></td>'
+            . '<td><span class="fp-in">$<input name="sideprice[' . $k . ']" value="' . h($s['price']) . '" inputmode="decimal" placeholder="0"></span></td></tr>';
+    }
+
+    return '<h1>Happy Hour</h1>'
+        . '<p class="muted">The Happy Hour menu, its time, and the scrolling ticker across the site. Leave an item\'s name blank to drop it; blank rows at the end are for adding new items. Prices in dollars.</p>'
+        . ($saved ? '<div class="fsaved">&#10003; Saved. The website updates on the next page load.</div>' : '')
+        . '<form method="post" action="?view=happy"><input type="hidden" name="csrf" value="' . h($csrf) . '">'
+        . '<section class="fadd"><h2>Settings</h2><div class="fadd-grid">'
+        . '<label class="fchk fa-chk"><input type="checkbox" name="enabled" value="1" ' . (!empty($hh['enabled']) ? 'checked' : '') . '> Show Happy Hour</label>'
+        . '<label class="fchk fa-chk"><input type="checkbox" name="tickerEnabled" value="1" ' . (!empty($hh['tickerEnabled']) ? 'checked' : '') . '> Show the ticker</label>'
+        . '<label class="fa fa-sm"><span>Start</span><input type="time" name="start" value="' . h($hh['start']) . '"></label>'
+        . '<label class="fa fa-sm"><span>End</span><input type="time" name="end" value="' . h($hh['end']) . '"></label>'
+        . '<label class="fa fa-wide"><span>Intro line</span><input name="note" value="' . h($hh['note']) . '" maxlength="200"></label>'
+        . '</div></section>'
+        . '<section class="fadd"><h2>Items</h2>'
+        . '<div class="table"><table class="ftable"><thead><tr><th>Name</th><th>Description</th><th>Price</th></tr></thead><tbody>' . $itemRows . '</tbody></table></div></section>'
+        . '<section class="fadd"><h2>Sides</h2>'
+        . '<div class="table"><table class="ftable"><thead><tr><th>Name</th><th>Price</th></tr></thead><tbody>' . $sideRows . '</tbody></table></div></section>'
+        . '<div class="fbar"><button type="submit" class="fsave">Save Happy Hour</button></div></form>';
 }
 
 /** The Food tab body: a form to hide / re-price / restrict / surcharge each item. */
@@ -723,7 +807,7 @@ if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 // Food & menu tab (edit the Square menu locally: hide/price/pickup/surcharge/prep).
 if (($_GET['view'] ?? '') === 'food') {
     $base = load_menu_base();
-    $navF = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food" class="on">Food</a><a href="?view=settings">Settings</a></nav>';
+    $navF = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food" class="on">Food</a><a href="?view=settings">Settings</a><a href="?view=happy">Happy Hour</a></nav>';
 
     // Per-item options editor (?view=food&item=<id>).
     if (isset($_GET['item'])) {
@@ -761,8 +845,19 @@ if (($_GET['view'] ?? '') === 'settings') {
     }
     $menuS = load_menu();
     $store = $menuS ? ($menuS['store'] ?? []) : [];
-    $navS = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food">Food</a><a href="?view=settings" class="on">Settings</a></nav>';
+    $navS = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food">Food</a><a href="?view=settings" class="on">Settings</a><a href="?view=happy">Happy Hour</a></nav>';
     page('Settings', $navS . settings_html($store, $_SESSION['csrf'], isset($_GET['saved'])));
+}
+
+// Happy Hour tab (menu items/prices, time, ticker on/off).
+if (($_GET['view'] ?? '') === 'happy') {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        if (hash_equals($_SESSION['csrf'], (string) ($_POST['csrf'] ?? ''))) save_happy_hour();
+        header('Location: ?view=happy&saved=1');
+        exit;
+    }
+    $navH = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food">Food</a><a href="?view=settings">Settings</a><a href="?view=happy" class="on">Happy Hour</a></nav>';
+    page('Happy Hour', $navH . happy_hour_html(happy_hour_data(), $_SESSION['csrf'], isset($_GET['saved'])));
 }
 
 // Spreadsheet download.
@@ -870,7 +965,7 @@ $dateForm = '<form class="dates" method="get">' . ($view === 'insights' ? '<inpu
 
 $nav = '<nav class="views"><a href="?' . $period . '"' . ($view === 'list' ? ' class="on"' : '') . '>Conversations</a>'
     . '<a href="?' . $period . '&amp;view=insights"' . ($view === 'insights' ? ' class="on"' : '') . '>Insights</a>'
-    . '<a href="?view=food">Food</a><a href="?view=settings">Settings</a></nav>';
+    . '<a href="?view=food">Food</a><a href="?view=settings">Settings</a><a href="?view=happy">Happy Hour</a></nav>';
 
 if ($view === 'insights') {
     require_once __DIR__ . '/chat-insights.php';
