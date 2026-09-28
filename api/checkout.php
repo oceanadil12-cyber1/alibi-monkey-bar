@@ -200,8 +200,26 @@ function totals_from(array $order): array
 
 $action = $req['action'] ?? '';
 [$lines, $subtotal] = validate_cart($req['cart'] ?? [], $menu);
-$fulfillment = validate_fulfillment($req['fulfillment'] ?? [], $store, $subtotal, $action === 'pay');
-$fee = $fulfillment['type'] === 'delivery' ? $store['deliveryFee'] : 0;
+$fulfillment = validate_fulfillment($req['fulfillment'] ?? [], $store, $subtotal, in_array($action, ['pay', 'place'], true));
+
+// Local per-item rules (from the Food admin tab): pickup-only items, per-item
+// delivery surcharges, and per-item prep time.
+$fee = 0;
+$prepMinutes = (int) $store['prepMinutes'];
+foreach ($lines as $l) {
+    $prepMinutes = max($prepMinutes, (int) ($l['item']['prepMinutes'] ?? 0));
+}
+if ($fulfillment['type'] === 'delivery') {
+    foreach ($lines as $l) {
+        if (!empty($l['item']['pickupOnly'])) fail($l['item']['name'] . ' is available for pickup only. Please switch to pickup or remove it.');
+    }
+    $fee = (int) $store['deliveryFee'];
+    $seen = [];
+    foreach ($lines as $l) {
+        $id = $l['item']['id'];
+        if (!empty($l['item']['deliveryFee']) && !isset($seen[$id])) { $fee += (int) $l['item']['deliveryFee']; $seen[$id] = true; }
+    }
+}
 
 if ($action === 'quote') {
     if (cod_mode()) {
@@ -290,7 +308,7 @@ if ($action === 'place') {
         'orderNumber' => $number,
         'totals'      => ['subtotal' => $subtotal, 'deliveryFee' => $fee, 'tax' => null, 'total' => $total],
         'fulfillment' => $fulfillment['type'],
-        'readyInMinutes' => $store['prepMinutes'],
+        'readyInMinutes' => $prepMinutes,
     ]);
 }
 

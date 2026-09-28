@@ -11,6 +11,8 @@
  */
 require_once __DIR__ . '/lib.php';
 require_once __DIR__ . '/chat-log.php';
+require_once __DIR__ . '/menu.php';          // load_menu_base(), apply_menu_overrides()
+require_once __DIR__ . '/menu-overrides.php'; // read/write local menu overrides
 
 header('X-Robots-Tag: noindex, nofollow');
 header('Cache-Control: no-store');
@@ -41,6 +43,92 @@ function reservation_intent(array $c): ?array
         }
     }
     return null;
+}
+
+// ---------- Food tab ----------
+
+/** "15.99" or "$15.99" → 1599 cents; '' or non-numeric → null. */
+function dollars_to_cents(string $s): ?int
+{
+    $s = trim(str_replace(['$', ','], '', $s));
+    if ($s === '' || !is_numeric($s)) return null;
+    return (int) round(((float) $s) * 100);
+}
+
+/** Save the submitted Food form to the overrides file (only non-default values). */
+function save_food_overrides(array $base): void
+{
+    $basePrice = [];
+    foreach ($base['items'] as $id => $it) {
+        foreach ($it['variations'] as $v) $basePrice[$id][$v['id']] = (int) $v['price'];
+    }
+    $out = ['items' => []];
+    foreach (array_map('strval', (array) ($_POST['ids'] ?? [])) as $id) {
+        if (!isset($base['items'][$id])) continue;
+        $o = [];
+        if (!isset($_POST['avail'][$id])) $o['hidden'] = true;
+        if (!empty($_POST['pickup'][$id])) $o['pickupOnly'] = true;
+        $dfee = dollars_to_cents((string) ($_POST['dfee'][$id] ?? ''));
+        if ($dfee) $o['deliveryFee'] = $dfee;
+        $prep = (int) ($_POST['prep'][$id] ?? 0);
+        if ($prep > 0) $o['prepMinutes'] = min(600, $prep);
+        foreach ((array) ($_POST['price'][$id] ?? []) as $vid => $dollars) {
+            $c = dollars_to_cents((string) $dollars);
+            $b = $basePrice[$id][(string) $vid] ?? null;
+            if ($c !== null && $b !== null && $c !== $b) $o['prices'][(string) $vid] = $c;
+        }
+        if ($o) $out['items'][$id] = $o;
+    }
+    write_menu_overrides($out);
+}
+
+/** The Food tab body: a form to hide / re-price / restrict / surcharge each item. */
+function food_html(array $base, array $over, string $csrf, bool $saved): string
+{
+    $ov = $over['items'];
+    $money = fn($c) => '$' . number_format($c / 100, 2);
+    $storePrep = (int) ($base['store']['prepMinutes'] ?? 25);
+    $rows = '';
+    $count = 0;
+    foreach ($base['categories'] as $cat) {
+        $items = '';
+        foreach ($cat['itemIds'] as $id) {
+            $it = $base['items'][$id] ?? null;
+            if (!$it) continue;
+            $count++;
+            $o = $ov[$id] ?? [];
+            $hidden = !empty($o['hidden']);
+            $priceInputs = '';
+            foreach ($it['variations'] as $v) {
+                $cur = $o['prices'][$v['id']] ?? $v['price'];
+                $label = $v['name'] !== 'Regular' ? h($v['name']) : 'Price';
+                $priceInputs .= '<label class="fp"><span class="fp-lbl">' . $label . '</span>'
+                    . '<span class="fp-in">$<input inputmode="decimal" name="price[' . h($id) . '][' . h($v['id']) . ']" value="' . number_format($cur / 100, 2, '.', '') . '"></span>'
+                    . '<small>Square ' . $money($v['price']) . '</small></label>';
+            }
+            $items .= '<tr class="' . ($hidden ? 'is-off' : '') . '">'
+                . '<td><label class="fsw"><input type="checkbox" name="avail[' . h($id) . ']" value="1" ' . ($hidden ? '' : 'checked') . '><span></span></label></td>'
+                . '<td class="fname"><strong>' . h($it['name']) . '</strong>'
+                . (!empty($it['soldOut']) ? ' <span class="fbadge">sold out on Square</span>' : '') . '</td>'
+                . '<td class="fprices">' . $priceInputs . '</td>'
+                . '<td><label class="fchk"><input type="checkbox" name="pickup[' . h($id) . ']" value="1" ' . (!empty($o['pickupOnly']) ? 'checked' : '') . '> Pickup only</label></td>'
+                . '<td><span class="fp-in">$<input inputmode="decimal" name="dfee[' . h($id) . ']" value="' . (!empty($o['deliveryFee']) ? number_format($o['deliveryFee'] / 100, 2, '.', '') : '') . '" placeholder="0.00"></span></td>'
+                . '<td class="fprep"><input inputmode="numeric" name="prep[' . h($id) . ']" value="' . (!empty($o['prepMinutes']) ? (int) $o['prepMinutes'] : '') . '" placeholder="' . $storePrep . '"> min</td>'
+                . '<input type="hidden" name="ids[]" value="' . h($id) . '"></tr>';
+        }
+        if ($items) $rows .= '<tr class="fcat"><td colspan="6">' . h($cat['name']) . '</td></tr>' . $items;
+    }
+
+    return '<h1>Food &amp; menu</h1>'
+        . '<p class="muted">Live from your Square store; changes here apply on top of it, for the website only. Orders are cash on delivery, so the price you set is what the guest pays. Turn an item off to hide it; blank price keeps the Square price; blank prep uses the store default (' . $storePrep . ' min).</p>'
+        . ($saved ? '<div class="fsaved">&#10003; Saved. The website updates within a couple of minutes.</div>' : '')
+        . '<form class="ffood" method="post" action="?view=food">'
+        . '<input type="hidden" name="csrf" value="' . h($csrf) . '">'
+        . '<div class="fbar"><span class="muted">' . $count . ' items</span><button type="submit" class="fsave">Save changes</button></div>'
+        . '<div class="table"><table class="ftable"><thead><tr><th>On</th><th>Item</th><th>Price</th><th>Fulfillment</th><th>Delivery surcharge</th><th>Prep time</th></tr></thead><tbody>'
+        . $rows
+        . '</tbody></table></div>'
+        . '<div class="fbar"><button type="submit" class="fsave">Save changes</button></div></form>';
 }
 
 function page(string $title, string $body): void
@@ -177,6 +265,31 @@ form.login button { width: 100%; padding: 12px; border: none; border-radius: 10p
 .quotes small { flex: none; color: var(--muted); }
 .empty-sm { color: var(--muted); font-size: 13px; margin: 4px 0; }
 code { background: #111; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+/* Food tab */
+.fbar { display: flex; align-items: center; gap: 12px; margin: 14px 0; }
+.fsave { margin-left: auto; padding: 10px 20px; border: none; border-radius: 999px; background: linear-gradient(180deg, var(--gold-light), var(--gold)); color: #111; font-weight: 700; font-size: 14px; cursor: pointer; }
+.fsaved { margin: 14px 0; padding: 11px 15px; border-radius: 12px; background: rgba(120,200,120,.12); border: 1px solid rgba(120,200,120,.4); color: #a6e0a6; font-size: 13.5px; }
+.ftable { min-width: 880px; }
+.ftable td { vertical-align: middle; }
+tr.fcat td { background: var(--bg-2); color: var(--gold-light); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; font-size: 11.5px; padding: 9px 16px; }
+tr.is-off { opacity: .5; }
+.fname strong { font-size: 13.5px; }
+.fbadge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #3a1414; color: #f0a0a0; font-size: 11px; }
+.fprices { display: flex; flex-wrap: wrap; gap: 10px; }
+.fp { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); }
+.fp-lbl { font-weight: 600; }
+.fp-in { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-size: 13px; }
+.fp-in input, .fprep input { width: 74px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; background: #0f0f10; color: var(--text); font-size: 13px; color-scheme: dark; }
+.fprep input { width: 56px; }
+.fp small { color: var(--muted-2); font-size: 10.5px; }
+.fchk { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+/* on/off switch */
+.fsw { position: relative; display: inline-block; width: 40px; height: 22px; cursor: pointer; }
+.fsw input { position: absolute; opacity: 0; }
+.fsw span { position: absolute; inset: 0; background: #33333a; border-radius: 999px; transition: background .15s ease; }
+.fsw span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #cfcfcf; transition: transform .15s ease; }
+.fsw input:checked + span { background: var(--gold); }
+.fsw input:checked + span::after { transform: translateX(18px); background: #111; }
 CSS;
 
 // ---------- Insights tab ----------
@@ -307,6 +420,21 @@ $period = $rangeMode ? ('from=' . $from . '&amp;to=' . $to) : ('days=' . $days);
 $effFrom = $rangeMode ? $from : date('Y-m-d', strtotime('-' . ($days - 1) . ' days'));
 $effTo   = $rangeMode ? $to : date('Y-m-d');
 
+if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
+
+// Food & menu tab (edit the Square menu locally: hide/price/pickup/surcharge/prep).
+if (($_GET['view'] ?? '') === 'food') {
+    $base = load_menu_base();
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        if ($base && hash_equals($_SESSION['csrf'], (string) ($_POST['csrf'] ?? ''))) save_food_overrides($base);
+        header('Location: ?view=food&saved=1'); // post/redirect/get: no resubmit on refresh
+        exit;
+    }
+    $navF = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food" class="on">Food</a></nav>';
+    if (!$base) page('Food', $navF . '<h1>Food &amp; menu</h1><p class="empty">The Square menu is temporarily unavailable. Please try again shortly.</p>');
+    page('Food', $navF . food_html($base, read_menu_overrides(), $_SESSION['csrf'], isset($_GET['saved'])));
+}
+
 // Spreadsheet download.
 if (isset($_GET['csv'])) {
     header('Content-Type: text/csv; charset=utf-8');
@@ -411,7 +539,8 @@ $dateForm = '<form class="dates" method="get">' . ($view === 'insights' ? '<inpu
     . ($rangeMode ? '<a class="clear" href="?days=30' . ($view === 'insights' ? '&amp;view=insights' : '') . '">Clear</a>' : '') . '</form>';
 
 $nav = '<nav class="views"><a href="?' . $period . '"' . ($view === 'list' ? ' class="on"' : '') . '>Conversations</a>'
-    . '<a href="?' . $period . '&amp;view=insights"' . ($view === 'insights' ? ' class="on"' : '') . '>Insights</a></nav>';
+    . '<a href="?' . $period . '&amp;view=insights"' . ($view === 'insights' ? ' class="on"' : '') . '>Insights</a>'
+    . '<a href="?view=food">Food</a></nav>';
 
 if ($view === 'insights') {
     require_once __DIR__ . '/chat-insights.php';

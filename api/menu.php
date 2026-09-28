@@ -9,6 +9,7 @@
  * CLI:  php api/menu.php --snapshot   rebuilds data/menu.json
  */
 require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/menu-overrides.php';
 
 const SNAPSHOT = __DIR__ . '/../data/menu.json';
 
@@ -228,8 +229,8 @@ function build_menu(): ?array
     ];
 }
 
-/** Menu for the rest of the API (cache → live → snapshot). */
-function load_menu(bool $forceRefresh = false): ?array
+/** The Square menu with no local overrides (cache → live → snapshot). */
+function load_menu_base(bool $forceRefresh = false): ?array
 {
     $ttl = max(1, (int) config()['menu_cache_mins']) * 60;
     if (!$forceRefresh && ($cached = cache_read('menu', $ttl))) return $cached;
@@ -240,6 +241,13 @@ function load_menu(bool $forceRefresh = false): ?array
     }
     if ($cached = cache_read('menu', PHP_INT_MAX)) return $cached;
     return is_file(SNAPSHOT) ? json_decode((string) file_get_contents(SNAPSHOT), true) : null;
+}
+
+/** Menu for the rest of the API, with the restaurant's local overrides applied. */
+function load_menu(bool $forceRefresh = false): ?array
+{
+    $menu = load_menu_base($forceRefresh);
+    return $menu ? apply_menu_overrides($menu) : null;
 }
 
 // Only act as an endpoint when requested directly (checkout.php includes this file).
