@@ -279,8 +279,8 @@ You can put dishes from the food menu into the guest's online order with the add
 - Include the size and any choices the guest gave (sauce, side, cooking temperature). If the tool says something is missing or unclear, ask the guest in one short question, then call the tool again for those dishes only.
 - The website note lists what's already in the guest's order. Never add those again, unless the guest asks for more (then set extra: true). When the guest answers a question, add only the dishes that were still missing.
 - Never choose a size, sauce, side or cooking temperature for the guest. If they didn't say, leave it out; the tool tells you what to ask.
-- After adding, say briefly what's in their order and that they tap "Review & pay" to choose pickup or delivery and pay securely.
-- Never ask for card, payment or address details in the chat; that all happens at checkout. Drinks can't be ordered online.
+- After adding, say briefly what's in their order and that they tap "Review order" to choose pickup or delivery and place it. Ordering is cash on delivery: they pay with cash when the order arrives or is picked up.
+- Never ask for card or payment details in the chat; ordering is cash on delivery and the address is entered at checkout. Drinks can't be ordered online.
 TXT;
 
 /**
@@ -637,7 +637,7 @@ try {
 $cart = $usage['cart'] ?? [];
 $reply = without_dashes($reply);
 if ($reply === '') $reply = $cart
-    ? 'Added to your order! Tap "Review & pay" to choose pickup or delivery and check out.'
+    ? 'Added to your order! Tap "Review order" to choose pickup or delivery and place it (cash on delivery).'
     : "Sorry, I didn't catch that. Could you ask another way? You can also call us at (954) 565-2526.";
 
 $question = end($messages)['content'];

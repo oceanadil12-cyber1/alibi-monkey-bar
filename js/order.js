@@ -438,6 +438,7 @@
     const a = f.address;
     const c = state.customer;
     const payments = state.menu.paymentsEnabled;
+    const cod = state.menu.codMode;
     panel.innerHTML = `
       <div class="order-drawer-head">
         <button type="button" class="order-back" data-back>&larr; Order</button>
@@ -455,7 +456,7 @@
         ${field('order-name', 'Full name', c.name, 'autocomplete="name" required')}
         <div class="order-field-row">
           ${field('order-phone', 'Phone', c.phone, 'type="tel" autocomplete="tel" required')}
-          ${field('order-email', 'Email', c.email, 'type="email" autocomplete="email" required')}
+          ${field('order-email', cod ? 'Email (optional)' : 'Email', c.email, 'type="email" autocomplete="email"' + (cod ? '' : ' required'))}
         </div>
 
         ${f.type === 'delivery' ? `
@@ -468,6 +469,7 @@
           </div>
           ${field('order-instr', 'Delivery instructions (optional)', a.instructions, 'maxlength="200"')}` : ''}
 
+        ${payments ? `
         <h4>Add a tip</h4>
         <div class="order-tips">
           ${TIP_OPTIONS.map((p) => `<button type="button" data-tip="${p}">${p ? p + '%' : 'No tip'}</button>`).join('')}
@@ -475,23 +477,29 @@
         </div>
         <label class="order-field order-tip-custom" ${state.tipPercent === 'custom' ? '' : 'hidden'}>
           <span>Tip amount ($)</span><input id="order-tip-custom" inputmode="decimal" value="${esc(state.tipCustom)}">
-        </label>
+        </label>` : ''}
 
         <div class="order-summary"></div>
 
         ${payments ? `
           <h4>Payment</h4>
           <div id="order-card" class="order-card-field"></div>
-          <p class="order-secure">Payments are processed securely by Square. We never see your card number.</p>` : `
+          <p class="order-secure">Payments are processed securely by Square. We never see your card number.</p>`
+        : (cod ? `
+          <div class="order-cod">
+            <strong>&#128181; Cash on delivery</strong>
+            <p>No online payment needed &mdash; pay with cash when your order ${f.type === 'delivery' ? 'is delivered' : 'is picked up'}. Sales tax is added at the restaurant.</p>
+          </div>`
+        : `
           <div class="order-setup">
             <strong>Online payment is being set up.</strong>
             <p>You can still call in this order &mdash; we&rsquo;ll have it ready.</p>
             <a class="btn-outline" href="tel:${esc(s.phone.replace(/\D/g, ''))}">Call ${esc(s.phone)}</a>
-          </div>`}
+          </div>`)}
         <p class="order-error" role="alert" hidden></p>
       </form>
       <div class="order-drawer-foot">
-        <button type="button" class="btn-primary order-go" data-pay ${payments ? '' : 'disabled'}>Place order</button>
+        <button type="button" class="btn-primary order-go" data-pay ${(payments || cod) ? '' : 'disabled'}>Place order</button>
       </div>`;
 
     const form = $('.order-checkout', panel);
@@ -520,9 +528,10 @@
   function renderTotals() {
     const box = $('.order-summary', panel);
     if (!box) return;
+    const cod = state.menu.codMode;
     const q = state.quote && state.quote.totals;
     const sub = q ? q.subtotal : subtotal();
-    const tip = tipAmount();
+    const tip = state.menu.paymentsEnabled ? tipAmount() : 0;
     const fee = q ? q.deliveryFee : 0;
     const tax = q ? q.tax : null;
     const total = (q ? q.total : sub + fee) + tip;
@@ -530,14 +539,20 @@
       ${validLines().map((l) => { const d = describe(l); return `<div class="order-total-row is-item"><span>${l.qty} &times; ${esc(d.item.name)}</span><span>${money(d.total)}</span></div>`; }).join('')}
       <div class="order-total-row"><span>Subtotal</span><span>${money(sub)}</span></div>
       ${state.fulfillment.type === 'delivery' ? `<div class="order-total-row"><span>Delivery</span><span>${fee ? money(fee) : 'Free'}</span></div>` : ''}
-      <div class="order-total-row"><span>Tax</span><span>${tax == null ? (state.menu.paymentsEnabled ? '&hellip;' : 'Calculated at payment') : money(tax)}</span></div>
-      <div class="order-total-row"><span>Tip</span><span>${money(tip)}</span></div>
-      <div class="order-total-row is-total"><span>Total</span><strong>${money(total)}</strong></div>
+      <div class="order-total-row"><span>Tax</span><span>${tax == null ? (state.menu.paymentsEnabled ? '&hellip;' : (cod ? 'Added on delivery' : 'Calculated at payment')) : money(tax)}</span></div>
+      ${state.menu.paymentsEnabled ? `<div class="order-total-row"><span>Tip</span><span>${money(tip)}</span></div>` : ''}
+      <div class="order-total-row is-total"><span>${cod ? 'To pay in cash' : 'Total'}</span><strong>${money(total)}</strong></div>
+      ${cod ? `<p class="order-cod-note">Plus sales tax, paid in cash on ${state.fulfillment.type === 'delivery' ? 'delivery' : 'pickup'}.</p>` : ''}
       ${state.quoteError ? `<p class="order-warn">${esc(state.quoteError)}</p>` : ''}`;
     const pay = $('[data-pay]', panel);
-    if (pay && state.menu.paymentsEnabled) {
-      pay.textContent = state.placing ? 'Placing order…' : `Pay ${money(total)}`;
-      pay.disabled = state.placing || !q || !!state.quoteError;
+    if (pay) {
+      if (cod) {
+        pay.textContent = state.placing ? 'Placing order…' : 'Place order';
+        pay.disabled = state.placing || !validLines().length || !!state.quoteError;
+      } else if (state.menu.paymentsEnabled) {
+        pay.textContent = state.placing ? 'Placing order…' : `Pay ${money(total)}`;
+        pay.disabled = state.placing || !q || !!state.quoteError;
+      }
     }
   }
 
@@ -610,7 +625,10 @@
     const c = state.customer;
     if (!c.name.trim()) return 'Please enter your name.';
     if (c.phone.replace(/\D/g, '').length < 10) return 'Please enter a valid phone number.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim())) return 'Please enter a valid email address.';
+    const email = c.email.trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (state.menu.codMode) { if (email && !emailOk) return 'Please enter a valid email address, or leave it blank.'; }
+    else if (!emailOk) return 'Please enter a valid email address.';
     if (state.fulfillment.type === 'delivery') {
       const a = state.fulfillment.address;
       if (!a.line1.trim() || !a.city.trim() || !a.zip.trim()) return 'Please complete your delivery address.';
@@ -620,14 +638,23 @@
   }
 
   async function placeOrder() {
-    if (state.placing || !state.menu.paymentsEnabled) return;
+    if (state.placing) return;
+    if (!state.menu.codMode && !state.menu.paymentsEnabled) return;
     const problem = validateCheckout();
     if (problem) return showError(problem);
-    if (!state.card) return showError('The payment form is still loading.');
     showError('');
+    const customer = { name: state.customer.name.trim(), phone: state.customer.phone.trim(), email: state.customer.email.trim() };
     state.placing = true;
     renderTotals();
     try {
+      // Cash on delivery: just record the order, no card.
+      if (state.menu.codMode) {
+        const res = await post({ action: 'place', cart: payloadCart(), fulfillment: payloadFulfillment(), customer });
+        if (!res.ok) throw new Error(res.error || 'Your order could not be placed. Please try again.');
+        showDone(res);
+        return;
+      }
+      if (!state.card) { state.placing = false; renderTotals(); return showError('The payment form is still loading.'); }
       const tok = await state.card.tokenize();
       if (tok.status !== 'OK') throw new Error((tok.errors && tok.errors[0] && tok.errors[0].message) || 'Please check your card details.');
       state.payKey = state.payKey || uid(); // same key on retry = no double charge
@@ -635,7 +662,7 @@
         action: 'pay',
         cart: payloadCart(),
         fulfillment: payloadFulfillment(),
-        customer: { name: state.customer.name.trim(), phone: state.customer.phone.trim(), email: state.customer.email.trim() },
+        customer,
         tip: tipAmount(),
         sourceId: tok.token,
         idempotencyKey: state.payKey,
@@ -664,11 +691,12 @@
       <div class="order-drawer-body order-done">
         <div class="order-done-check" aria-hidden="true">&#10003;</div>
         <p class="order-done-num">Order #${esc(res.orderNumber)}</p>
-        <p>We&rsquo;ve received your order and sent a receipt to ${esc(state.customer.email)}.</p>
+        <p>We&rsquo;ve received your order${res.codMode ? ` and called it in to the kitchen${state.customer.email.trim() ? ', and emailed you a copy' : ''}.` : ` and sent a receipt to ${esc(state.customer.email)}.`}</p>
         <p><strong>${res.fulfillment === 'delivery' ? `Estimated delivery in about ${res.readyInMinutes + 20} minutes.` : `Ready for pickup in about ${res.readyInMinutes} minutes at ${esc(s.address)}.`}</strong></p>
         ${res.fulfillment === 'pickup' && s.pickupInstructions ? `<p class="order-done-note">${esc(s.pickupInstructions)}</p>` : ''}
-        <div class="order-total-row is-total"><span>Charged</span><strong>${money(res.totals.charged)}</strong></div>
-        ${res.receiptUrl ? `<a class="btn-outline" href="${esc(res.receiptUrl)}" target="_blank" rel="noopener">View receipt</a>` : ''}
+        ${res.codMode
+          ? `<div class="order-total-row is-total"><span>To pay in cash</span><strong>${money(res.totals.total)}</strong></div><p class="order-done-note">Please have cash ready (plus sales tax) when your order ${res.fulfillment === 'delivery' ? 'is delivered' : 'is picked up'}.</p>`
+          : `<div class="order-total-row is-total"><span>Charged</span><strong>${money(res.totals.charged)}</strong></div>${res.receiptUrl ? `<a class="btn-outline" href="${esc(res.receiptUrl)}" target="_blank" rel="noopener">View receipt</a>` : ''}`}
       </div>
       <div class="order-drawer-foot"><button type="button" class="btn-primary order-go" data-done>Done</button></div>`;
     renderCart();

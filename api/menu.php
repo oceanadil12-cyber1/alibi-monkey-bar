@@ -258,8 +258,9 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
     }
     $menu = load_menu();
     if (!$menu) fail('The menu is temporarily unavailable.', 503);
-    $menu['paymentsEnabled'] = payments_enabled();
-    $menu['applicationId'] = payments_enabled() ? config()['application_id'] : null;
+    $menu['codMode'] = cod_mode();
+    $menu['paymentsEnabled'] = !cod_mode() && payments_enabled();
+    $menu['applicationId'] = $menu['paymentsEnabled'] ? config()['application_id'] : null;
     $menu['locationId'] = config()['location_id'];
     $menu['environment'] = config()['environment'];
     send_json($menu);

@@ -362,7 +362,7 @@
     else location.href = page('menu.html#order');
   }
 
-  // "Added to your order" card with a Review & pay button, under the reply.
+  // "Added to your order" card with a Review order button, under the reply.
   function orderCard(items, animate) {
     const c = el('div', 'chat-order' + (animate ? ' is-new' : ''));
     c.append(el('strong', '', '\u{1F6D2} Added to your order'));
@@ -372,7 +372,7 @@
       li.append(i.label, el('span', '', money(i.total)));
       list.append(li);
     });
-    const btn = el('button', '', 'Review & pay', { type: 'button' });
+    const btn = el('button', '', 'Review order', { type: 'button' });
     btn.addEventListener('click', reviewOrder);
     c.append(list, btn);
     log.append(c);

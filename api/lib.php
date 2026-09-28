@@ -45,6 +45,10 @@ function config(): array
             'chat_log'          => true,
             'chat_log_days'     => 120,
             'chat_admin_password' => '',
+            // How online orders are paid: 'cod' (cash on delivery, no online
+            // charge) or 'card' (charge via Square). No payment processor has
+            // been chosen yet, so cash on delivery is the default.
+            'checkout_mode'     => 'cod',
         ];
     }
     return $cfg;
@@ -55,6 +59,16 @@ function payments_enabled(): bool
 {
     $c = config();
     return $c['application_id'] !== '' && $c['access_token'] !== '' && $c['location_id'] !== '';
+}
+
+/**
+ * True when orders are placed as cash on delivery (no online card charge).
+ * On unless 'checkout_mode' is 'card' AND Square card payments are configured,
+ * so the site never silently charges before a processor is really set up.
+ */
+function cod_mode(): bool
+{
+    return (config()['checkout_mode'] ?? 'cod') !== 'card' || !payments_enabled();
 }
 
 function square_base(): string

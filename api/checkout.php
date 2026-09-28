@@ -204,9 +204,10 @@ $fulfillment = validate_fulfillment($req['fulfillment'] ?? [], $store, $subtotal
 $fee = $fulfillment['type'] === 'delivery' ? $store['deliveryFee'] : 0;
 
 if ($action === 'quote') {
-    if (!payments_enabled()) {
-        // Without Square credentials we can't ask Square for the tax, so show the pre-tax total.
-        send_json(['ok' => true, 'paymentsEnabled' => false, 'totals' => [
+    if (cod_mode()) {
+        // Cash on delivery: no card charge and no Square, so show the pre-tax
+        // total (sales tax is added in cash at the restaurant).
+        send_json(['ok' => true, 'paymentsEnabled' => false, 'codMode' => true, 'totals' => [
             'subtotal' => $subtotal, 'tax' => null, 'deliveryFee' => $fee, 'discount' => 0, 'total' => $subtotal + $fee,
         ]]);
     }
@@ -216,6 +217,81 @@ if ($action === 'quote') {
     [$status, $res] = square_request('POST', '/v2/orders/calculate', ['order' => $quoteOrder]);
     if ($status !== 200) fail(square_error_message($res), 502);
     send_json(['ok' => true, 'paymentsEnabled' => true, 'totals' => totals_from($res['order'])]);
+}
+
+if ($action === 'place') {
+    // Cash on delivery: record the order and notify the restaurant. No card is
+    // charged and no payment processor is contacted.
+    if (!cod_mode()) fail('This order should be paid by card. Please refresh and try again.', 409);
+    rate_limit('place', 12, 900); // stop a flood of bogus orders
+
+    $c = $req['customer'] ?? [];
+    $customer = [
+        'name'  => trim(mb_substr((string) ($c['name'] ?? ''), 0, 80)),
+        'phone' => trim(mb_substr((string) ($c['phone'] ?? ''), 0, 20)),
+        'email' => trim(mb_substr((string) ($c['email'] ?? ''), 0, 120)),
+    ];
+    if ($customer['name'] === '') fail('Please enter your name.');
+    if (strlen(preg_replace('/\D/', '', $customer['phone'])) < 10) fail('Please enter a valid phone number so we can reach you.');
+    if ($customer['email'] !== '' && !filter_var($customer['email'], FILTER_VALIDATE_EMAIL)) fail('Please enter a valid email address, or leave it blank.');
+
+    $total = $subtotal + $fee;
+    $number = strtoupper(bin2hex(random_bytes(3))); // 6-char order number
+
+    // Human-readable item lines for the log and the restaurant's email.
+    $itemLines = array_map(function ($l) {
+        $mods = array_map(fn($m) => $m['name'], $l['mods']);
+        $label = $l['qty'] . ' x ' . $l['item']['name']
+            . ($l['variation']['name'] !== 'Regular' ? ' (' . $l['variation']['name'] . ')' : '')
+            . ($mods ? ' [' . implode(', ', $mods) . ']' : '')
+            . ($l['note'] !== '' ? ' - note: ' . $l['note'] : '');
+        return $label . ' = $' . number_format($l['unit'] * $l['qty'] / 100, 2);
+    }, $lines);
+
+    $addr = '';
+    if ($fulfillment['type'] === 'delivery') {
+        $a = $fulfillment['address'];
+        $addr = trim(implode(', ', array_filter([
+            trim((string) ($a['line1'] ?? '')), trim((string) ($a['line2'] ?? '')),
+            trim((string) ($a['city'] ?? '')), trim((string) ($a['zip'] ?? '')),
+        ])));
+        if (trim((string) ($a['instructions'] ?? '')) !== '') $addr .= ' (' . trim(mb_substr((string) $a['instructions'], 0, 500)) . ')';
+    }
+
+    // Save a private record so no order is lost even if email is not set up.
+    $record = [
+        'time' => date('c'), 'number' => $number, 'payment' => 'cash on delivery',
+        'type' => $fulfillment['type'], 'name' => $customer['name'], 'phone' => $customer['phone'],
+        'email' => $customer['email'], 'address' => $addr, 'items' => $itemLines,
+        'subtotal' => $subtotal, 'deliveryFee' => $fee, 'total' => $total,
+    ];
+    $dir = data_dir() . '/orders';
+    if (!is_dir($dir)) @mkdir($dir, 0750, true);
+    @file_put_contents("$dir/" . date('Y-m-d') . '.jsonl', json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
+
+    // Email the restaurant (if notify_email is configured).
+    notify("New website order #$number (CASH ON DELIVERY)", [
+        'Order'    => "#$number",
+        'Placed'   => date('l, M j, Y g:i A'),
+        'Type'     => strtoupper($fulfillment['type']),
+        'Name'     => $customer['name'],
+        'Phone'    => $customer['phone'],
+        'Email'    => $customer['email'] ?: '(not given)',
+        'Address'  => $addr ?: '(pickup)',
+        'Items'    => implode("\n", $itemLines),
+        'Subtotal' => '$' . number_format($subtotal / 100, 2),
+        'Delivery' => $fee ? '$' . number_format($fee / 100, 2) : 'n/a',
+        'To collect (cash)' => '$' . number_format($total / 100, 2) . ' + sales tax',
+    ], $customer['email']);
+
+    send_json([
+        'ok'          => true,
+        'codMode'     => true,
+        'orderNumber' => $number,
+        'totals'      => ['subtotal' => $subtotal, 'deliveryFee' => $fee, 'tax' => null, 'total' => $total],
+        'fulfillment' => $fulfillment['type'],
+        'readyInMinutes' => $store['prepMinutes'],
+    ]);
 }
 
 if ($action === 'pay') {
