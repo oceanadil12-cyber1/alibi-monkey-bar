@@ -117,19 +117,26 @@ function menu_items(DOMXPath $x, DOMNode $block): string
     return $out;
 }
 
-/** Happy Hour and the drinks list from menu.html. */
+/** The Happy Hour menu from menu.html. */
+function happy_hour_facts(): string
+{
+    $x = load_page('menu.html');
+    $hh = $x ? $x->query('//*[@id="happy-hour"]')->item(0) : null;
+    if (!$hh) return '';
+    $when = text_of($x->query('.//*[' . has_class('section-label') . ']', $hh)->item(0));
+    $out = "## Happy Hour menu ($when only; dine-in specials, on /menu.html#happy-hour)\n"
+        . "These are special Happy Hour prices and portions. At other times the regular food menu prices apply. When asked a price, give the regular price first, then mention the Happy Hour deal if there is one.\n"
+        . menu_items($x, $hh);
+    foreach ($x->query('.//*[' . has_class('happy-hour-sides') . ']/span', $hh) as $side) $out .= '- ' . text_of($side) . "\n";
+    return $out;
+}
+
+/** The drinks list from menu.html. */
 function drinks_facts(): string
 {
     $x = load_page('menu.html');
     if (!$x) return '';
-    $out = '';
-    $hh = $x->query('//*[@id="happy-hour"]')->item(0);
-    if ($hh) {
-        $when = text_of($x->query('.//*[' . has_class('section-label') . ']', $hh)->item(0));
-        $out .= "## Happy Hour menu ($when; dine-in specials, on /menu.html#happy-hour)\n" . menu_items($x, $hh);
-        foreach ($x->query('.//*[' . has_class('happy-hour-sides') . ']/span', $hh) as $side) $out .= '- ' . text_of($side) . "\n";
-    }
-    $out .= "\n## Drinks (order at the bar; not sold online; on /menu.html#drinks)\n";
+    $out = "## Drinks (order at the bar; not sold online; on /menu.html#drinks)\n";
     foreach ($x->query('//div[' . has_class('menu-category') . ']') as $cat) {
         $out .= '### ' . text_of($x->query('.//h3', $cat)->item(0)) . "\n";
         $note = text_of($x->query('.//*[' . has_class('menu-category-note') . ']', $cat)->item(0));
@@ -193,20 +200,64 @@ function food_facts(): string
             $line = "- $item[name]: " . implode(', ', $prices) . (!empty($item['soldOut']) ? ' (sold out today)' : '');
             // Descriptions often end with the side-dish boilerplate covered above.
             $desc = trim(preg_split('/\s*Choose one Side\b|\s*Served with choice of\b/i', $item['description'])[0]);
-            if ($desc !== '') $line .= '. ' . mb_strimwidth($desc, 0, 180, '...');
+            if ($desc !== '') $line .= '. ' . mb_strimwidth($desc, 0, 70, '...');
             $out .= "$line\n";
         }
     }
     return $out;
 }
 
-/** The whole system prompt. Built the same way every time so the AI can cache it. */
-function chat_system_prompt(): string
+/**
+ * Words that show a question needs one of the big lists. Only those lists are
+ * sent, which keeps each request small: free AI plans limit tokens per minute.
+ * (English and Spanish; the stem of a word is enough, e.g. "cocktail" matches "cocktails".)
+ */
+const CHAT_TOPICS = [
+    'lineup' => ['show', 'event', 'lineup', 'line-up', 'schedule', 'perform', 'drag', 'karaoke', 'music', 'singer', 'sing', 'dj', 'danc', 'go-go', 'gogo',
+        'latin', 'bingo', 'queen', 'entertain', 'week', 'weekend', 'tomorrow', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
+        'sunday', 'mon ', 'tue', 'wed ', 'thu', 'fri ', 'sat ', 'sun ', 'rupaul', 'contest', 'strip', 'cover', 'espect', 'noche', 'lunes',
+        'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado', 'domingo', 'mañana', 'musica', 'música', 'fiesta'],
+    'drinks' => ['drink', 'cocktail', 'margarita', 'martini', 'tini', 'beer', 'wine', 'vodka', 'tequila', 'rum', 'whisk', 'gin', 'frozen', 'sangria',
+        'spritz', 'colada', 'daiquiri', 'mojito', 'paloma', 'alcohol', 'booze', 'shot', 'bebida', 'trago', 'cerveza', 'vino', 'coctel', 'cóctel'],
+    'food'   => ['food', 'eat', 'menu', 'hungry', 'dish', 'kitchen', 'price', 'cost', 'how much', 'cheap', 'burger', 'wing', 'salad', 'taco', 'nacho',
+        'sandwich', 'pizza', 'flatbread', 'chicken', 'beef', 'pork', 'fish', 'shrimp', 'mahi', 'tuna', 'steak', 'rice', 'fries', 'side', 'dessert',
+        'cake', 'appetizer', 'starter', 'vegan', 'vegetarian', 'veggie', 'gluten', 'allerg', 'nut', 'dairy', 'spicy', 'order', 'deliver', 'pickup',
+        'pick up', 'takeout', 'take out', 'lunch', 'dinner', 'soda', 'comida', 'comer', 'precio', 'cuánto', 'cuanto', 'menú', 'hambre', 'pedido'],
+];
+
+/** Which big lists the guest's last couple of messages need. */
+function chat_topics(array $messages): array
 {
+    $userTexts = array_column(array_filter($messages, fn($m) => $m['role'] === 'user'), 'content');
+    $text = ' ' . mb_strtolower(implode(' ', array_slice($userTexts, -2))) . ' ';
+    return array_keys(array_filter(CHAT_TOPICS, function ($words) use ($text) {
+        foreach ($words as $w) if (mb_strpos($text, $w) !== false) return true;
+        return false;
+    }));
+}
+
+/**
+ * The system prompt: rules, the hand-written facts and Happy Hour always, plus
+ * the lineup, drinks and food lists when the question needs them ($topics;
+ * null = everything). Identical questions get an identical prompt, so the AI
+ * can cache it.
+ */
+function chat_system_prompt(?array $topics = null): string
+{
+    $has = fn($t) => $topics === null || in_array($t, $topics, true);
     $facts = (string) @file_get_contents(SITE_ROOT . '/data/chatbot-knowledge.md');
     $facts = trim(preg_replace('/<!--.*?-->/s', '', $facts));
+    $skipped = array_diff(array_keys(CHAT_TOPICS), $topics ?? array_keys(CHAT_TOPICS));
+    $names = ['lineup' => 'the weekly show lineup', 'drinks' => 'the drinks list', 'food' => 'the food menu and prices'];
     return CHAT_RULES . "\n\n# Facts about the bar\n\n" . implode("\n\n", array_filter([
-        $facts, lineup_facts(), drinks_facts(), food_facts(),
+        $facts,
+        happy_hour_facts(),
+        $has('lineup') ? lineup_facts() : '',
+        $has('drinks') ? drinks_facts() : '',
+        $has('food') ? food_facts() : '',
+        // So the AI never takes a missing list to mean "we don't have that".
+        $skipped ? 'Not included in this chat: ' . implode(', ', array_map(fn($t) => $names[$t], $skipped))
+            . '. If the guest asks about those, point them to /events.html or /menu.html, or ask them to be more specific.' : '',
     ]));
 }
 
@@ -315,9 +366,14 @@ const OPENAI_STYLE = [
         'label' => 'Groq',
         'url'   => 'https://api.groq.com/openai/v1/chat/completions',
         'keys'  => 'console.groq.com/keys',
-        // GPT-OSS models reason before answering; a quick FAQ needs only a little.
-        // Every token counts toward Groq's free per-minute limit, so cap the reply.
-        'extra' => ['reasoning_effort' => 'low', 'max_completion_tokens' => 1024],
+        // Groq's free plan checks input + max_completion_tokens against its
+        // per-minute limit before answering, so keep the reply cap modest.
+        'extra' => ['max_completion_tokens' => 700],
+        // Models that think before answering: a quick FAQ needs little or none.
+        'per_model' => [
+            'openai/gpt-oss' => ['reasoning_effort' => 'low'],
+            'qwen/'          => ['reasoning_effort' => 'none'],
+        ],
     ],
     'gemini' => [
         'label' => 'Gemini',
@@ -328,17 +384,18 @@ const OPENAI_STYLE = [
 ];
 
 /** Returns [reply, usage]. Throws RuntimeException with a message for the site owner. */
-function ask_openai_style(string $provider, string $system, array $messages): array
+function ask_openai_style(string $provider, string $model, string $system, array $messages): array
 {
     $p = OPENAI_STYLE[$provider];
-    $c = config();
-    $key = $c["{$provider}_api_key"];
+    $key = config()["{$provider}_api_key"];
     if ($key === '') throw new RuntimeException("Add your key to '{$provider}_api_key' in api/config.php (free at $p[keys]).");
+    $extra = $p['extra'];
+    foreach ($p['per_model'] ?? [] as $prefix => $opts) if (strpos($model, $prefix) === 0) $extra += $opts;
     $payload = json_encode([
-        'model'       => $c["{$provider}_model"],
+        'model'       => $model,
         'messages'    => array_merge([['role' => 'system', 'content' => $system]], $messages),
         'temperature' => 0.3,
-    ] + $p['extra']);
+    ] + $extra);
     // "Busy" (503) spikes are common on free plans and usually pass in a second
     // or two, so try up to three times before giving up.
     for ($attempt = 1; $attempt <= 3; $attempt++) {
@@ -371,41 +428,51 @@ function ask_openai_style(string $provider, string $system, array $messages): ar
     ]];
 }
 
-function ask_provider(string $provider, string $system, array $messages): array
+/**
+ * $choice is a provider name ('groq'), optionally with a model ('groq:qwen/qwen3.8-27b');
+ * without one, the provider's model from config.php is used.
+ */
+function ask_provider(string $choice, string $system, array $messages): array
 {
+    [$provider, $model] = array_pad(explode(':', $choice, 2), 2, '');
     if ($provider === 'claude') {
         require_once __DIR__ . '/chat-claude.php'; // needs PHP 8.1+, so only loaded when used
         return ask_claude($system, $messages);
     }
-    if (isset(OPENAI_STYLE[$provider])) return ask_openai_style($provider, $system, $messages);
+    if (isset(OPENAI_STYLE[$provider])) {
+        return ask_openai_style($provider, $model ?: config()["{$provider}_model"], $system, $messages);
+    }
     return ask_ollama($system, $messages);
 }
 
+/** 'chat_provider' then each 'chat_fallback' (a list, or names separated by commas). */
+function chat_providers(): array
+{
+    $c = config();
+    $fallbacks = is_array($c['chat_fallback']) ? $c['chat_fallback'] : explode(',', (string) $c['chat_fallback']);
+    return array_values(array_unique(array_filter(array_map('trim', array_merge([$c['chat_provider']], $fallbacks)))));
+}
+
 /**
- * Asks config 'chat_provider'; if that fails (free limit reached, busy, down) and
- * 'chat_fallback' names another AI, asks that one instead. The usage returned
+ * Asks each AI in chat_providers() in turn until one answers, so a free limit
+ * being reached or a busy service doesn't reach the guest. The usage returned
  * says which one answered.
  */
 function ask_ai(array $messages): array
 {
-    $system = chat_system_prompt();
+    $system = chat_system_prompt(chat_topics($messages));
     $messages = with_time_note($messages);
-    $c = config();
-    $order = array_values(array_unique(array_filter([$c['chat_provider'], $c['chat_fallback']])));
-    foreach ($order as $i => $provider) {
+    $order = chat_providers();
+    foreach ($order as $i => $choice) {
         try {
-            [$reply, $usage] = ask_provider($provider, $system, $messages);
-            return [$reply, $usage + ['provider' => $provider, 'model' => chat_model($provider)]];
+            [$reply, $usage] = ask_provider($choice, $system, $messages);
+            [$provider, $model] = array_pad(explode(':', $choice, 2), 2, '');
+            return [$reply, $usage + ['provider' => $provider, 'model' => $model ?: (string) (config()["{$provider}_model"] ?? '')]];
         } catch (Throwable $e) {
             if ($i === count($order) - 1) throw $e;
-            error_log("chat.php: $provider failed, trying the fallback: " . $e->getMessage());
+            error_log("chat.php: $choice failed, trying the next one: " . $e->getMessage());
         }
     }
-}
-
-function chat_model(string $provider): string
-{
-    return (string) (config()["{$provider}_model"] ?? '');
 }
 
 /** Save each exchange to api/data/chat-log.csv (private) to review questions and costs. */
@@ -432,7 +499,8 @@ function log_chat(string $question, string $reply, array $usage, float $seconds)
 if (PHP_SAPI === 'cli') {
     $arg = $argv[1] ?? '--prompt';
     if ($arg === '--prompt') {
-        $prompt = chat_system_prompt();
+        // Optional question after --prompt: show only the parts that question would get.
+        $prompt = chat_system_prompt(isset($argv[2]) ? chat_topics([['role' => 'user', 'content' => $argv[2]]]) : null);
         echo $prompt . "\n\n(" . mb_strlen($prompt) . ' characters, roughly ' . round(mb_strlen($prompt) / 4) . " tokens)\n";
         exit;
     }

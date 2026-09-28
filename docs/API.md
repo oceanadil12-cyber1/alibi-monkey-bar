@@ -123,13 +123,18 @@ The "Ask us" chat assistant, used by `js/chat.js`.
 - The browser sends the whole conversation, because the server keeps no chat
   state. The server keeps the last 12 messages and limits each guest message to
   600 characters.
-- The system prompt is built on every request. It combines the rules in
-  `chat.php` with `data/chatbot-knowledge.md`, the lineup from `events.html`,
-  Happy Hour and drinks from `menu.html`, and the food menu from `load_menu()`.
-  The prompt is byte-identical between requests, so the AI can cache it. The
-  current time goes on the newest message instead.
-- `chat_provider` picks the AI: `ollama` (local testing) or `claude` (live,
-  in `chat-claude.php`; needs PHP 8.1+ and `api/vendor/` from Composer).
+- The system prompt is built on every request. It always includes the rules
+  in `chat.php`, `data/chatbot-knowledge.md` and Happy Hour from `menu.html`.
+  The weekly lineup (`events.html`), drinks (`menu.html`) and food menu
+  (`load_menu()`) are added only when the guest's last two messages mention
+  them (keyword lists in `CHAT_TOPICS`). This keeps a request to roughly
+  1,700–4,000 tokens, which matters on free plans that limit tokens per minute.
+  The current time and tonight's shows go on the newest message instead.
+- `chat_provider` picks the AI: `groq` or `gemini` (free plans), `ollama`
+  (local), or `claude` (`chat-claude.php`; needs PHP 8.1+ and `api/vendor/`
+  from Composer). If it fails, each AI in `chat_fallback` is tried in order.
+  A specific model is written as `groq:openai/gpt-oss-20b`. Each Groq model
+  has its own free limit.
 - Protections: same-site JSON only, 30 messages per visitor per 10 minutes, and
   `chat_daily_limit` messages per day for the whole site (then 503).
 - Every exchange is logged with token counts to `api/data/chat-log.csv` when

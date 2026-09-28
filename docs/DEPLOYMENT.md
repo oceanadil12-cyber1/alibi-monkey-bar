@@ -40,8 +40,17 @@ Must upload: all `*.html`, `css/`, `js/`, `images/`, `fonts/`, `data/`, `api/`,
 
 ## Chat assistant on the live site
 
-On your own computer the chat uses **Ollama** (free, local). The live site
-uses **Claude** instead, because shared hosting can't run an AI model.
+Shared hosting can't run an AI model itself, so the live site uses a cloud AI.
+
+**Free option (Groq):** copy the chat settings from your local `api/config.php`
+into the server's `api/config.php`: `chat_provider`, `chat_fallback`,
+`groq_api_key` and `gemini_api_key`. No Composer or PHP 8.1 is needed. Use a
+Groq account in the restaurant's name, and turn on Zero Data Retention in the
+Groq console (Settings → Data Controls). The free plans allow a few questions
+per minute across all the fallbacks. Check `api/data/chat-log.csv` now and
+then. If guests often hit the limit, switch to a paid plan.
+
+**Paid option (Claude):**
 
 1. The restaurant creates an account at <https://console.anthropic.com>,
    adds a card, buys some credit and **sets a monthly spend limit**. Then it
