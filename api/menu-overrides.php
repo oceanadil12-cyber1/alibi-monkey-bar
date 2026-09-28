@@ -35,6 +35,36 @@ function write_menu_overrides(array $data): bool
         json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
 
+// ---------- store settings (hours, delivery, fees) ----------
+
+function store_settings_file(): string
+{
+    return data_dir() . '/store-settings.json';
+}
+
+/** Locally-edited store settings (empty = use the frozen snapshot's values). */
+function read_store_settings(): array
+{
+    $d = json_decode((string) @file_get_contents(store_settings_file()), true);
+    return is_array($d) ? $d : [];
+}
+
+function write_store_settings(array $data): bool
+{
+    $dir = data_dir();
+    if (!is_dir($dir)) @mkdir($dir, 0750, true);
+    return (bool) @file_put_contents(store_settings_file(),
+        json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+}
+
+/** Merge the locally-edited store settings over the menu's store block. */
+function apply_store_settings(array $menu): array
+{
+    $s = read_store_settings();
+    if ($s && !empty($menu['store'])) $menu['store'] = array_merge($menu['store'], $s);
+    return $menu;
+}
+
 /** Build a menu item (in the load_menu shape) from a saved custom-item entry. */
 function custom_menu_item(array $c): ?array
 {
@@ -66,6 +96,7 @@ function custom_menu_item(array $c): ?array
  */
 function apply_menu_overrides(array $menu): array
 {
+    $menu = apply_store_settings($menu); // hours, delivery, fees
     if (empty($menu['items'])) return $menu;
     $ov = read_menu_overrides();
 

@@ -143,6 +143,93 @@ function save_custom_items(array $base): void
     write_menu_overrides($ov);
 }
 
+// ---------- Store settings tab ----------
+
+/** "11:00" → "11:00:00"; invalid → null. */
+function hms(string $t): ?string
+{
+    $t = trim($t);
+    if (preg_match('/^(\d{1,2}):(\d{2})(?::\d{2})?$/', $t, $m) && (int) $m[1] < 24 && (int) $m[2] < 60) {
+        return sprintf('%02d:%02d:00', (int) $m[1], (int) $m[2]);
+    }
+    return null;
+}
+
+/** Save the Store settings form to store-settings.json. */
+function save_store_settings(): void
+{
+    $days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    $readHours = function (string $prefix) use ($days) {
+        $out = [];
+        foreach ($days as $d) {
+            $o = hms((string) ($_POST[$prefix . '_open'][$d] ?? ''));
+            $c = hms((string) ($_POST[$prefix . '_close'][$d] ?? ''));
+            if ($o !== null && $c !== null) $out[$d] = [['open' => $o, 'close' => $c]];
+        }
+        return $out;
+    };
+    $zips = [];
+    foreach (explode(',', (string) ($_POST['deliveryZips'] ?? '')) as $z) {
+        $z = substr(preg_replace('/\D/', '', $z), 0, 5);
+        if ($z !== '') $zips[] = $z;
+    }
+    write_store_settings([
+        'name'               => trim(mb_substr((string) ($_POST['name'] ?? ''), 0, 80)),
+        'address'            => trim(mb_substr((string) ($_POST['address'] ?? ''), 0, 160)),
+        'phone'              => trim(mb_substr((string) ($_POST['phone'] ?? ''), 0, 40)),
+        'prepMinutes'        => min(600, max(0, (int) ($_POST['prep'] ?? 25))),
+        'pickupMinimum'      => max(0, (int) (dollars_to_cents((string) ($_POST['pickupMin'] ?? '')) ?? 0)),
+        'deliveryEnabled'    => !empty($_POST['deliveryEnabled']),
+        'deliveryFee'        => max(0, (int) (dollars_to_cents((string) ($_POST['deliveryFee'] ?? '')) ?? 0)),
+        'deliveryMinimum'    => max(0, (int) (dollars_to_cents((string) ($_POST['deliveryMin'] ?? '')) ?? 0)),
+        'deliveryZips'       => array_values(array_unique($zips)),
+        'pickupInstructions' => trim(mb_substr((string) ($_POST['pickupInstructions'] ?? ''), 0, 300)),
+        'pickupHours'        => $readHours('pickup'),
+        'deliveryHours'      => $readHours('delivery'),
+    ]);
+}
+
+/** The Store settings tab body. */
+function settings_html(array $store, string $csrf, bool $saved): string
+{
+    $days = ['MON' => 'Monday', 'TUE' => 'Tuesday', 'WED' => 'Wednesday', 'THU' => 'Thursday', 'FRI' => 'Friday', 'SAT' => 'Saturday', 'SUN' => 'Sunday'];
+    $money = fn($c) => number_format(((int) $c) / 100, 2, '.', '');
+    $timeVal = fn(array $hours, string $d, string $which) => isset($hours[$d][0][$which]) ? substr((string) $hours[$d][0][$which], 0, 5) : '';
+    $hoursTable = function (string $prefix, array $hours) use ($days, $timeVal) {
+        $rows = '';
+        foreach ($days as $k => $name) {
+            $rows .= '<tr><td>' . $name . '</td>'
+                . '<td><input type="time" name="' . $prefix . '_open[' . $k . ']" value="' . h($timeVal($hours, $k, 'open')) . '"></td>'
+                . '<td><input type="time" name="' . $prefix . '_close[' . $k . ']" value="' . h($timeVal($hours, $k, 'close')) . '"></td></tr>';
+        }
+        return '<table class="shours"><thead><tr><th>Day</th><th>Open</th><th>Close</th></tr></thead><tbody>' . $rows . '</tbody></table>';
+    };
+
+    return '<h1>Store settings</h1>'
+        . '<p class="muted">Hours, delivery area and fees for the website &mdash; these used to come from Square, now they\'re yours to edit. Leave a day\'s times blank to mark it closed.</p>'
+        . ($saved ? '<div class="fsaved">&#10003; Saved. The website updates within a couple of minutes.</div>' : '')
+        . '<form method="post" action="?view=settings"><input type="hidden" name="csrf" value="' . h($csrf) . '">'
+        . '<section class="fadd"><h2>Business</h2><div class="fadd-grid">'
+        . '<label class="fa"><span>Name</span><input name="name" value="' . h($store['name'] ?? '') . '" maxlength="80"></label>'
+        . '<label class="fa"><span>Address</span><input name="address" value="' . h($store['address'] ?? '') . '" maxlength="160"></label>'
+        . '<label class="fa fa-sm"><span>Phone</span><input name="phone" value="' . h($store['phone'] ?? '') . '" maxlength="40"></label>'
+        . '</div></section>'
+        . '<section class="fadd"><h2>Ordering &amp; delivery</h2><div class="fadd-grid">'
+        . '<label class="fa fa-sm"><span>Prep time</span><span class="fprep"><input name="prep" inputmode="numeric" value="' . (int) ($store['prepMinutes'] ?? 25) . '"> min</span></label>'
+        . '<label class="fa fa-sm"><span>Pickup minimum</span><span class="fp-in">$<input name="pickupMin" inputmode="decimal" value="' . $money($store['pickupMinimum'] ?? 0) . '"></span></label>'
+        . '<label class="fchk fa-chk"><input type="checkbox" name="deliveryEnabled" value="1" ' . (!empty($store['deliveryEnabled']) ? 'checked' : '') . '> Delivery enabled</label>'
+        . '<label class="fa fa-sm"><span>Delivery fee</span><span class="fp-in">$<input name="deliveryFee" inputmode="decimal" value="' . $money($store['deliveryFee'] ?? 0) . '"></span></label>'
+        . '<label class="fa fa-sm"><span>Delivery minimum</span><span class="fp-in">$<input name="deliveryMin" inputmode="decimal" value="' . $money($store['deliveryMinimum'] ?? 0) . '"></span></label>'
+        . '<label class="fa"><span>Delivery ZIP codes (comma separated)</span><input name="deliveryZips" value="' . h(implode(', ', $store['deliveryZips'] ?? [])) . '"></label>'
+        . '<label class="fa fa-wide"><span>Pickup instructions (optional)</span><input name="pickupInstructions" value="' . h($store['pickupInstructions'] ?? '') . '" maxlength="300"></label>'
+        . '</div></section>'
+        . '<section class="fadd"><h2>Hours</h2><div class="shours-wrap">'
+        . '<div><h3>Pickup</h3>' . $hoursTable('pickup', $store['pickupHours'] ?? []) . '</div>'
+        . '<div><h3>Delivery</h3>' . $hoursTable('delivery', $store['deliveryHours'] ?? []) . '</div>'
+        . '</div></section>'
+        . '<div class="fbar"><button type="submit" class="fsave">Save settings</button></div></form>';
+}
+
 /** The Food tab body: a form to hide / re-price / restrict / surcharge each item. */
 function food_html(array $base, array $over, string $csrf, bool $saved): string
 {
@@ -409,6 +496,13 @@ tr.is-off { opacity: .5; }
 .fa-chk { align-self: center; }
 .fdel { color: #f0a0a0; }
 select { color-scheme: dark; }
+.fadd h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.shours-wrap { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 12px; }
+.shours-wrap > div { flex: 1 1 280px; }
+.shours { width: 100%; border-collapse: collapse; }
+.shours th { text-align: left; padding: 6px 8px; font-size: 11px; color: var(--muted-2); text-transform: uppercase; letter-spacing: .5px; }
+.shours td { padding: 5px 8px; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; }
+.shours input[type=time] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: #0f0f10; color: var(--text); font-size: 13px; color-scheme: dark; }
 CSS;
 
 // ---------- Insights tab ----------
@@ -554,9 +648,22 @@ if (($_GET['view'] ?? '') === 'food') {
         header('Location: ?view=food&saved=1'); // post/redirect/get: no resubmit on refresh
         exit;
     }
-    $navF = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food" class="on">Food</a></nav>';
-    if (!$base) page('Food', $navF . '<h1>Food &amp; menu</h1><p class="empty">The Square menu is temporarily unavailable. Please try again shortly.</p>');
+    $navF = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food" class="on">Food</a><a href="?view=settings">Settings</a></nav>';
+    if (!$base) page('Food', $navF . '<h1>Food &amp; menu</h1><p class="empty">The menu is temporarily unavailable. Please try again shortly.</p>');
     page('Food', $navF . food_html($base, read_menu_overrides(), $_SESSION['csrf'], isset($_GET['saved'])));
+}
+
+// Store settings tab (hours, delivery area, fees — edited locally).
+if (($_GET['view'] ?? '') === 'settings') {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        if (hash_equals($_SESSION['csrf'], (string) ($_POST['csrf'] ?? ''))) save_store_settings();
+        header('Location: ?view=settings&saved=1');
+        exit;
+    }
+    $menuS = load_menu();
+    $store = $menuS ? ($menuS['store'] ?? []) : [];
+    $navS = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food">Food</a><a href="?view=settings" class="on">Settings</a></nav>';
+    page('Settings', $navS . settings_html($store, $_SESSION['csrf'], isset($_GET['saved'])));
 }
 
 // Spreadsheet download.
@@ -664,7 +771,7 @@ $dateForm = '<form class="dates" method="get">' . ($view === 'insights' ? '<inpu
 
 $nav = '<nav class="views"><a href="?' . $period . '"' . ($view === 'list' ? ' class="on"' : '') . '>Conversations</a>'
     . '<a href="?' . $period . '&amp;view=insights"' . ($view === 'insights' ? ' class="on"' : '') . '>Insights</a>'
-    . '<a href="?view=food">Food</a></nav>';
+    . '<a href="?view=food">Food</a><a href="?view=settings">Settings</a></nav>';
 
 if ($view === 'insights') {
     require_once __DIR__ . '/chat-insights.php';
