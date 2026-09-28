@@ -31,7 +31,7 @@ How to answer:
 - Use only the facts below. If the answer isn't there, say you're not sure and suggest calling (954) 565-2526 or the contact form at /contact.html. Never guess prices, times, availability, ingredients or policies.
 - Be warm, upbeat and brief: usually one to three sentences. Use a short list ("- " lines) only when listing several shows or dishes. Plain text only: no headings, tables, bold or other markdown.
 - When a page would help, include its path, like /menu.html or /contact.html#reserve.
-- Each guest message starts with a website note giving the bar's current day and time. Use it for "today", "tonight" and "open now". The bar is open until 2 AM, so between midnight and 2 AM "tonight" still means the previous day's lineup.
+- Each guest message starts with a website note giving the bar's current day and time and tonight's shows. For "today", "tonight" or "open now", use that note and list only those shows, in your own words (name, time and a few words each). Never add shows from other days.
 - You can't book tables, take orders, check availability or hold anything. Say how to do it instead: the reservation form at /contact.html#reserve, online ordering at /menu.html, or calling (954) 565-2526.
 - Parties of 8 or more, private events, complaints, lost items and anything urgent: suggest calling (954) 565-2526.
 - Shows and specials can change. For a specific date, suggest checking Instagram @alibimonkeybar or calling.
@@ -65,14 +65,19 @@ function has_class(string $class): string
     return "contains(concat(' ', normalize-space(@class), ' '), ' $class ')";
 }
 
-/** The weekly lineup from events.html (the only place it is edited). */
-function lineup_facts(): string
+/**
+ * The weekly lineup from events.html (the only place it is edited), as
+ * ['days' => ['Monday' => ["6:30 PM The Soulfree Lounge ...", ...], ...], 'note' => '...'].
+ */
+function weekly_lineup(): array
 {
+    static $lineup = null;
+    if ($lineup !== null) return $lineup;
+    $lineup = ['days' => [], 'note' => ''];
     $x = load_page('events.html');
-    if (!$x) return '';
-    $out = "## Weekly show lineup (repeats every week; start times; from /events.html)\n";
+    if (!$x) return $lineup;
     foreach ($x->query('//div[' . has_class('ev-day') . '][@data-day]') as $day) {
-        $out .= text_of($x->query('.//h3', $day)->item(0)) . ":\n";
+        $shows = [];
         foreach ($x->query('.//article[' . has_class('ev-card') . ']', $day) as $card) {
             $time = text_of($x->query('.//*[' . has_class('ev-time') . ']', $card)->item(0));
             $name = text_of($x->query('.//h4', $card)->item(0));
@@ -80,11 +85,23 @@ function lineup_facts(): string
             $desc = text_of($x->query('.//*[' . has_class('ev-desc') . ']', $card)->item(0));
             $tags = [];
             foreach ($x->query('.//*[' . has_class('ev-tags') . ']/li', $card) as $li) $tags[] = text_of($li);
-            $out .= "- $time $name" . ($host ? " ($host)" : '') . ": $desc" . ($tags ? ' [' . implode(', ', $tags) . ']' : '') . "\n";
+            $shows[] = "$time $name" . ($host ? ", $host" : '') . ". $desc" . ($tags ? ' (' . implode(', ', $tags) . ')' : '');
         }
+        $lineup['days'][text_of($x->query('.//h3', $day)->item(0))] = $shows;
     }
-    $note = text_of($x->query('//*[' . has_class('ev-note') . ']')->item(0));
-    return $out . ($note ? "$note\n" : '');
+    $lineup['note'] = text_of($x->query('//*[' . has_class('ev-note') . ']')->item(0));
+    return $lineup;
+}
+
+function lineup_facts(): string
+{
+    $lineup = weekly_lineup();
+    if (!$lineup['days']) return '';
+    $out = "## Weekly show lineup (repeats every week; start times; from /events.html)\n";
+    foreach ($lineup['days'] as $day => $shows) {
+        $out .= "$day:\n" . implode('', array_map(fn($s) => "- $s\n", $shows));
+    }
+    return $out . ($lineup['note'] ? "$lineup[note]\n" : '');
 }
 
 /** Menu items (name, description, price) inside one menu.html block. */
@@ -221,8 +238,15 @@ function chat_history($raw): array
  */
 function with_time_note(array $messages): array
 {
+    // Tonight's shows are picked out here, so the AI doesn't have to find the
+    // right day in the weekly list (small models often mix days up). The bar is
+    // open until 2 AM, so until 4 AM "tonight" is still the previous day.
+    $tonight = date('l', time() - (date('G') < 4 ? 86400 : 0));
+    $shows = weekly_lineup()['days'][$tonight] ?? [];
+    $note = '[Website note: it is now ' . date('l, F j, Y, g:i A') . ' at the bar.'
+        . ($shows ? " Tonight's shows ($tonight): " . implode(' | ', $shows) : '') . "]\n\n";
     $last = count($messages) - 1;
-    $messages[$last]['content'] = '[Website note: it is now ' . date('l, F j, Y, g:i A') . " at the bar.]\n\n" . $messages[$last]['content'];
+    $messages[$last]['content'] = $note . $messages[$last]['content'];
     return $messages;
 }
 
@@ -259,7 +283,7 @@ function ask_ollama(string $system, array $messages): array
             'model'      => $c['ollama_model'],
             'messages'   => array_merge([['role' => 'system', 'content' => $system]], $messages),
             'stream'     => false,
-            'keep_alive' => '30m',
+            'keep_alive' => '4h', // reloading the model and re-reading the facts takes minutes on a slow PC
             // The facts are long; without a bigger window Ollama silently cuts them off.
             'options'    => ['num_ctx' => 16384, 'temperature' => 0.3],
         ]),
