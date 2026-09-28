@@ -229,9 +229,21 @@ function build_menu(): ?array
     ];
 }
 
-/** The Square menu with no local overrides (cache → live → snapshot). */
+/** Read the frozen local menu (data/menu.json). */
+function load_menu_snapshot(): ?array
+{
+    return is_file(SNAPSHOT) ? json_decode((string) file_get_contents(SNAPSHOT), true) : null;
+}
+
+/**
+ * The menu with no local overrides. In 'local' mode (the default) this is the
+ * frozen snapshot and Square is never contacted. In 'square' mode it pulls live
+ * (cache → live → snapshot fallback).
+ */
 function load_menu_base(bool $forceRefresh = false): ?array
 {
+    if ((config()['menu_source'] ?? 'local') === 'local') return load_menu_snapshot();
+
     $ttl = max(1, (int) config()['menu_cache_mins']) * 60;
     if (!$forceRefresh && ($cached = cache_read('menu', $ttl))) return $cached;
     $menu = build_menu();
@@ -240,7 +252,7 @@ function load_menu_base(bool $forceRefresh = false): ?array
         return $menu;
     }
     if ($cached = cache_read('menu', PHP_INT_MAX)) return $cached;
-    return is_file(SNAPSHOT) ? json_decode((string) file_get_contents(SNAPSHOT), true) : null;
+    return load_menu_snapshot();
 }
 
 /** Menu for the rest of the API, with the restaurant's local overrides applied. */

@@ -25,6 +25,11 @@ function config(): array
             'application_id'  => '',
             'access_token'    => '',
             'location_id'     => STORE_LOCATION,
+            // Where the food menu comes from: 'local' (the frozen data/menu.json,
+            // managed from the Food admin tab — no Square at runtime) or 'square'
+            // (pull live from the Square online store). Cash-on-delivery launch
+            // runs on 'local' so the site never depends on Square.
+            'menu_source'     => 'local',
             'menu_cache_mins' => 15,
             'notify_email'    => '',
             'from_email'      => '',
