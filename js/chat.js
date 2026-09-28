@@ -21,6 +21,10 @@
   const GREETING = "I'm the Alibi's virtual assistant. Ask me about tonight's shows, the menu, Happy Hour, reservations or private events.";
   const HUMAN_RE = /\b(talk|speak|chat)\s+(to|with)\s+(a\s+|an\s+|the\s+|someone|somebody)?(human|person|real person|staff|manager|team|someone|somebody)\b|\breal person\b/i;
   const HUMAN_MSG = "Of course! Our team is happy to help. Call us any day from 11 AM to 2 AM, or send a message and we'll get back to you.";
+  // Guests give an email (required) and name (optional) before the first message,
+  // so the team can follow up. Kept for the browser tab and sent with each message.
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  const GATE_INTRO = "Before we start, what's your email? We'll use it to follow up if you'd like. Your name is optional.";
   const SUGGESTIONS = [
     { icon: '\u{1F3AD}', label: "Tonight's shows", text: "What's on tonight?" },
     { icon: '\u{1F379}', label: 'Happy Hour', text: 'What are the Happy Hour deals?' },
@@ -84,6 +88,15 @@
         '<h3>Hey there! \u{1F44B}</h3>' +
         '<p>' + GREETING + '</p>' +
         '<div class="chat-chips"></div>' +
+        '<form class="chat-gate" novalidate hidden>' +
+          '<p class="chat-gate-intro">' + GATE_INTRO + '</p>' +
+          '<label class="chat-gate-field"><span>Name <em>(optional)</em></span>' +
+            '<input type="text" name="name" autocomplete="name" maxlength="80" placeholder="Your name"></label>' +
+          '<label class="chat-gate-field"><span>Email</span>' +
+            '<input type="email" name="email" inputmode="email" autocomplete="email" required maxlength="120" placeholder="you@example.com"></label>' +
+          '<p class="chat-gate-error" role="alert" hidden></p>' +
+          '<button type="submit" class="chat-gate-btn">Start chatting</button>' +
+        '</form>' +
       '</div>' +
       '<div class="chat-log" role="log" aria-live="polite"></div>' +
     '</div>' +
@@ -103,7 +116,12 @@
   const form = panel.querySelector('.chat-form');
   const input = form.querySelector('textarea');
   const sendBtn = form.querySelector('.chat-send');
+  const gate = panel.querySelector('.chat-gate');
+  const gateName = gate.querySelector('input[name="name"]');
+  const gateEmail = gate.querySelector('input[name="email"]');
+  const gateError = gate.querySelector('.chat-gate-error');
   let busy = false;
+  let pendingQuestion = null; // a question asked before the email was given
 
   SUGGESTIONS.forEach((s) => {
     const b = document.createElement('button');
@@ -188,8 +206,56 @@
     state.messages.forEach((m) => (m.role === 'user' ? bubble('user', m.content, { animate: false }) : showReply(m, false)));
     const last = state.messages[state.messages.length - 1];
     if (last && last.role === 'assistant' && last.suggestions) suggestionChips(last.suggestions);
-    chips.hidden = state.messages.length > 0;
+    applyGate();
   }
+
+  // ---------- contact gate ----------
+
+  function contactOk() {
+    return !!(state.contact && EMAIL_RE.test(state.contact.email || ''));
+  }
+
+  // Show the email gate until the guest gives one, hiding the chips and the
+  // compose box; once they have, show the normal chat.
+  function applyGate() {
+    const gated = !contactOk();
+    panel.classList.toggle('is-gated', gated);
+    gate.hidden = !gated;
+    form.hidden = gated;
+    chips.hidden = gated || state.messages.length > 0;
+    if (gated && state.contact) { // keep what they typed if they come back
+      if (!gateName.value) gateName.value = state.contact.name || '';
+      if (!gateEmail.value) gateEmail.value = state.contact.email || '';
+    }
+  }
+
+  // Bring the gate into view and focus it (for a question asked before an email).
+  function revealGate() {
+    if (!embedded) { if (panel.hidden) setOpen(true, false); }
+    else if (!isVisible()) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    applyGate();
+    setTimeout(() => gateName.focus({ preventScroll: true }), embedded ? 300 : 0);
+  }
+
+  gate.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = gateName.value.trim().slice(0, 80);
+    const email = gateEmail.value.trim().slice(0, 120);
+    if (!EMAIL_RE.test(email)) {
+      gateError.textContent = 'Please enter a valid email so we can follow up.';
+      gateError.hidden = false;
+      gateEmail.focus();
+      return;
+    }
+    gateError.hidden = true;
+    state.contact = { name: name, email: email };
+    save();
+    applyGate();
+    const q = pendingQuestion;
+    pendingQuestion = null;
+    if (q) send(q);
+    else input.focus({ preventScroll: true });
+  });
 
   // ---------- cards ----------
 
@@ -328,6 +394,7 @@
   // Guest asked for a person: answer straight away with the team's details.
   function talkToPerson(text) {
     if (busy) return;
+    if (!contactOk()) { pendingQuestion = text || null; return revealGate(); }
     clearSuggestions();
     chips.hidden = true;
     if (text) {
@@ -343,6 +410,7 @@
   async function send(text) {
     text = text.trim().slice(0, 600);
     if (!text || busy) return;
+    if (!contactOk()) { pendingQuestion = text; input.value = ''; grow(); return revealGate(); }
     if (HUMAN_RE.test(text)) { input.value = ''; grow(); return talkToPerson(text); }
     busy = true;
     clearSuggestions();
@@ -363,6 +431,8 @@
           messages: state.messages.map((m) => ({ role: m.role, content: m.content })),
           cart: currentCart(), // so the assistant knows what's already ordered
           cid: state.cid,
+          name: state.contact ? state.contact.name : '',
+          email: state.contact ? state.contact.email : '',
         }),
       });
       data = await res.json().catch(() => null);
@@ -412,7 +482,7 @@
     state.open = open;
     save();
     if (open) { scrollDown(); requestAnimationFrame(scrollDown); } // again once fonts/layout settle
-    if (open && focus) input.focus();
+    if (open && focus) (contactOk() ? input : gateName).focus();
     if (!open && focus) launcher.focus();
   }
 
@@ -420,7 +490,7 @@
   function goToEmbedded() {
     launcher.classList.remove('is-pulse');
     panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(() => input.focus({ preventScroll: true }), 400);
+    setTimeout(() => (contactOk() ? input : gateName).focus({ preventScroll: true }), 400);
   }
 
   // Grow the box with the text (up to ~5 lines); the send button lights up once there's something to send.

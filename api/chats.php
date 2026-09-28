@@ -56,6 +56,10 @@ th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--li
 th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; background: #121212; }
 tr:last-child td { border-bottom: none; }
 td.q { max-width: 380px; }
+td.guest { font-size: 13px; line-height: 1.4; }
+td.guest a { word-break: break-all; }
+.who { margin: 0 0 4px; font-size: 14px; }
+.who a { word-break: break-all; }
 .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #2a2210; color: var(--gold-light); font-size: 12px; }
 .chat { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
 .msg { max-width: 78%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -223,10 +227,10 @@ if (isset($_GET['csv'])) {
     header('Content-Disposition: attachment; filename="alibi-chats-' . date('Y-m-d') . "-last-{$days}-days.csv\"");
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF"); // lets Excel read accents and emoji
-    fputcsv($out, ['conversation', 'time', 'guest asked', 'assistant replied', 'added to order', 'AI', 'input tokens', 'output tokens', 'seconds']);
+    fputcsv($out, ['conversation', 'name', 'email', 'time', 'guest asked', 'assistant replied', 'added to order', 'AI', 'input tokens', 'output tokens', 'seconds']);
     foreach (array_reverse(chat_log_conversations($days)) as $c) {
         foreach ($c['turns'] as $t) {
-            $row = [$c['cid'], $t['time'], $t['question'], $t['reply'], implode('; ', $t['ordered'] ?? []), trim(($t['provider'] ?? '') . ' ' . ($t['model'] ?? '')), $t['input_tokens'] ?? 0, $t['output_tokens'] ?? 0, $t['seconds'] ?? 0];
+            $row = [$c['cid'], $c['name'] ?? '', $c['email'] ?? '', $t['time'], $t['question'], $t['reply'], implode('; ', $t['ordered'] ?? []), trim(($t['provider'] ?? '') . ' ' . ($t['model'] ?? '')), $t['input_tokens'] ?? 0, $t['output_tokens'] ?? 0, $t['seconds'] ?? 0];
             // Guests' text must not run as spreadsheet formulas.
             fputcsv($out, array_map(fn($v) => preg_match('/^[=+\-@\t\r]/', (string) $v) ? "'" . $v : $v, $row));
         }
@@ -242,8 +246,14 @@ if (isset($_GET['c'])) {
     $c = chat_log_conversations(120)[$cid] ?? null;
     if (!$c) page('Not found', '<p><a href="chats.php?days=' . $days . '">&larr; All conversations</a></p><p class="empty">This conversation was not found (chats are kept for ' . (int) config()['chat_log_days'] . ' days).</p>');
     $ordered = array_merge(...array_map(fn($t) => $t['ordered'] ?? [], $c['turns']));
+    $email = $c['email'] ?? '';
+    $name = $c['name'] ?? '';
+    $who = trim(($name !== '' ? h($name) : '') . ($name !== '' && $email !== '' ? ' &middot; ' : '')
+        . ($email !== '' ? '<a href="mailto:' . h($email) . '">' . h($email) . '</a>' : ''));
     $html = '<p><a href="chats.php?days=' . $days . '">&larr; All conversations</a></p>'
-        . '<h1>Conversation ' . h($cid) . '</h1><p class="muted">' . h($when($c['start'])) . ' &ndash; ' . h($when($c['end'])) . ' &middot; '
+        . '<h1>Conversation ' . h($cid) . '</h1>'
+        . ($who !== '' ? '<p class="who">' . $who . '</p>' : '<p class="muted">No contact details were given.</p>')
+        . '<p class="muted">' . h($when($c['start'])) . ' &ndash; ' . h($when($c['end'])) . ' &middot; '
         . count($c['turns']) . ' question' . (count($c['turns']) === 1 ? '' : 's') . ($ordered ? ' &middot; <span class="tag">ordered ' . count($ordered) . ' item' . (count($ordered) === 1 ? '' : 's') . '</span>' : '') . '</p><div class="chat">';
     foreach ($c['turns'] as $t) {
         $html .= '<div class="msg guest">' . h($t['question']) . '</div><div class="meta r">Guest &middot; ' . h($when($t['time'])) . '</div>'
@@ -275,7 +285,7 @@ if ($view === 'insights') {
         . '<div class="bar">' . $tabs . '</div>' . insights_html(chat_insights($convos), $days));
 }
 
-$html = $nav . '<h1>Conversations</h1><p class="muted">Anonymous: no names, emails or IP addresses. Kept for ' . (int) config()['chat_log_days'] . ' days, then deleted automatically.</p>'
+$html = $nav . '<h1>Conversations</h1><p class="muted">Guests give an email (and optionally a name) before chatting. No IP addresses are stored. Kept for ' . (int) config()['chat_log_days'] . ' days, then deleted automatically.</p>'
     . '<div class="bar">' . $tabs . '<a class="dl" href="?csv=1&amp;days=' . $days . '">Download spreadsheet</a></div>'
     . '<div class="stats"><div class="stat"><b>' . count($convos) . '</b>conversations</div><div class="stat"><b>' . $questions . '</b>questions</div>'
     . '<div class="stat"><b>' . $withOrders . '</b>with food ordered</div><div class="stat"><b>' . number_format($tokens) . '</b>AI tokens used</div></div>';
@@ -283,11 +293,16 @@ $html = $nav . '<h1>Conversations</h1><p class="muted">Anonymous: no names, emai
 if (!$convos) {
     page('Conversations', $html . '<p class="empty">No chats in this period yet.</p>');
 }
-$html .= '<div class="table"><table><thead><tr><th>Last message</th><th>Questions</th><th>Ordered</th><th>First question</th><th></th></tr></thead><tbody>';
+$html .= '<div class="table"><table><thead><tr><th>Last message</th><th>Guest</th><th>Questions</th><th>Ordered</th><th>First question</th><th></th></tr></thead><tbody>';
 foreach ($convos as $c) {
     $items = count(array_merge(...array_map(fn($t) => $t['ordered'] ?? [], $c['turns'])));
     $first = $c['turns'][0]['question'] ?? '';
-    $html .= '<tr><td>' . h($when($c['end'])) . '</td><td>' . count($c['turns']) . '</td>'
+    $email = $c['email'] ?? '';
+    $name = $c['name'] ?? '';
+    $guest = $email !== ''
+        ? ($name !== '' ? '<b>' . h($name) . '</b><br>' : '') . '<a href="mailto:' . h($email) . '">' . h($email) . '</a>'
+        : '<span class="muted">&ndash;</span>';
+    $html .= '<tr><td>' . h($when($c['end'])) . '</td><td class="guest">' . $guest . '</td><td>' . count($c['turns']) . '</td>'
         . '<td>' . ($items ? '<span class="tag">' . $items . ' item' . ($items === 1 ? '' : 's') . '</span>' : '&ndash;') . '</td>'
         . '<td class="q">' . h(mb_strimwidth($first, 0, 110, '…')) . '</td>'
         . '<td><a href="?c=' . rawurlencode($c['cid']) . '&amp;days=' . $days . '">Read &rarr;</a></td></tr>';

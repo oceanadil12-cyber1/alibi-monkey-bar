@@ -3,10 +3,11 @@
  * Chat history for the chat assistant.
  *
  * One JSON line per question and answer, one file per day, in
- * data_dir()/chats/ (api/data/chats/ by default; private). Each line carries an
- * anonymous conversation id from the visitor's browser tab, so a whole chat can
- * be followed; no names, emails or IP addresses are stored. Files older than
- * config 'chat_log_days' (120) are deleted automatically.
+ * data_dir()/chats/ (api/data/chats/ by default; private). Each line carries a
+ * conversation id from the visitor's browser tab, so a whole chat can be
+ * followed, plus the email (required) and name (optional) the guest gave before
+ * their first message, so the team can follow up. No IP addresses are stored.
+ * Files older than config 'chat_log_days' (120) are deleted automatically.
  *
  * Written by chat.php, read by chats.php (the password-protected history page).
  */
@@ -22,11 +23,23 @@ function chat_log_cid($raw): string
     return is_string($raw) && preg_match('/^[A-Za-z0-9-]{6,40}$/', $raw) ? $raw : 'unknown';
 }
 
+/** The email (required, validated) and name (optional) the guest gave, cleaned. */
+function chat_contact($in): array
+{
+    $email = clean_field(is_array($in) ? ($in['email'] ?? '') : '', 120);
+    $name  = clean_field(is_array($in) ? ($in['name'] ?? '') : '', 80);
+    return [
+        'name'  => $name,
+        'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '',
+    ];
+}
+
 /**
- * Saves one question and answer. $ordered: labels of dishes the chat added to
- * the cart; $shows: names of shows its cards showed (both for the Insights tab).
+ * Saves one question and answer. $contact: ['name', 'email'] the guest gave;
+ * $ordered: labels of dishes the chat added to the cart; $shows: names of shows
+ * its cards showed (both for the Insights tab).
  */
-function log_chat(string $cid, string $question, string $reply, array $usage, float $seconds, array $ordered = [], array $shows = []): void
+function log_chat(string $cid, string $question, string $reply, array $usage, float $seconds, array $contact = [], array $ordered = [], array $shows = []): void
 {
     if (!config()['chat_log']) return;
     $dir = chat_log_dir();
@@ -34,6 +47,8 @@ function log_chat(string $cid, string $question, string $reply, array $usage, fl
     $row = [
         'time'          => date('c'),
         'cid'           => $cid,
+        'name'          => (string) ($contact['name'] ?? ''),
+        'email'         => (string) ($contact['email'] ?? ''),
         'question'      => $question,
         'reply'         => $reply,
         'ordered'       => array_values($ordered),
@@ -78,6 +93,10 @@ function chat_log_conversations(int $days): array
             $convos[$cid]['cid'] = $cid;
             $convos[$cid]['start'] = $convos[$cid]['start'] ?? $row['time'];
             $convos[$cid]['end'] = $row['time'];
+            // The email and name are the same for a whole conversation; keep the
+            // first non-empty ones seen (older logs won't have them).
+            if (empty($convos[$cid]['email']) && !empty($row['email'])) $convos[$cid]['email'] = $row['email'];
+            if (empty($convos[$cid]['name']) && !empty($row['name'])) $convos[$cid]['name'] = $row['name'];
             $convos[$cid]['turns'][] = $row;
         }
     }

@@ -644,7 +644,7 @@ $question = end($messages)['content'];
 $cards = chat_cards($question, $reply);
 $shownShows = [];
 foreach ($cards as $card) if ($card['type'] === 'shows') $shownShows = array_column($card['shows'], 'name');
-log_chat(chat_log_cid($in['cid'] ?? null), $question, $reply, $usage, microtime(true) - $start, array_column($cart, 'label'), $shownShows);
+log_chat(chat_log_cid($in['cid'] ?? null), $question, $reply, $usage, microtime(true) - $start, chat_contact($in), array_column($cart, 'label'), $shownShows);
 // Cart lines go to the browser, which adds them to the site's normal cart (js/order.js).
 send_json(['ok' => true, 'reply' => $reply]
     + ($cart ? ['cart' => $cart] : [])
