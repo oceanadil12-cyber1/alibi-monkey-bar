@@ -63,6 +63,13 @@
   const shownMods = (d) => d.mods.filter((m) => !/^(none|no thanks)$/i.test(m.name.trim()));
 
   const validLines = () => state.cart.filter((l) => describe(l));
+
+  // Distinct names of cart items that are pickup-only, when delivery is chosen.
+  function deliveryBlocked() {
+    if (state.fulfillment.type !== 'delivery') return [];
+    const names = state.cart.map((l) => item(l.itemId)).filter((it) => it && it.pickupOnly).map((it) => it.name);
+    return [...new Set(names)];
+  }
   const subtotal = () => validLines().reduce((s, l) => s + describe(l).total, 0);
   const cartCount = () => validLines().reduce((s, l) => s + l.qty, 0);
 
@@ -136,7 +143,7 @@
             return `
               <button type="button" class="order-card${sold ? ' is-sold-out' : ''}" data-item="${esc(id)}" ${sold ? 'disabled' : ''}>
                 <span class="order-card-body">
-                  <span class="order-card-name">${esc(it.name)}</span>
+                  <span class="order-card-name">${esc(it.name)}${it.pickupOnly ? '<span class="order-tag-pickup">Pickup only</span>' : ''}</span>
                   ${it.description ? `<span class="order-card-desc">${esc(it.description)}</span>` : ''}
                   <span class="order-card-price">${sold ? 'Sold out' : priceLabel(it)}</span>
                 </span>
@@ -397,7 +404,8 @@
         <div class="order-drawer-foot">
           <div class="order-total-row"><span>Subtotal</span><strong>${money(subtotal())}</strong></div>
           ${f === 'delivery' && subtotal() < s.deliveryMinimum ? `<p class="order-warn">Add ${money(s.deliveryMinimum - subtotal())} more for delivery.</p>` : ''}
-          <button type="button" class="btn-primary order-go" data-go-checkout ${(!info.open || (f === 'delivery' && subtotal() < s.deliveryMinimum) || !validLines().length) ? 'disabled' : ''}>Checkout</button>
+          ${deliveryBlocked().length ? `<p class="order-warn">${esc(deliveryBlocked().join(', '))} ${deliveryBlocked().length > 1 ? 'are' : 'is'} pickup only. Switch to Pickup, or remove to order for delivery.</p>` : ''}
+          <button type="button" class="btn-primary order-go" data-go-checkout ${(!info.open || (f === 'delivery' && subtotal() < s.deliveryMinimum) || !validLines().length || deliveryBlocked().length) ? 'disabled' : ''}>Checkout</button>
         </div>` : ''}`;
   }
 
@@ -529,6 +537,7 @@
     const box = $('.order-summary', panel);
     if (!box) return;
     const cod = state.menu.codMode;
+    const blocked = deliveryBlocked();
     const q = state.quote && state.quote.totals;
     const sub = q ? q.subtotal : subtotal();
     const tip = state.menu.paymentsEnabled ? tipAmount() : 0;
@@ -543,15 +552,16 @@
       ${state.menu.paymentsEnabled ? `<div class="order-total-row"><span>Tip</span><span>${money(tip)}</span></div>` : ''}
       <div class="order-total-row is-total"><span>${cod ? 'To pay in cash' : 'Total'}</span><strong>${money(total)}</strong></div>
       ${cod ? `<p class="order-cod-note">Plus sales tax, paid in cash on ${state.fulfillment.type === 'delivery' ? 'delivery' : 'pickup'}.</p>` : ''}
+      ${blocked.length ? `<p class="order-warn">${esc(blocked.join(', '))} ${blocked.length > 1 ? 'are' : 'is'} pickup only. Switch to Pickup, or remove to order for delivery.</p>` : ''}
       ${state.quoteError ? `<p class="order-warn">${esc(state.quoteError)}</p>` : ''}`;
     const pay = $('[data-pay]', panel);
     if (pay) {
       if (cod) {
         pay.textContent = state.placing ? 'Placing order…' : 'Place order';
-        pay.disabled = state.placing || !validLines().length || !!state.quoteError;
+        pay.disabled = state.placing || !validLines().length || !!state.quoteError || blocked.length > 0;
       } else if (state.menu.paymentsEnabled) {
         pay.textContent = state.placing ? 'Placing order…' : `Pay ${money(total)}`;
-        pay.disabled = state.placing || !q || !!state.quoteError;
+        pay.disabled = state.placing || !q || !!state.quoteError || blocked.length > 0;
       }
     }
   }
