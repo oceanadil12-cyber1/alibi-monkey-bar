@@ -60,6 +60,21 @@ td.guest { font-size: 13px; line-height: 1.4; }
 td.guest a { word-break: break-all; }
 .who { margin: 0 0 4px; font-size: 14px; }
 .who a { word-break: break-all; }
+td.nowrap { white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.chip { display: inline-block; padding: 3px 10px; border-radius: 999px; background: #1a1a1a; border: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+.chip.gold { background: #2a2210; border-color: rgba(200,168,78,.4); color: var(--gold-light); }
+.ret { display: inline-block; margin-top: 3px; font-size: 11.5px; color: var(--gold-light); }
+form.dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 18px; font-size: 13px; color: var(--muted); }
+form.dates label { display: inline-flex; align-items: center; gap: 6px; }
+form.dates input[type=date] { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0f0f0f; color: var(--text); font-size: 13px; color-scheme: dark; }
+form.dates button { padding: 7px 14px; border: none; border-radius: 999px; background: var(--gold); color: #111; font-weight: 700; font-size: 13px; cursor: pointer; }
+form.dates .clear { color: var(--muted); }
+.prev { margin: 14px 0 4px; padding: 12px 14px; background: #17140b; border: 1px solid rgba(200,168,78,.35); border-radius: 12px; }
+.prev strong { color: var(--gold-light); font-size: 13.5px; }
+.prev ul { margin: 8px 0 0; padding-left: 2px; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.prev li { font-size: 13px; }
+.prev li a { font-weight: 600; white-space: nowrap; }
 .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #2a2210; color: var(--gold-light); font-size: 12px; }
 .chat { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
 .msg { max-width: 78%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -221,16 +236,29 @@ if (empty($_SESSION['chats_ok'])) {
 chat_log_cleanup();
 $days = in_array((int) ($_GET['days'] ?? 30), [1, 7, 30, 120], true) ? (int) ($_GET['days'] ?? 30) : 30;
 
+// Optional exact date range (the date picker); overrides the day presets.
+$reDate = '/^\d{4}-\d{2}-\d{2}$/';
+$from = (isset($_GET['from']) && preg_match($reDate, (string) $_GET['from'])) ? (string) $_GET['from'] : null;
+$to   = (isset($_GET['to']) && preg_match($reDate, (string) $_GET['to'])) ? (string) $_GET['to'] : null;
+$rangeMode = ($from || $to);
+if ($rangeMode) { $from = $from ?: $to; $to = $to ?: $from; if ($from > $to) [$from, $to] = [$to, $from]; }
+$period = $rangeMode ? ('from=' . $from . '&amp;to=' . $to) : ('days=' . $days); // for internal links
+$effFrom = $rangeMode ? $from : date('Y-m-d', strtotime('-' . ($days - 1) . ' days'));
+$effTo   = $rangeMode ? $to : date('Y-m-d');
+
 // Spreadsheet download.
 if (isset($_GET['csv'])) {
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="alibi-chats-' . date('Y-m-d') . "-last-{$days}-days.csv\"");
+    header('Content-Disposition: attachment; filename="alibi-chats-' . date('Y-m-d') . '.csv"');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF"); // lets Excel read accents and emoji
-    fputcsv($out, ['conversation', 'name', 'email', 'time', 'guest asked', 'assistant replied', 'added to order', 'AI', 'input tokens', 'output tokens', 'seconds']);
-    foreach (array_reverse(chat_log_conversations($days)) as $c) {
+    fputcsv($out, ['conversation', 'name', 'email', 'ip', 'device', 'browser', 'distance (mi)', 'location', 'time', 'guest asked', 'assistant replied', 'added to order', 'AI', 'input tokens', 'output tokens', 'seconds']);
+    foreach (array_reverse(chat_log_conversations($days, $from, $to)) as $c) {
+        $d = !empty($c['ip']) ? geo_distance($c['ip']) : null;
+        $miles = $d ? round($d['miles']) : '';
+        $place = $d ? $d['place'] : '';
         foreach ($c['turns'] as $t) {
-            $row = [$c['cid'], $c['name'] ?? '', $c['email'] ?? '', $t['time'], $t['question'], $t['reply'], implode('; ', $t['ordered'] ?? []), trim(($t['provider'] ?? '') . ' ' . ($t['model'] ?? '')), $t['input_tokens'] ?? 0, $t['output_tokens'] ?? 0, $t['seconds'] ?? 0];
+            $row = [$c['cid'], $c['name'] ?? '', $c['email'] ?? '', $c['ip'] ?? '', $c['device'] ?? '', $c['browser'] ?? '', $miles, $place, $t['time'], $t['question'], $t['reply'], implode('; ', $t['ordered'] ?? []), trim(($t['provider'] ?? '') . ' ' . ($t['model'] ?? '')), $t['input_tokens'] ?? 0, $t['output_tokens'] ?? 0, $t['seconds'] ?? 0];
             // Guests' text must not run as spreadsheet formulas.
             fputcsv($out, array_map(fn($v) => preg_match('/^[=+\-@\t\r]/', (string) $v) ? "'" . $v : $v, $row));
         }
@@ -243,18 +271,44 @@ $when = fn($iso) => date('M j, g:i A', strtotime($iso));
 // One conversation.
 if (isset($_GET['c'])) {
     $cid = chat_log_cid($_GET['c']);
-    $c = chat_log_conversations(120)[$cid] ?? null;
-    if (!$c) page('Not found', '<p><a href="chats.php?days=' . $days . '">&larr; All conversations</a></p><p class="empty">This conversation was not found (chats are kept for ' . (int) config()['chat_log_days'] . ' days).</p>');
+    $all120 = chat_log_conversations(120);
+    $c = $all120[$cid] ?? null;
+    if (!$c) page('Not found', '<p><a href="chats.php?' . $period . '">&larr; All conversations</a></p><p class="empty">This conversation was not found (chats are kept for ' . (int) config()['chat_log_days'] . ' days).</p>');
     $ordered = array_merge(...array_map(fn($t) => $t['ordered'] ?? [], $c['turns']));
     $email = $c['email'] ?? '';
     $name = $c['name'] ?? '';
+    $ip = $c['ip'] ?? '';
+    $device = $c['device'] ?? '';
+    $browser = $c['browser'] ?? '';
+    $dist = $ip !== '' ? geo_distance($ip) : null;
     $who = trim(($name !== '' ? h($name) : '') . ($name !== '' && $email !== '' ? ' &middot; ' : '')
         . ($email !== '' ? '<a href="mailto:' . h($email) . '">' . h($email) . '</a>' : ''));
-    $html = '<p><a href="chats.php?days=' . $days . '">&larr; All conversations</a></p>'
+    // Device / browser / IP / approximate distance from the club.
+    $chips = [];
+    $db = trim($device . ($device && $browser ? ' &middot; ' : '') . $browser);
+    if ($db !== '') $chips[] = '<span class="chip">' . h($device) . ($device && $browser ? ' &middot; ' : '') . h($browser) . '</span>';
+    if ($ip !== '') $chips[] = '<span class="chip">IP ' . h($ip) . '</span>';
+    if ($dist) $chips[] = '<span class="chip gold">~' . number_format($dist['miles'], $dist['miles'] < 10 ? 1 : 0) . ' mi from club' . ($dist['place'] !== '' ? ' &middot; ' . h($dist['place']) : '') . '</span>';
+    // Earlier chats from the same email (returning guest).
+    $prev = [];
+    if ($email !== '') foreach ($all120 as $oc) {
+        if (($oc['cid'] ?? '') !== $cid && strcasecmp(trim((string) ($oc['email'] ?? '')), $email) === 0) $prev[] = $oc;
+    }
+    $html = '<p><a href="chats.php?' . $period . '">&larr; All conversations</a></p>'
         . '<h1>Conversation ' . h($cid) . '</h1>'
         . ($who !== '' ? '<p class="who">' . $who . '</p>' : '<p class="muted">No contact details were given.</p>')
+        . ($chips ? '<p class="chips">' . implode(' ', $chips) . '</p>' : '')
         . '<p class="muted">' . h($when($c['start'])) . ' &ndash; ' . h($when($c['end'])) . ' &middot; '
-        . count($c['turns']) . ' question' . (count($c['turns']) === 1 ? '' : 's') . ($ordered ? ' &middot; <span class="tag">ordered ' . count($ordered) . ' item' . (count($ordered) === 1 ? '' : 's') . '</span>' : '') . '</p><div class="chat">';
+        . count($c['turns']) . ' question' . (count($c['turns']) === 1 ? '' : 's') . ($ordered ? ' &middot; <span class="tag">ordered ' . count($ordered) . ' item' . (count($ordered) === 1 ? '' : 's') . '</span>' : '') . '</p>';
+    if ($prev) {
+        $html .= '<div class="prev"><strong>&#8617; Returning guest &mdash; ' . count($prev) . ' earlier ' . (count($prev) === 1 ? 'chat' : 'chats') . ' from ' . h($email) . '</strong><ul>';
+        foreach ($prev as $oc) {
+            $q = $oc['turns'][0]['question'] ?? '';
+            $html .= '<li><a href="?c=' . rawurlencode($oc['cid']) . '&amp;' . $period . '">' . h($when($oc['end'])) . ' &middot; ' . count($oc['turns']) . ' Q</a> <span class="muted">' . h(mb_strimwidth($q, 0, 80, '…')) . '</span></li>';
+        }
+        $html .= '</ul></div>';
+    }
+    $html .= '<div class="chat">';
     foreach ($c['turns'] as $t) {
         $html .= '<div class="msg guest">' . h($t['question']) . '</div><div class="meta r">Guest &middot; ' . h($when($t['time'])) . '</div>'
             // Markdown asterisks are removed as in the chat window (js/chat.js).
@@ -266,7 +320,7 @@ if (isset($_GET['c'])) {
 }
 
 // The list, or the Insights tab.
-$convos = chat_log_conversations($days);
+$convos = chat_log_conversations($days, $from, $to);
 $questions = array_sum(array_map(fn($c) => count($c['turns']), $convos));
 $withOrders = count(array_filter($convos, fn($c) => array_filter($c['turns'], fn($t) => !empty($t['ordered']))));
 $tokens = array_sum(array_map(fn($c) => array_sum(array_map(fn($t) => ($t['input_tokens'] ?? 0) + ($t['output_tokens'] ?? 0), $c['turns'])), $convos));
@@ -274,37 +328,59 @@ $view = ($_GET['view'] ?? '') === 'insights' ? 'insights' : 'list';
 
 $tabs = '';
 foreach ([1 => 'Today', 7 => '7 days', 30 => '30 days', 120 => '120 days'] as $d => $label) {
-    $tabs .= '<a href="?days=' . $d . ($view === 'insights' ? '&amp;view=insights' : '') . '"' . ($d === $days ? ' class="on"' : '') . '>' . $label . '</a>';
+    $on = (!$rangeMode && $d === $days) ? ' class="on"' : '';
+    $tabs .= '<a href="?days=' . $d . ($view === 'insights' ? '&amp;view=insights' : '') . '"' . $on . '>' . $label . '</a>';
 }
-$nav = '<nav class="views"><a href="?days=' . $days . '"' . ($view === 'list' ? ' class="on"' : '') . '>Conversations</a>'
-    . '<a href="?days=' . $days . '&amp;view=insights"' . ($view === 'insights' ? ' class="on"' : '') . '>Insights</a></nav>';
+// Exact date range picker (submits ?from=&to=).
+$today = date('Y-m-d');
+$dateForm = '<form class="dates" method="get">' . ($view === 'insights' ? '<input type="hidden" name="view" value="insights">' : '')
+    . '<label>From <input type="date" name="from" value="' . h($effFrom) . '" max="' . h($today) . '"></label>'
+    . '<label>to <input type="date" name="to" value="' . h($effTo) . '" max="' . h($today) . '"></label>'
+    . '<button type="submit">Apply</button>'
+    . ($rangeMode ? '<a class="clear" href="?days=30' . ($view === 'insights' ? '&amp;view=insights' : '') . '">Clear</a>' : '') . '</form>';
+
+$nav = '<nav class="views"><a href="?' . $period . '"' . ($view === 'list' ? ' class="on"' : '') . '>Conversations</a>'
+    . '<a href="?' . $period . '&amp;view=insights"' . ($view === 'insights' ? ' class="on"' : '') . '>Insights</a></nav>';
 
 if ($view === 'insights') {
     require_once __DIR__ . '/chat-insights.php';
     page('Insights', $nav . '<h1>Insights</h1><p class="muted">What guests ask about and order in the chat. Counted from their own words, so treat it as a guide rather than exact figures. Full sales are in Square.</p>'
-        . '<div class="bar">' . $tabs . '</div>' . insights_html(chat_insights($convos), $days));
+        . '<div class="bar">' . $tabs . '</div>' . $dateForm . insights_html(chat_insights($convos), $days));
 }
 
-$html = $nav . '<h1>Conversations</h1><p class="muted">Guests give an email (and optionally a name) before chatting. No IP addresses are stored. Kept for ' . (int) config()['chat_log_days'] . ' days, then deleted automatically.</p>'
-    . '<div class="bar">' . $tabs . '<a class="dl" href="?csv=1&amp;days=' . $days . '">Download spreadsheet</a></div>'
+$html = $nav . '<h1>Conversations</h1><p class="muted">Guests give an email (and optionally a name) before chatting; their IP address, device and browser are recorded too. Kept for ' . (int) config()['chat_log_days'] . ' days, then deleted automatically.</p>'
+    . '<div class="bar">' . $tabs . '<a class="dl" href="?csv=1&amp;' . $period . '">Download spreadsheet</a></div>'
+    . $dateForm
     . '<div class="stats"><div class="stat"><b>' . count($convos) . '</b>conversations</div><div class="stat"><b>' . $questions . '</b>questions</div>'
     . '<div class="stat"><b>' . $withOrders . '</b>with food ordered</div><div class="stat"><b>' . number_format($tokens) . '</b>AI tokens used</div></div>';
 
 if (!$convos) {
     page('Conversations', $html . '<p class="empty">No chats in this period yet.</p>');
 }
-$html .= '<div class="table"><table><thead><tr><th>Last message</th><th>Guest</th><th>Questions</th><th>Ordered</th><th>First question</th><th></th></tr></thead><tbody>';
+// Mark emails that appear more than once in this view as returning guests.
+$emailCounts = [];
+foreach ($convos as $c) { $e = strtolower(trim((string) ($c['email'] ?? ''))); if ($e !== '') $emailCounts[$e] = ($emailCounts[$e] ?? 0) + 1; }
+
+$html .= '<div class="table"><table><thead><tr><th>Last message</th><th>Guest</th><th>Device</th><th>Distance</th><th>Questions</th><th>Ordered</th><th>First question</th><th></th></tr></thead><tbody>';
 foreach ($convos as $c) {
     $items = count(array_merge(...array_map(fn($t) => $t['ordered'] ?? [], $c['turns'])));
     $first = $c['turns'][0]['question'] ?? '';
     $email = $c['email'] ?? '';
     $name = $c['name'] ?? '';
+    $ecount = $email !== '' ? ($emailCounts[strtolower(trim($email))] ?? 1) : 1;
     $guest = $email !== ''
         ? ($name !== '' ? '<b>' . h($name) . '</b><br>' : '') . '<a href="mailto:' . h($email) . '">' . h($email) . '</a>'
+            . ($ecount > 1 ? ' <span class="ret" title="' . $ecount . ' chats from this email in view">&#8617; returning</span>' : '')
         : '<span class="muted">&ndash;</span>';
-    $html .= '<tr><td>' . h($when($c['end'])) . '</td><td class="guest">' . $guest . '</td><td>' . count($c['turns']) . '</td>'
+    $device = (string) ($c['device'] ?? '');
+    $browser = (string) ($c['browser'] ?? '');
+    $devCell = $device !== '' ? h($device) . ($browser !== '' ? '<br><span class="muted">' . h($browser) . '</span>' : '') : '<span class="muted">&ndash;</span>';
+    $d = !empty($c['ip']) ? geo_distance($c['ip']) : null;
+    $distCell = $d ? '~' . number_format($d['miles'], $d['miles'] < 10 ? 1 : 0) . ' mi' . ($d['place'] !== '' ? '<br><span class="muted">' . h($d['place']) . '</span>' : '') : '<span class="muted">&ndash;</span>';
+    $html .= '<tr><td class="nowrap">' . h($when($c['end'])) . '</td><td class="guest">' . $guest . '</td>'
+        . '<td>' . $devCell . '</td><td>' . $distCell . '</td><td>' . count($c['turns']) . '</td>'
         . '<td>' . ($items ? '<span class="tag">' . $items . ' item' . ($items === 1 ? '' : 's') . '</span>' : '&ndash;') . '</td>'
-        . '<td class="q">' . h(mb_strimwidth($first, 0, 110, '…')) . '</td>'
-        . '<td><a href="?c=' . rawurlencode($c['cid']) . '&amp;days=' . $days . '">Read &rarr;</a></td></tr>';
+        . '<td class="q">' . h(mb_strimwidth($first, 0, 90, '…')) . '</td>'
+        . '<td><a href="?c=' . rawurlencode($c['cid']) . '&amp;' . $period . '">Read &rarr;</a></td></tr>';
 }
 page('Conversations', $html . '</tbody></table></div>');

@@ -185,6 +185,24 @@ function data_dir(): string
 }
 
 /**
+ * The visitor's IP address. Prefers Cloudflare's / a proxy's header when the
+ * site runs behind one (many shared hosts do), falling back to REMOTE_ADDR.
+ * X-Forwarded-For can be spoofed, so this is fine for analytics but must not be
+ * trusted for security decisions.
+ */
+function client_ip(): string
+{
+    $cf = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '';
+    if (filter_var($cf, FILTER_VALIDATE_IP)) return $cf;
+    foreach (explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '')) as $part) {
+        $ip = trim($part);
+        if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+    }
+    $remote = $_SERVER['REMOTE_ADDR'] ?? '';
+    return filter_var($remote, FILTER_VALIDATE_IP) ? $remote : '';
+}
+
+/**
  * Only accept JSON posted by this website's own pages. Other sites can't send
  * JSON here without a CORS preflight (which we never allow), and a browser's
  * Origin header must match this host when present.
