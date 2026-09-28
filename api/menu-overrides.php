@@ -35,37 +35,76 @@ function write_menu_overrides(array $data): bool
         json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
 
+/** Build a menu item (in the load_menu shape) from a saved custom-item entry. */
+function custom_menu_item(array $c): ?array
+{
+    if (empty($c['id']) || empty($c['name'])) return null;
+    $id = (string) $c['id'];
+    $item = [
+        'id'          => $id,
+        'squareId'    => null,
+        'name'        => (string) $c['name'],
+        'description' => (string) ($c['description'] ?? ''),
+        'image'       => null,
+        'soldOut'     => false,
+        'maxQty'      => 0,
+        'variations'  => [['id' => $id . '-v', 'name' => 'Regular', 'price' => max(0, (int) ($c['price'] ?? 0)), 'soldOut' => false]],
+        'modifiers'   => [],
+        'custom'      => true,
+    ];
+    if (!empty($c['pickupOnly']))  $item['pickupOnly'] = true;
+    if (!empty($c['deliveryFee'])) $item['deliveryFee'] = max(0, (int) $c['deliveryFee']);
+    if (!empty($c['prepMinutes'])) $item['prepMinutes'] = max(0, (int) $c['prepMinutes']);
+    return $item;
+}
+
 /**
  * Apply the saved overrides to a menu array (from load_menu_base): drop hidden
- * items, override prices, and attach pickupOnly / deliveryFee / prepMinutes so
- * checkout and the front-end can honour them.
+ * items, override prices, attach pickupOnly / deliveryFee / prepMinutes, and add
+ * the restaurant's own custom items (not in Square) so checkout and the
+ * front-end treat them like any other dish.
  */
 function apply_menu_overrides(array $menu): array
 {
     if (empty($menu['items'])) return $menu;
-    $items = read_menu_overrides()['items'];
-    if ($items) {
-        foreach ($menu['items'] as $id => &$item) {
-            $o = $items[$id] ?? null;
-            if (!$o) continue;
-            if (!empty($o['hidden'])) { unset($menu['items'][$id]); continue; }
-            if (!empty($o['prices']) && is_array($o['prices'])) {
-                foreach ($item['variations'] as &$v) {
-                    if (isset($o['prices'][$v['id']])) $v['price'] = max(0, (int) $o['prices'][$v['id']]);
-                }
-                unset($v);
+    $ov = read_menu_overrides();
+
+    foreach ($menu['items'] as $id => &$item) {
+        $o = ($ov['items'] ?? [])[$id] ?? null;
+        if (!$o) continue;
+        if (!empty($o['hidden'])) { unset($menu['items'][$id]); continue; }
+        if (!empty($o['prices']) && is_array($o['prices'])) {
+            foreach ($item['variations'] as &$v) {
+                if (isset($o['prices'][$v['id']])) $v['price'] = max(0, (int) $o['prices'][$v['id']]);
             }
-            if (!empty($o['pickupOnly']))  $item['pickupOnly'] = true;
-            if (!empty($o['deliveryFee'])) $item['deliveryFee'] = max(0, (int) $o['deliveryFee']);
-            if (!empty($o['prepMinutes'])) $item['prepMinutes'] = max(0, (int) $o['prepMinutes']);
+            unset($v);
         }
-        unset($item);
-        // Drop hidden items from their categories, then drop empty categories.
-        foreach ($menu['categories'] as &$c) {
-            $c['itemIds'] = array_values(array_filter($c['itemIds'], fn($id) => isset($menu['items'][$id])));
-        }
-        unset($c);
-        $menu['categories'] = array_values(array_filter($menu['categories'], fn($c) => $c['itemIds']));
+        if (!empty($o['pickupOnly']))  $item['pickupOnly'] = true;
+        if (!empty($o['deliveryFee'])) $item['deliveryFee'] = max(0, (int) $o['deliveryFee']);
+        if (!empty($o['prepMinutes'])) $item['prepMinutes'] = max(0, (int) $o['prepMinutes']);
     }
+    unset($item);
+
+    // Custom items: add to the menu and to their chosen category (created if gone).
+    foreach ($ov['custom'] ?? [] as $c) {
+        $item = custom_menu_item((array) $c);
+        if (!$item) continue;
+        $id = $item['id'];
+        $menu['items'][$id] = $item;
+        $catId = (string) ($c['category'] ?? '');
+        $placed = false;
+        foreach ($menu['categories'] as &$cat) {
+            if ($cat['id'] === $catId) { $cat['itemIds'][] = $id; $placed = true; break; }
+        }
+        unset($cat);
+        if (!$placed) $menu['categories'][] = ['id' => $catId ?: 'extras', 'name' => (string) ($c['categoryName'] ?? 'More'), 'itemIds' => [$id]];
+    }
+
+    // Drop hidden items from their categories, then drop empty categories.
+    foreach ($menu['categories'] as &$c) {
+        $c['itemIds'] = array_values(array_filter($c['itemIds'], fn($id) => isset($menu['items'][$id])));
+    }
+    unset($c);
+    $menu['categories'] = array_values(array_filter($menu['categories'], fn($c) => $c['itemIds']));
     return $menu;
 }

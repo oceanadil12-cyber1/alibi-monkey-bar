@@ -62,7 +62,7 @@ function save_food_overrides(array $base): void
     foreach ($base['items'] as $id => $it) {
         foreach ($it['variations'] as $v) $basePrice[$id][$v['id']] = (int) $v['price'];
     }
-    $out = ['items' => []];
+    $out = ['items' => [], 'custom' => read_menu_overrides()['custom'] ?? []]; // keep custom items
     foreach (array_map('strval', (array) ($_POST['ids'] ?? [])) as $id) {
         if (!isset($base['items'][$id])) continue;
         $o = [];
@@ -80,6 +80,67 @@ function save_food_overrides(array $base): void
         if ($o) $out['items'][$id] = $o;
     }
     write_menu_overrides($out);
+}
+
+/** Category id → name, from the base (Square) menu. */
+function food_categories(array $base): array
+{
+    $cats = [];
+    foreach ($base['categories'] as $c) $cats[$c['id']] = $c['name'];
+    return $cats;
+}
+
+/** Add a brand-new custom item (not in Square) from the "Add item" form. */
+function add_custom_item(array $base): void
+{
+    $name = trim(mb_substr((string) ($_POST['name'] ?? ''), 0, 80));
+    $price = dollars_to_cents((string) ($_POST['price'] ?? ''));
+    if ($name === '' || $price === null) return; // need at least a name and price
+    $cats = food_categories($base);
+    $catId = (string) ($_POST['category'] ?? '');
+    $ov = read_menu_overrides();
+    $ov['custom'] = $ov['custom'] ?? [];
+    $ov['custom'][] = [
+        'id'           => 'local-' . bin2hex(random_bytes(4)),
+        'name'         => $name,
+        'description'  => trim(mb_substr((string) ($_POST['description'] ?? ''), 0, 300)),
+        'price'        => max(0, $price),
+        'category'     => $catId,
+        'categoryName' => $cats[$catId] ?? 'More',
+        'pickupOnly'   => !empty($_POST['pickup']),
+        'deliveryFee'  => max(0, (int) (dollars_to_cents((string) ($_POST['dfee'] ?? '')) ?? 0)),
+        'prepMinutes'  => min(600, max(0, (int) ($_POST['prep'] ?? 0))),
+    ];
+    write_menu_overrides($ov);
+}
+
+/** Save edits and deletions to existing custom items. */
+function save_custom_items(array $base): void
+{
+    $cats = food_categories($base);
+    $ov = read_menu_overrides();
+    $prev = [];
+    foreach ($ov['custom'] ?? [] as $c) if (!empty($c['id'])) $prev[(string) $c['id']] = $c;
+    $out = [];
+    foreach (array_map('strval', (array) ($_POST['cid'] ?? [])) as $id) {
+        if (!isset($prev[$id]) || !empty($_POST['cdelete'][$id])) continue; // deleted
+        $name = trim(mb_substr((string) ($_POST['cname'][$id] ?? ''), 0, 80));
+        if ($name === '') continue;
+        $catId = (string) ($_POST['ccat'][$id] ?? '');
+        $out[] = [
+            'id'           => $id,
+            'name'         => $name,
+            'description'  => trim(mb_substr((string) ($_POST['cdesc'][$id] ?? ''), 0, 300)),
+            'price'        => max(0, (int) (dollars_to_cents((string) ($_POST['cprice'][$id] ?? '')) ?? 0)),
+            'category'     => $catId,
+            'categoryName' => $cats[$catId] ?? 'More',
+            'pickupOnly'   => !empty($_POST['cpickup'][$id]),
+            'deliveryFee'  => max(0, (int) (dollars_to_cents((string) ($_POST['cdfee'][$id] ?? '')) ?? 0)),
+            'prepMinutes'  => min(600, max(0, (int) ($_POST['cprep'][$id] ?? 0))),
+        ];
+    }
+    $ov['custom'] = $out;
+    write_menu_overrides($ov);
 }
 
 /** The Food tab body: a form to hide / re-price / restrict / surcharge each item. */
@@ -119,16 +180,61 @@ function food_html(array $base, array $over, string $csrf, bool $saved): string
         if ($items) $rows .= '<tr class="fcat"><td colspan="6">' . h($cat['name']) . '</td></tr>' . $items;
     }
 
+    // Category dropdown options.
+    $cats = [];
+    foreach ($base['categories'] as $cat) $cats[$cat['id']] = $cat['name'];
+    $catOptions = fn($sel) => implode('', array_map(fn($id) => '<option value="' . h($id) . '"' . ($id === $sel ? ' selected' : '') . '>' . h($cats[$id]) . '</option>', array_keys($cats)));
+
+    // "Add a new item" form (op=add).
+    $addForm = '<section class="fadd"><h2>Add a new item</h2>'
+        . '<p class="muted">Items you add here don\'t have to exist in Square &mdash; they\'re orderable on the website (cash on delivery).</p>'
+        . '<form method="post" action="?view=food"><input type="hidden" name="csrf" value="' . h($csrf) . '"><input type="hidden" name="op" value="add">'
+        . '<div class="fadd-grid">'
+        . '<label class="fa"><span>Name</span><input name="name" maxlength="80" required></label>'
+        . '<label class="fa fa-sm"><span>Price</span><span class="fp-in">$<input name="price" inputmode="decimal" required></span></label>'
+        . '<label class="fa fa-sm"><span>Category</span><select name="category">' . $catOptions('') . '</select></label>'
+        . '<label class="fa fa-sm"><span>Delivery surcharge</span><span class="fp-in">$<input name="dfee" inputmode="decimal" placeholder="0.00"></span></label>'
+        . '<label class="fa fa-sm"><span>Prep time</span><span class="fprep"><input name="prep" inputmode="numeric" placeholder="' . $storePrep . '"> min</span></label>'
+        . '<label class="fa fa-wide"><span>Description (optional)</span><input name="description" maxlength="300"></label>'
+        . '<label class="fchk fa-chk"><input type="checkbox" name="pickup" value="1"> Pickup only</label>'
+        . '</div><div class="fbar"><button type="submit" class="fsave">Add item</button></div></form></section>';
+
+    // Existing custom items editor (op=custom).
+    $customRows = '';
+    foreach ($over['custom'] ?? [] as $c) {
+        $id = (string) ($c['id'] ?? '');
+        if ($id === '') continue;
+        $customRows .= '<tr>'
+            . '<td><input name="cname[' . h($id) . ']" value="' . h($c['name'] ?? '') . '" maxlength="80"></td>'
+            . '<td><span class="fp-in">$<input name="cprice[' . h($id) . ']" inputmode="decimal" value="' . number_format((int) ($c['price'] ?? 0) / 100, 2, '.', '') . '"></span></td>'
+            . '<td><select name="ccat[' . h($id) . ']">' . $catOptions((string) ($c['category'] ?? '')) . '</select></td>'
+            . '<td><label class="fchk"><input type="checkbox" name="cpickup[' . h($id) . ']" value="1" ' . (!empty($c['pickupOnly']) ? 'checked' : '') . '> Pickup only</label></td>'
+            . '<td><span class="fp-in">$<input name="cdfee[' . h($id) . ']" inputmode="decimal" value="' . (!empty($c['deliveryFee']) ? number_format($c['deliveryFee'] / 100, 2, '.', '') : '') . '" placeholder="0.00"></span></td>'
+            . '<td class="fprep"><input name="cprep[' . h($id) . ']" inputmode="numeric" value="' . (!empty($c['prepMinutes']) ? (int) $c['prepMinutes'] : '') . '" placeholder="' . $storePrep . '"> min</td>'
+            . '<td><label class="fchk fdel"><input type="checkbox" name="cdelete[' . h($id) . ']" value="1"> Delete</label></td>'
+            . '<input type="hidden" name="cid[]" value="' . h($id) . '"></tr>';
+    }
+    $customSection = $customRows
+        ? '<section class="fcustom"><h2>Your added items</h2>'
+            . '<form method="post" action="?view=food"><input type="hidden" name="csrf" value="' . h($csrf) . '"><input type="hidden" name="op" value="custom">'
+            . '<div class="table"><table class="ftable"><thead><tr><th>Name</th><th>Price</th><th>Category</th><th>Fulfillment</th><th>Delivery surcharge</th><th>Prep time</th><th></th></tr></thead><tbody>'
+            . $customRows
+            . '</tbody></table></div><div class="fbar"><button type="submit" class="fsave">Save added items</button></div></form></section>'
+        : '';
+
     return '<h1>Food &amp; menu</h1>'
         . '<p class="muted">Live from your Square store; changes here apply on top of it, for the website only. Orders are cash on delivery, so the price you set is what the guest pays. Turn an item off to hide it; blank price keeps the Square price; blank prep uses the store default (' . $storePrep . ' min).</p>'
         . ($saved ? '<div class="fsaved">&#10003; Saved. The website updates within a couple of minutes.</div>' : '')
+        . $addForm
+        . $customSection
+        . '<section class="fgridsec"><h2>Square menu</h2>'
         . '<form class="ffood" method="post" action="?view=food">'
-        . '<input type="hidden" name="csrf" value="' . h($csrf) . '">'
+        . '<input type="hidden" name="csrf" value="' . h($csrf) . '"><input type="hidden" name="op" value="items">'
         . '<div class="fbar"><span class="muted">' . $count . ' items</span><button type="submit" class="fsave">Save changes</button></div>'
         . '<div class="table"><table class="ftable"><thead><tr><th>On</th><th>Item</th><th>Price</th><th>Fulfillment</th><th>Delivery surcharge</th><th>Prep time</th></tr></thead><tbody>'
         . $rows
         . '</tbody></table></div>'
-        . '<div class="fbar"><button type="submit" class="fsave">Save changes</button></div></form>';
+        . '<div class="fbar"><button type="submit" class="fsave">Save changes</button></div></form></section>';
 }
 
 function page(string $title, string $body): void
@@ -290,6 +396,19 @@ tr.is-off { opacity: .5; }
 .fsw span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #cfcfcf; transition: transform .15s ease; }
 .fsw input:checked + span { background: var(--gold); }
 .fsw input:checked + span::after { transform: translateX(18px); background: #111; }
+.fadd, .fcustom, .fgridsec { margin-top: 30px; }
+.fadd h2, .fcustom h2, .fgridsec h2 { font-size: 17px; margin: 0 0 4px; }
+.fadd { padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(180deg, var(--card-2), var(--card)); }
+.fadd-grid { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin-top: 12px; }
+.fa { display: flex; flex-direction: column; gap: 5px; flex: 1 1 200px; }
+.fa.fa-sm { flex: 0 0 140px; }
+.fa.fa-wide { flex: 1 1 100%; }
+.fa > span { font: 600 12px/1.2 'Inter', sans-serif; color: #cfcfcf; }
+.fa input, .fa select { padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: #0f0f10; color: var(--text); font-size: 14px; color-scheme: dark; }
+.fa .fp-in input { width: 100%; }
+.fa-chk { align-self: center; }
+.fdel { color: #f0a0a0; }
+select { color-scheme: dark; }
 CSS;
 
 // ---------- Insights tab ----------
@@ -426,7 +545,12 @@ if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 if (($_GET['view'] ?? '') === 'food') {
     $base = load_menu_base();
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-        if ($base && hash_equals($_SESSION['csrf'], (string) ($_POST['csrf'] ?? ''))) save_food_overrides($base);
+        if ($base && hash_equals($_SESSION['csrf'], (string) ($_POST['csrf'] ?? ''))) {
+            $op = $_POST['op'] ?? 'items';
+            if ($op === 'add') add_custom_item($base);
+            elseif ($op === 'custom') save_custom_items($base);
+            else save_food_overrides($base);
+        }
         header('Location: ?view=food&saved=1'); // post/redirect/get: no resubmit on refresh
         exit;
     }
