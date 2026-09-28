@@ -35,6 +35,8 @@ function config(): array
             'anthropic_api_key' => '',
             'claude_model'      => 'claude-opus-5',
             'chat_fallback'     => '',
+            'mistral_api_key'   => '',
+            'mistral_model'     => 'mistral-small-latest',
             'groq_api_key'      => '',
             'groq_model'        => 'openai/gpt-oss-120b',
             'gemini_api_key'    => '',

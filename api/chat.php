@@ -357,8 +357,9 @@ function ask_ollama(string $system, array $messages): array
 }
 
 /**
- * Cloud AIs that speak the common "OpenAI-style" chat API. Both have free plans:
- * Groq (key from console.groq.com/keys) and Google Gemini (aistudio.google.com/apikey).
+ * Cloud AIs that speak the common "OpenAI-style" chat API. All have free plans:
+ * Mistral (key from console.mistral.ai/api-keys), Groq (console.groq.com/keys)
+ * and Google Gemini (aistudio.google.com/apikey).
  * Settings in config.php are '<name>_api_key' and '<name>_model'.
  */
 const OPENAI_STYLE = [
@@ -374,6 +375,12 @@ const OPENAI_STYLE = [
             'openai/gpt-oss' => ['reasoning_effort' => 'low'],
             'qwen/'          => ['reasoning_effort' => 'none'],
         ],
+    ],
+    'mistral' => [
+        'label' => 'Mistral',
+        'url'   => 'https://api.mistral.ai/v1/chat/completions',
+        'keys'  => 'console.mistral.ai/api-keys',
+        'extra' => ['max_tokens' => 700],
     ],
     'gemini' => [
         'label' => 'Gemini',

@@ -47,6 +47,8 @@ return [
 
     // Which AI answers the chat:
     //   'ollama' — free, runs on your own computer; for testing (https://ollama.com)
+    //   'mistral' — Mistral's API; free plan with high limits (about 1 question
+    //              per second). Key from https://console.mistral.ai/api-keys
     //   'groq'   — Groq's API; free plan (about 1,000 questions/day), very fast.
     //              Key from https://console.groq.com/keys
     //   'gemini' — Google's API; small free plan (about 20 questions/day).
@@ -58,6 +60,12 @@ return [
     // A second AI to ask when the first one fails (free limit reached, busy or
     // down), e.g. 'gemini'. Leave empty for none.
     'chat_fallback'     => '',
+
+    // Mistral settings. On the free plan, turn off "Anonymous improvement data"
+    // in admin.mistral.ai (API section → Privacy) so chats aren't used for
+    // training, and don't enable Labs models.
+    'mistral_api_key'   => '',
+    'mistral_model'     => 'mistral-small-latest',
 
     // Groq settings. In the Groq console, turn on Zero Data Retention
     // (Settings → Data Controls) so guests' chats are never stored.
