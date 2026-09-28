@@ -19,6 +19,7 @@
  */
 require_once __DIR__ . '/lib.php';
 require_once __DIR__ . '/menu.php'; // load_menu()
+require_once __DIR__ . '/chat-order.php'; // the add_to_order tool
 
 const CHAT_MAX_MESSAGES = 12;   // history sent to the AI (older turns are dropped)
 const CHAT_MAX_USER_CHARS = 600;
@@ -32,7 +33,7 @@ How to answer:
 - Be warm, upbeat and brief: usually one to three sentences. Use a short list ("- " lines) only when listing several shows or dishes. Plain text only: no headings, tables, bold or other markdown.
 - When a page would help, include its path, like /menu.html or /contact.html#reserve.
 - Each guest message starts with a website note giving the bar's current day and time and tonight's shows. For "today", "tonight" or "open now", use that note and list only those shows, in your own words (name, time and a few words each). Never add shows from other days.
-- You can't book tables, take orders, check availability or hold anything. Say how to do it instead: the reservation form at /contact.html#reserve, online ordering at /menu.html, or calling (954) 565-2526.
+- You can't book tables, check availability or hold anything. Say how to do it instead: the reservation form at /contact.html#reserve or calling (954) 565-2526. Food can be ordered online for pickup or delivery at /menu.html.
 - Parties of 8 or more, private events, complaints, lost items and anything urgent: suggest calling (954) 565-2526.
 - The weekly lineup repeats every week. For any day ("Saturday", "tomorrow", "this weekend"), list that day's shows from the lineup, then add that shows can change and Instagram @alibimonkeybar has the latest.
 - For allergies or dietary needs, don't promise anything is safe: tell guests to let their server know or to call.
@@ -258,8 +259,20 @@ function chat_system_prompt(?array $topics = null): string
         // So the AI never takes a missing list to mean "we don't have that".
         $skipped ? 'Not included in this chat: ' . implode(', ', array_map(fn($t) => $names[$t], $skipped))
             . '. If the guest asks about those, point them to /events.html or /menu.html, or ask them to be more specific.' : '',
-    ])) . "\n\n" . CHAT_REMINDERS;
+    ])) . ($has('food') ? "\n\n" . CHAT_ORDERING : '') . "\n\n" . CHAT_REMINDERS;
 }
+
+/** Added to the prompt when the food menu is (the add_to_order tool is offered then). */
+const CHAT_ORDERING = <<<'TXT'
+# Taking food orders in the chat
+You can put dishes from the food menu into the guest's online order with the add_to_order tool.
+- Only when the guest clearly wants to order. Use the dish names from the food menu.
+- Include the size and any choices the guest gave (sauce, side, cooking temperature). If the tool says something is missing or unclear, ask the guest in one short question, then call the tool again for those dishes only.
+- The website note lists what's already in the guest's order. Never add those again, unless the guest asks for more (then set extra: true). When the guest answers a question, add only the dishes that were still missing.
+- Never choose a size, sauce, side or cooking temperature for the guest. If they didn't say, leave it out; the tool tells you what to ask.
+- After adding, say briefly what's in their order and that they tap "Review & pay" to choose pickup or delivery and pay securely.
+- Never ask for card, payment or address details in the chat; that all happens at checkout. Drinks can't be ordered online.
+TXT;
 
 /**
  * Repeated at the very end of the prompt, where smaller models pay most
@@ -271,6 +284,7 @@ const CHAT_REMINDERS = <<<'TXT'
 - Prices: always give the regular menu price. Happy Hour prices apply only 4:00-6:45 PM; mention them only as an extra.
 - Groups of 8 or more: ask them to call (954) 565-2526.
 - Only state facts written above. If they don't answer the question, say you're not sure and suggest calling.
+- Never ask for card or payment details in the chat.
 TXT;
 
 // ---------- the conversation ----------
@@ -294,6 +308,22 @@ function chat_history($raw): array
     return $out;
 }
 
+/** The guest's cart as sent by the browser, cleaned (only used to avoid duplicate dishes). */
+function chat_cart($raw): array
+{
+    $out = [];
+    foreach (array_slice(is_array($raw) ? $raw : [], 0, 50) as $l) {
+        if (!is_array($l) || !is_scalar($l['itemId'] ?? null) || !is_string($l['variationId'] ?? null)) continue;
+        $out[] = [
+            'itemId'      => (string) $l['itemId'],
+            'variationId' => mb_substr($l['variationId'], 0, 64),
+            'qty'         => max(1, min(50, (int) ($l['qty'] ?? 1))),
+            'modifiers'   => array_map(fn($m) => mb_substr((string) $m, 0, 64), array_slice(array_filter((array) ($l['modifiers'] ?? []), 'is_scalar'), 0, 30)),
+        ];
+    }
+    return $out;
+}
+
 /**
  * The bar's current day and time goes on the newest message only, so the system
  * prompt and earlier turns stay identical between requests (that's what lets
@@ -308,8 +338,10 @@ function with_time_note(array $messages): array
     $shows = weekly_lineup()['days'][$tonight] ?? [];
     // The next six dates, so "Saturday" or "tomorrow" map to the right day.
     $coming = implode(', ', array_map(fn($d) => date('l F j', strtotime("+$d day")), range(1, 6)));
+    $inCart = current_order_text();
     $note = '[Website note: it is now ' . date('l, F j, Y, g:i A') . " at the bar. Coming days: $coming."
-        . ($shows ? " Tonight's shows ($tonight): " . implode(' | ', $shows) : '') . "]\n\n";
+        . ($shows ? " Tonight's shows ($tonight): " . implode(' | ', $shows) . '.' : '')
+        . ' Already in the guest\'s online order: ' . ($inCart ?: 'nothing') . ".]\n\n";
     $last = count($messages) - 1;
     $messages[$last]['content'] = $note . $messages[$last]['content'];
     return $messages;
@@ -404,19 +436,58 @@ const OPENAI_STYLE = [
     ],
 ];
 
-/** Returns [reply, usage]. Throws RuntimeException with a message for the site owner. */
-function ask_openai_style(string $provider, string $model, string $system, array $messages): array
+/**
+ * Returns [reply, usage]; usage['cart'] holds any lines the add_to_order tool
+ * produced (when $tools is offered). Throws RuntimeException with a message
+ * for the site owner.
+ */
+function ask_openai_style(string $provider, string $model, string $system, array $messages, array $tools = []): array
 {
     $p = OPENAI_STYLE[$provider];
     $key = config()["{$provider}_api_key"];
     if ($key === '') throw new RuntimeException("Add your key to '{$provider}_api_key' in api/config.php (free at $p[keys]).");
     $extra = $p['extra'];
     foreach ($p['per_model'] ?? [] as $prefix => $opts) if (strpos($model, $prefix) === 0) $extra += $opts;
-    $payload = json_encode([
-        'model'       => $model,
-        'messages'    => array_merge([['role' => 'system', 'content' => $system]], $messages),
-        'temperature' => 0.3,
-    ] + $extra);
+
+    $convo = array_merge([['role' => 'system', 'content' => $system]], $messages);
+    $usage = ['input_tokens' => 0, 'cache_read' => 0, 'output_tokens' => 0];
+    $cart = [];
+    // The AI may call the tool, read the result and call it again (e.g. after
+    // the guest's missing choice was already in the message); cap the rounds.
+    for ($round = 1; $round <= 3; $round++) {
+        $body = openai_style_post($provider, $key, [
+            'model'       => $model,
+            'messages'    => $convo,
+            'temperature' => 0.3,
+        ] + $extra + ($tools ? ['tools' => $tools, 'tool_choice' => 'auto'] : []));
+        $usage['input_tokens'] += $body['usage']['prompt_tokens'] ?? 0;
+        $usage['cache_read'] += $body['usage']['prompt_tokens_details']['cached_tokens'] ?? 0;
+        $usage['output_tokens'] += $body['usage']['completion_tokens'] ?? 0;
+
+        $msg = $body['choices'][0]['message'] ?? [];
+        $calls = $msg['tool_calls'] ?? [];
+        if (!$calls || $round === 3) return [trim((string) ($msg['content'] ?? '')), $usage + ['cart' => $cart]];
+
+        $convo[] = ['role' => 'assistant', 'content' => (string) ($msg['content'] ?? ''), 'tool_calls' => $calls];
+        foreach ($calls as $call) {
+            $name = $call['function']['name'] ?? '';
+            $args = json_decode((string) ($call['function']['arguments'] ?? ''), true);
+            if ($name === 'add_to_order' && is_array($args)) {
+                [$lines, $result] = resolve_order((array) ($args['items'] ?? []));
+                $cart = array_merge($cart, $lines);
+            } else {
+                $result = ['error' => 'Unknown tool or unreadable arguments. Ask the guest to repeat the order.'];
+            }
+            $convo[] = ['role' => 'tool', 'tool_call_id' => $call['id'] ?? '', 'name' => $name, 'content' => json_encode($result, JSON_UNESCAPED_UNICODE)];
+        }
+    }
+}
+
+/** One request to an OpenAI-style chat API; returns the decoded reply. */
+function openai_style_post(string $provider, string $key, array $request): array
+{
+    $p = OPENAI_STYLE[$provider];
+    $payload = json_encode($request, JSON_UNESCAPED_UNICODE);
     // "Busy" (503) spikes are common on free plans and usually pass in a second
     // or two, so try up to three times before giving up.
     for ($attempt = 1; $attempt <= 3; $attempt++) {
@@ -444,18 +515,15 @@ function ask_openai_style(string $provider, string $model, string $system, array
         if (in_array($status, [400, 401, 403, 404], true)) $err = "$p[label] rejected the request (check '{$provider}_api_key' and '{$provider}_model' in config.php): $err";
         throw new RuntimeException($err);
     }
-    return [trim($body['choices'][0]['message']['content'] ?? ''), [
-        'input_tokens'  => $body['usage']['prompt_tokens'] ?? 0,
-        'cache_read'    => $body['usage']['prompt_tokens_details']['cached_tokens'] ?? 0,
-        'output_tokens' => $body['usage']['completion_tokens'] ?? 0,
-    ]];
+    return $body;
 }
 
 /**
  * $choice is a provider name ('groq'), optionally with a model ('groq:qwen/qwen3.8-27b');
- * without one, the provider's model from config.php is used.
+ * without one, the provider's model from config.php is used. Ordering tools
+ * work with the OpenAI-style providers only.
  */
-function ask_provider(string $choice, string $system, array $messages): array
+function ask_provider(string $choice, string $system, array $messages, array $tools = []): array
 {
     [$provider, $model] = array_pad(explode(':', $choice, 2), 2, '');
     if ($provider === 'claude') {
@@ -463,7 +531,7 @@ function ask_provider(string $choice, string $system, array $messages): array
         return ask_claude($system, $messages);
     }
     if (isset(OPENAI_STYLE[$provider])) {
-        return ask_openai_style($provider, $model ?: config()["{$provider}_model"], $system, $messages);
+        return ask_openai_style($provider, $model ?: config()["{$provider}_model"], $system, $messages, $tools);
     }
     return ask_ollama($system, $messages);
 }
@@ -483,12 +551,14 @@ function chat_providers(): array
  */
 function ask_ai(array $messages): array
 {
-    $system = chat_system_prompt(chat_topics($messages));
+    $topics = chat_topics($messages);
+    $system = chat_system_prompt($topics);
+    $tools = in_array('food', $topics, true) ? [ORDER_TOOL] : [];
     $messages = with_time_note($messages);
     $order = chat_providers();
     foreach ($order as $i => $choice) {
         try {
-            [$reply, $usage] = ask_provider($choice, $system, $messages);
+            [$reply, $usage] = ask_provider($choice, $system, $messages, $tools);
             [$provider, $model] = array_pad(explode(':', $choice, 2), 2, '');
             return [$reply, $usage + ['provider' => $provider, 'model' => $model ?: (string) (config()["{$provider}_model"] ?? '')]];
         } catch (Throwable $e) {
@@ -543,6 +613,7 @@ require_same_site();
 rate_limit('chat', 30, 600);
 $in = json_decode((string) file_get_contents('php://input'), true);
 $messages = chat_history(is_array($in) ? ($in['messages'] ?? null) : null);
+current_order(chat_cart(is_array($in) ? ($in['cart'] ?? []) : []));
 chat_daily_cap();
 @set_time_limit(620);
 
@@ -559,7 +630,11 @@ try {
     }
     send_json($out, 502);
 }
-if ($reply === '') $reply = "Sorry, I didn't catch that. Could you ask another way? You can also call us at (954) 565-2526.";
+$cart = $usage['cart'] ?? [];
+if ($reply === '') $reply = $cart
+    ? 'Added to your order! Tap "Review & pay" to choose pickup or delivery and check out.'
+    : "Sorry, I didn't catch that. Could you ask another way? You can also call us at (954) 565-2526.";
 
 log_chat(end($messages)['content'], $reply, $usage, microtime(true) - $start);
-send_json(['ok' => true, 'reply' => $reply]);
+// Cart lines go to the browser, which adds them to the site's normal cart (js/order.js).
+send_json(['ok' => true, 'reply' => $reply] + ($cart ? ['cart' => $cart] : []));

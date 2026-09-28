@@ -3797,6 +3797,37 @@ body:has(.mobile-nav.open) .chat-panel { display: none; }
 .from-user .chat-msg a { color: inherit; }
 .chat-msg small { display: block; margin-top: 6px; font-size: 12px; opacity: 0.8; }
 
+/* "Added to your order" card from the chat's food ordering */
+.chat-order {
+  margin-left: 34px;
+  max-width: calc(80% + 8px);
+  padding: 12px 14px;
+  border: 1px solid rgba(200, 168, 78, 0.45);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1b170c, #141414);
+  font-size: 13.5px;
+}
+
+.chat-order.is-new { animation: chat-pop 0.25s ease-out; }
+.chat-order strong { display: block; margin-bottom: 6px; color: var(--gold-light); font-size: 14px; }
+.chat-order ul { list-style: none; margin: 0 0 10px; }
+.chat-order li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; color: #ddd; }
+.chat-order li span { flex: none; color: var(--gold-light); }
+
+.chat-order button {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  background: var(--gold);
+  color: var(--black);
+  font: 700 14px/1 'Inter', sans-serif;
+  cursor: pointer;
+}
+
+.chat-order button:hover { background: var(--gold-light); }
+.chat-order button:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
+
 .chat-typing { display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
 .chat-dots { display: inline-flex; gap: 4px; padding: 4px 0; }
 .chat-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); animation: chat-dot 1.2s infinite ease-in-out; }

@@ -686,5 +686,19 @@
     renderMenu();
     renderCart();
     setInterval(renderStatus, 60000);
+
+    // The chat assistant (js/chat.js) adds dishes here and opens the cart.
+    // Lines are { itemId, variationId, qty, modifiers, note }; checkout re-prices them.
+    window.alibiOrder = {
+      add(lines) {
+        lines.forEach((l) => state.cart.push({ key: uid(), itemId: l.itemId, variationId: l.variationId, qty: l.qty, modifiers: l.modifiers || [], note: l.note || '' }));
+        saveCart();
+        renderCart();
+        pulseCartButton();
+      },
+      open() { openDrawer('cart'); },
+    };
+    // Arriving from the chat's "Review & pay" on another page.
+    if (location.hash === '#order' && state.cart.length) openDrawer('cart');
   })();
 })();

@@ -135,6 +135,17 @@ The "Ask us" chat assistant, used by `js/chat.js`.
   from Composer). If it fails, each AI in `chat_fallback` is tried in order.
   A specific model is written as `groq:openai/gpt-oss-20b`. Each Groq model
   has its own free limit.
+- **Food ordering:** when the food menu is in the prompt, the AI is offered the
+  `add_to_order` tool (`chat-order.php`, OpenAI-style providers only). The
+  request also carries the guest's cart (`cart`, same line format as
+  `js/order.js`), so dishes aren't added twice. `resolve_order()` matches dish,
+  size and option names against the live menu and adds only fully specified
+  dishes. Anything missing or ambiguous goes back to the AI, which asks the
+  guest. The reply then includes `cart` (lines plus `label` and `total`).
+  `js/chat.js` adds them to the site's cart through `window.alibiOrder` (menu
+  page) or localStorage, and "Review & pay" opens the normal checkout
+  (`menu.html#order`). Nothing is charged in the chat, and checkout re-prices
+  everything.
 - Protections: same-site JSON only, 30 messages per visitor per 10 minutes, and
   `chat_daily_limit` messages per day for the whole site (then 503).
 - Every exchange is logged with token counts to `api/data/chat-log.csv` when

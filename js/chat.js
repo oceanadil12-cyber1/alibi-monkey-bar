@@ -151,8 +151,64 @@
 
   function render() {
     log.textContent = '';
-    state.messages.forEach((m) => bubble(m.role, m.content, { animate: false }));
+    state.messages.forEach((m) => {
+      bubble(m.role, m.content, { animate: false });
+      if (m.cart) orderCard(m.cart, false);
+    });
     chips.hidden = state.messages.length > 0;
+  }
+
+  // ---------- food orders ----------
+
+  const CART_KEY = 'alibi-cart-v1'; // shared with js/order.js
+  const money = (cents) => '$' + (cents / 100).toFixed(2);
+
+  function currentCart() {
+    try {
+      return (JSON.parse(localStorage.getItem(CART_KEY)) || []).map((l) => ({ itemId: l.itemId, variationId: l.variationId, qty: l.qty, modifiers: l.modifiers }));
+    } catch (e) { return []; }
+  }
+
+  // Puts dishes the assistant added into the site's normal cart. On the menu page
+  // js/order.js takes them directly; elsewhere they wait in storage for it.
+  function addToCart(lines) {
+    if (window.alibiOrder) return window.alibiOrder.add(lines);
+    try {
+      const cart = JSON.parse(localStorage.getItem(CART_KEY)) || [];
+      lines.forEach((l) => cart.push({
+        key: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
+        itemId: l.itemId, variationId: l.variationId, qty: l.qty, modifiers: l.modifiers || [], note: l.note || '',
+      }));
+      localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    } catch (e) { /* storage unavailable: the guest can still order on the menu page */ }
+  }
+
+  function reviewOrder() {
+    if (window.alibiOrder) { setOpen(false, false); window.alibiOrder.open(); }
+    else location.href = new URL('menu.html#order', SITE).href;
+  }
+
+  // "Added to your order" card with a Review & pay button, under the reply.
+  function orderCard(items, animate) {
+    const card = document.createElement('div');
+    card.className = 'chat-order' + (animate ? ' is-new' : '');
+    const head = document.createElement('strong');
+    head.textContent = '\u{1F6D2} Added to your order';
+    const list = document.createElement('ul');
+    items.forEach((i) => {
+      const li = document.createElement('li');
+      const price = document.createElement('span');
+      price.textContent = money(i.total);
+      li.append(i.label, price);
+      list.append(li);
+    });
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Review & pay';
+    btn.addEventListener('click', reviewOrder);
+    card.append(head, list, btn);
+    log.append(card);
+    scrollDown();
   }
 
   function typing() {
@@ -184,16 +240,25 @@
       const res = await fetch(ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: state.messages }),
+        body: JSON.stringify({
+          messages: state.messages.map((m) => ({ role: m.role, content: m.content })),
+          cart: currentCart(), // so the assistant knows what's already ordered
+        }),
       });
       data = await res.json().catch(() => null);
     } catch (e) { /* network error: handled below */ }
     stopTyping();
 
     if (data && data.ok) {
-      state.messages.push({ role: 'assistant', content: data.reply });
+      const msg = { role: 'assistant', content: data.reply };
+      if (Array.isArray(data.cart) && data.cart.length) {
+        addToCart(data.cart);
+        msg.cart = data.cart.map((l) => ({ label: l.label, total: l.total })); // just what the card shows
+      }
+      state.messages.push(msg);
       save();
       bubble('assistant', data.reply);
+      if (msg.cart) orderCard(msg.cart, true);
     } else {
       // Failed turns aren't kept, so the guest can simply ask again.
       state.messages.pop();
