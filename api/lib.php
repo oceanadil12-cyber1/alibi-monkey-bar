@@ -35,7 +35,7 @@ function config(): array
             'anthropic_api_key' => '',
             'claude_model'      => 'claude-opus-5',
             'gemini_api_key'    => '',
-            'gemini_model'      => 'gemini-flash-latest',
+            'gemini_model'      => 'gemini-3.8-flash',
             'chat_daily_limit'  => 500,
             'chat_log'          => true,
         ];

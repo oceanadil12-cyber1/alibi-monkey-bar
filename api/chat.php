@@ -313,20 +313,27 @@ function ask_gemini(string $system, array $messages): array
 {
     $c = config();
     if ($c['gemini_api_key'] === '') throw new RuntimeException("Add your key to 'gemini_api_key' in api/config.php (free at aistudio.google.com/apikey).");
-    $ch = curl_handle('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', [
-        CURLOPT_POST        => true,
-        CURLOPT_HTTPHEADER  => ['Content-Type: application/json', 'Authorization: Bearer ' . $c['gemini_api_key']],
-        CURLOPT_POSTFIELDS  => json_encode([
-            'model'       => $c['gemini_model'],
-            'messages'    => array_merge([['role' => 'system', 'content' => $system]], $messages),
-            'temperature' => 0.3,
-        ]),
-        CURLOPT_TIMEOUT     => 60,
+    $payload = json_encode([
+        'model'       => $c['gemini_model'],
+        'messages'    => array_merge([['role' => 'system', 'content' => $system]], $messages),
+        'temperature' => 0.3,
     ]);
-    $res = curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $netErr = curl_error($ch);
-    curl_close($ch);
+    // "High demand" (503) spikes are common on the free plan and usually pass in
+    // a second or two, so try up to three times before giving up.
+    for ($attempt = 1; $attempt <= 3; $attempt++) {
+        if ($attempt > 1) usleep(1500000);
+        $ch = curl_handle('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', [
+            CURLOPT_POST       => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . $c['gemini_api_key']],
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_TIMEOUT    => 60,
+        ]);
+        $res = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $netErr = curl_error($ch);
+        curl_close($ch);
+        if ($status !== 503) break;
+    }
     if ($res === false || $status === 0) throw new RuntimeException("Could not reach Gemini: $netErr");
     $body = json_decode((string) $res, true);
     $body = is_array($body) ? ($body[0] ?? $body) : [];  // errors sometimes arrive wrapped in a list

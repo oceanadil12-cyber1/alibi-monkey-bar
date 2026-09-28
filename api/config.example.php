@@ -56,7 +56,7 @@ return [
     // Gemini settings. On Google's free plan, Google may use the chats to improve
     // its products, so use a paid plan (or Claude) for the live site.
     'gemini_api_key'    => '',
-    'gemini_model'      => 'gemini-flash-latest',
+    'gemini_model'      => 'gemini-3.8-flash',
 
     // Ollama settings (the model must be downloaded first: ollama pull llama3.2:3b).
     'ollama_url'        => 'http://localhost:11434',
