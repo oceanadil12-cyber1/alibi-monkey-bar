@@ -83,6 +83,7 @@ function custom_menu_item(array $c): ?array
         'custom'      => true,
     ];
     if (!empty($c['pickupOnly']))  $item['pickupOnly'] = true;
+    if (!empty($c['deliveryOnly'])) $item['deliveryOnly'] = true;
     if (!empty($c['deliveryFee'])) $item['deliveryFee'] = max(0, (int) $c['deliveryFee']);
     if (!empty($c['prepMinutes'])) $item['prepMinutes'] = max(0, (int) $c['prepMinutes']);
     return $item;
@@ -111,6 +112,7 @@ function apply_menu_overrides(array $menu): array
             unset($v);
         }
         if (!empty($o['pickupOnly']))  $item['pickupOnly'] = true;
+        if (!empty($o['deliveryOnly'])) $item['deliveryOnly'] = true;
         if (!empty($o['deliveryFee'])) $item['deliveryFee'] = max(0, (int) $o['deliveryFee']);
         if (!empty($o['prepMinutes'])) $item['prepMinutes'] = max(0, (int) $o['prepMinutes']);
         if (isset($o['description']) && $o['description'] !== '') $item['description'] = (string) $o['description'];

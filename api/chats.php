@@ -75,6 +75,7 @@ function save_food_overrides(array $base): void
         }
         if (!isset($_POST['avail'][$id])) $o['hidden'] = true;
         if (!empty($_POST['pickup'][$id])) $o['pickupOnly'] = true;
+        if (!empty($_POST['delonly'][$id])) $o['deliveryOnly'] = true;
         $dfee = dollars_to_cents((string) ($_POST['dfee'][$id] ?? ''));
         if ($dfee) $o['deliveryFee'] = $dfee;
         $prep = (int) ($_POST['prep'][$id] ?? 0);
@@ -115,6 +116,7 @@ function add_custom_item(array $base): void
         'category'     => $catId,
         'categoryName' => $cats[$catId] ?? 'More',
         'pickupOnly'   => !empty($_POST['pickup']),
+        'deliveryOnly' => !empty($_POST['delonly']),
         'deliveryFee'  => max(0, (int) (dollars_to_cents((string) ($_POST['dfee'] ?? '')) ?? 0)),
         'prepMinutes'  => min(600, max(0, (int) ($_POST['prep'] ?? 0))),
     ];
@@ -142,6 +144,7 @@ function save_custom_items(array $base): void
             'category'     => $catId,
             'categoryName' => $cats[$catId] ?? 'More',
             'pickupOnly'   => !empty($_POST['cpickup'][$id]),
+            'deliveryOnly' => !empty($_POST['cdelonly'][$id]),
             'deliveryFee'  => max(0, (int) (dollars_to_cents((string) ($_POST['cdfee'][$id] ?? '')) ?? 0)),
             'prepMinutes'  => min(600, max(0, (int) ($_POST['cprep'][$id] ?? 0))),
         ];
@@ -420,7 +423,8 @@ function food_html(array $base, array $over, string $csrf, bool $saved): string
                 . (!empty($it['soldOut']) ? ' <span class="fbadge">sold out</span>' : '')
                 . (($it['modifiers'] ?? []) ? ' <span class="fopts">' . count($it['modifiers']) . ' option' . (count($it['modifiers']) === 1 ? '' : 's') . '</span>' : '') . '</td>'
                 . '<td class="fprices">' . $priceInputs . '</td>'
-                . '<td><label class="fchk"><input type="checkbox" name="pickup[' . h($id) . ']" value="1" ' . (!empty($o['pickupOnly']) ? 'checked' : '') . '> Pickup only</label></td>'
+                . '<td><label class="fchk"><input type="checkbox" name="pickup[' . h($id) . ']" value="1" ' . (!empty($o['pickupOnly']) ? 'checked' : '') . '> Pickup only</label>'
+                . '<label class="fchk"><input type="checkbox" name="delonly[' . h($id) . ']" value="1" ' . (!empty($o['deliveryOnly']) ? 'checked' : '') . '> Delivery only</label></td>'
                 . '<td><span class="fp-in">$<input inputmode="decimal" name="dfee[' . h($id) . ']" value="' . (!empty($o['deliveryFee']) ? number_format($o['deliveryFee'] / 100, 2, '.', '') : '') . '" placeholder="0.00"></span></td>'
                 . '<td class="fprep"><input inputmode="numeric" name="prep[' . h($id) . ']" value="' . (!empty($o['prepMinutes']) ? (int) $o['prepMinutes'] : '') . '" placeholder="' . $storePrep . '"> min</td>'
                 . '<input type="hidden" name="ids[]" value="' . h($id) . '"></tr>';
@@ -445,6 +449,7 @@ function food_html(array $base, array $over, string $csrf, bool $saved): string
         . '<label class="fa fa-sm"><span>Prep time</span><span class="fprep"><input name="prep" inputmode="numeric" placeholder="' . $storePrep . '"> min</span></label>'
         . '<label class="fa fa-wide"><span>Description (optional)</span><input name="description" maxlength="300"></label>'
         . '<label class="fchk fa-chk"><input type="checkbox" name="pickup" value="1"> Pickup only</label>'
+        . '<label class="fchk fa-chk"><input type="checkbox" name="delonly" value="1"> Delivery only</label>'
         . '</div><div class="fbar"><button type="submit" class="fsave">Add item</button></div></form></section>';
 
     // Existing custom items editor (op=custom).
@@ -456,7 +461,8 @@ function food_html(array $base, array $over, string $csrf, bool $saved): string
             . '<td><input name="cname[' . h($id) . ']" value="' . h($c['name'] ?? '') . '" maxlength="80"></td>'
             . '<td><span class="fp-in">$<input name="cprice[' . h($id) . ']" inputmode="decimal" value="' . number_format((int) ($c['price'] ?? 0) / 100, 2, '.', '') . '"></span></td>'
             . '<td><select name="ccat[' . h($id) . ']">' . $catOptions((string) ($c['category'] ?? '')) . '</select></td>'
-            . '<td><label class="fchk"><input type="checkbox" name="cpickup[' . h($id) . ']" value="1" ' . (!empty($c['pickupOnly']) ? 'checked' : '') . '> Pickup only</label></td>'
+            . '<td><label class="fchk"><input type="checkbox" name="cpickup[' . h($id) . ']" value="1" ' . (!empty($c['pickupOnly']) ? 'checked' : '') . '> Pickup only</label>'
+            . '<label class="fchk"><input type="checkbox" name="cdelonly[' . h($id) . ']" value="1" ' . (!empty($c['deliveryOnly']) ? 'checked' : '') . '> Delivery only</label></td>'
             . '<td><span class="fp-in">$<input name="cdfee[' . h($id) . ']" inputmode="decimal" value="' . (!empty($c['deliveryFee']) ? number_format($c['deliveryFee'] / 100, 2, '.', '') : '') . '" placeholder="0.00"></span></td>'
             . '<td class="fprep"><input name="cprep[' . h($id) . ']" inputmode="numeric" value="' . (!empty($c['prepMinutes']) ? (int) $c['prepMinutes'] : '') . '" placeholder="' . $storePrep . '"> min</td>'
             . '<td><label class="fchk fdel"><input type="checkbox" name="cdelete[' . h($id) . ']" value="1"> Delete</label></td>'

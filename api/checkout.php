@@ -209,6 +209,11 @@ $prepMinutes = (int) $store['prepMinutes'];
 foreach ($lines as $l) {
     $prepMinutes = max($prepMinutes, (int) ($l['item']['prepMinutes'] ?? 0));
 }
+if ($fulfillment['type'] === 'pickup') {
+    foreach ($lines as $l) {
+        if (!empty($l['item']['deliveryOnly'])) fail($l['item']['name'] . ' is available for delivery only. Please switch to delivery or remove it.');
+    }
+}
 if ($fulfillment['type'] === 'delivery') {
     foreach ($lines as $l) {
         if (!empty($l['item']['pickupOnly'])) fail($l['item']['name'] . ' is available for pickup only. Please switch to pickup or remove it.');
