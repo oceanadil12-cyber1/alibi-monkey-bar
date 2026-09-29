@@ -12,6 +12,7 @@ const ADMIN_NAV = [
     ]],
     ['Guests', [
         ['orders', 'Orders', 'bag'],
+        ['dine-in', 'Dine-In Order', 'edit'],
         ['reservations', 'Reservations', 'calendar'],
         ['messages', 'Messages', 'mail'],
         ['subscribers', 'Subscribers', 'users'],
@@ -97,6 +98,7 @@ function admin_render(string $title, string $bodyHtml, string $active = '', arra
         .   '<span><b>Alibi Admin</b><small>Georgie\'s Alibi Monkey Bar</small></span></a>'
         .   '<nav class="side-nav">' . $nav . '</nav>'
         .   '<div class="side-foot">'
+        .     '<a class="nav-link" href="' . h(SITE_BASE) . 'kds/" target="_blank" rel="noopener">' . icon('clock', 18) . '<span>Kitchen Display</span></a>'
         .     '<a class="nav-link" href="' . h(SITE_BASE) . '" target="_blank" rel="noopener">' . icon('external', 18) . '<span>View website</span></a>'
         .     form_open(admin_url(), 'signout') . '<input type="hidden" name="logout" value="1">'
         .       '<button class="nav-link" type="submit">' . icon('logout', 18) . '<span>Sign out</span></button></form>'

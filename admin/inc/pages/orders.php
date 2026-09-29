@@ -43,7 +43,9 @@ function order_repeat_orders(array $o): array
 
 function order_type_badge(string $type): string
 {
-    return $type === 'delivery' ? '<span class="chip">' . icon('truck', 13) . ' Delivery</span>' : '<span class="chip">' . icon('bag', 13) . ' Pickup</span>';
+    if ($type === 'delivery') return '<span class="chip">' . icon('truck', 13) . ' Delivery</span>';
+    if ($type === 'dine-in') return '<span class="chip">' . icon('home', 13) . ' Dine-in</span>';
+    return '<span class="chip">' . icon('bag', 13) . ' Pickup</span>';
 }
 
 function admin_page_orders(): void
@@ -133,19 +135,26 @@ function admin_order_detail(string $num): void
             . '<button class="btn sm no-print" type="button" data-print>' . icon('print', 16) . '<span>Print</span></button>')
         . '<div class="split"><div class="stack">'
         .   card('Items', '<div class="table flush"><table class="tbl items"><tbody>' . $rows . '</tbody><tfoot>' . $totals . '</tfoot></table></div>')
+        .   (isset($o['notes']) && $o['notes'] !== '' ? card('Special Instructions', '<p style="font-weight:600;color:var(--warn)">' . h($o['notes']) . '</p>') : '')
         .   card('Note for the team', form_open(admin_url('orders'), 'no-print')
                 . '<input type="hidden" name="id" value="' . h($num) . '"><input type="hidden" name="action" value="note">'
                 . '<label class="field wide"><span class="sr">Note</span><textarea name="note" rows="3" maxlength="1000" placeholder="Only the team sees this: allergies noted, driver, substitutions…">' . h($o['note']) . '</textarea></label>'
                 . '<div class="bar">' . btn_submit('Save note', 'primary') . '</div></form>'
                 . ($o['note'] !== '' ? '<div class="print-only">' . h($o['note']) . '</div>' : ''), '', 'no-print-empty')
         . '</div><div class="stack">'
-        .   card('Guest', kv([
-                ['Name', h($o['name'])],
-                ['Phone', $o['phone'] !== '' ? tel_link($o['phone']) : ''],
-                ['Email', $o['email'] !== '' ? mail_link($o['email']) : ''],
-                [$delivery ? 'Deliver to' : 'Pickup', $delivery ? map_link($o['address']) : 'The guest collects at the bar'],
-            ]))
-        .   card('Payment', '<p class="pay"><b>Cash on delivery</b></p><p class="muted">Collect <b class="cash">' . h(fmt_money($o['total'])) . '</b> plus sales tax when the guest '
+        .   card('Guest', kv(
+                $o['type'] === 'dine-in'
+                    ? [['Table', '<b>Table #' . (int) ($o['table'] ?? 0) . '</b>'], ['Type', 'Dine-in']]
+                    : [
+                        ['Name', h($o['name'])],
+                        ['Phone', $o['phone'] !== '' ? tel_link($o['phone']) : ''],
+                        ['Email', $o['email'] !== '' ? mail_link($o['email']) : ''],
+                        [$delivery ? 'Deliver to' : 'Pickup', $delivery ? map_link($o['address']) : 'The guest collects at the bar'],
+                    ]
+            ))
+        .   card('Payment', $o['type'] === 'dine-in'
+                ? '<p class="pay"><b>Dine-in</b></p><p class="muted">Guest pays at the table.</p>'
+                : '<p class="pay"><b>Cash on delivery</b></p><p class="muted">Collect <b class="cash">' . h(fmt_money($o['total'])) . '</b> plus sales tax when the guest '
                 . ($delivery ? 'receives the order' : 'picks up') . '. No card was charged online.</p>')
         .   card('Status', form_open(admin_url('orders'), 'no-print')
                 . '<input type="hidden" name="id" value="' . h($num) . '"><input type="hidden" name="action" value="status">'

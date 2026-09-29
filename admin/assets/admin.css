@@ -547,6 +547,33 @@ body.bare { display: grid; place-items: center; padding: 24px; }
 
 /* ---------- print: an order ticket ---------- */
 .print-only { display: none; }
+/* --- Dine-in ordering --- */
+.dinein-items { display: flex; flex-direction: column; gap: 4px; }
+.dinein-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line-soft); gap: 8px; }
+.dinein-item:last-child { border-bottom: none; }
+.dinein-item-info { flex: 1; }
+.dinein-item-info b { display: block; }
+
+.dinein-cart { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.dinein-cart-item { background: var(--card-2); border-radius: 8px; padding: 8px 10px; }
+.dinein-cart-row { display: flex; align-items: center; gap: 8px; }
+.dinein-cart-qty { display: flex; align-items: center; gap: 4px; min-width: 5rem; }
+.dinein-cart-name { flex: 1; font-weight: 500; }
+.dinein-cart-name small { font-weight: 400; color: var(--muted); }
+.dinein-cart-price { font-weight: 600; color: var(--gold-light); min-width: 4rem; text-align: right; }
+.dinein-cart-note { margin-top: 4px; }
+.dinein-cart-note input { width: 100%; padding: 4px 8px; font-size: .8rem; background: var(--field); border: 1px solid var(--line-soft); border-radius: 6px; color: var(--text); }
+.dinein-cart-note input:focus { border-color: var(--gold); outline: none; }
+
+.btn-tiny { background: var(--raised); border: 1px solid var(--line); border-radius: 6px; color: var(--text); width: 28px; height: 28px; font-size: 1rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.btn-tiny:hover { background: var(--card-2); }
+.btn-tiny.danger { color: var(--crit); }
+.btn-tiny.danger:hover { background: var(--crit-bg); }
+
+.dinein-total { font-weight: 600; color: var(--gold-light); font-size: 1.1rem; }
+
+.field input.error { border-color: var(--crit) !important; }
+
 @media print {
   :root { --bg: #fff; --card: #fff; --card-2: #fff; --line: #999; --line-soft: #ccc; --text: #000; --text-2: #111; --muted: #333; --gold-light: #000; --gold: #000; }
   body { background: #fff; color: #000; font-size: 12pt; }

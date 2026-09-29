@@ -1,0 +1,224 @@
+<?php
+/**
+ * POST api/kds.php   (JSON body, session-authenticated)
+ *
+ * Kitchen Display System API — orders, status changes, settings.
+ *
+ *   action: "orders"        → all today's orders with KDS metadata
+ *   action: "start"         → begin preparation (timer starts)
+ *   action: "complete"      → mark order done
+ *   action: "recall"        → move completed order back to preparing
+ *   action: "settings-get"  → current KDS settings
+ *   action: "settings-save" → update KDS settings
+ *   action: "counts"        → badge-style counters only
+ */
+define('KDS', true);
+require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/../admin/inc/store.php';
+
+// --- session auth (same password as admin, own session) ---
+function kds_password(): string
+{
+    $c = config();
+    return (string) ($c['admin_password'] !== '' ? $c['admin_password'] : $c['chat_admin_password']);
+}
+
+$password = kds_password();
+if ($password === '') fail('KDS is not configured.', 503);
+
+session_name('alibi_kds');
+$base = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '/kds/')), '/\\') . '/kds/';
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => $base,
+    'httponly' => true,
+    'samesite' => 'Lax',
+    'secure'   => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+]);
+ini_set('session.gc_maxlifetime', '43200');
+ini_set('session.use_strict_mode', '1');
+$dir = data_dir() . '/sessions';
+if (!is_dir($dir)) @mkdir($dir, 0700, true);
+if (is_dir($dir) && is_writable($dir)) session_save_path($dir);
+session_start();
+
+function kds_signed_in(): bool
+{
+    if (empty($_SESSION['kds_ok'])) return false;
+    if (time() - (int) ($_SESSION['kds_seen'] ?? 0) > 43200) {
+        $_SESSION = [];
+        return false;
+    }
+    $_SESSION['kds_seen'] = time();
+    return true;
+}
+
+if (!kds_signed_in()) fail('Not signed in.', 401);
+
+// --- request handling ---
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail('Use POST.', 405);
+require_same_site();
+
+$req = json_decode((string) file_get_contents('php://input'), true);
+if (!is_array($req)) fail('Invalid request.');
+$action = (string) ($req['action'] ?? '');
+
+// --- KDS settings ---
+function kds_settings_file(): string
+{
+    return data_dir() . '/kds-settings.json';
+}
+
+function kds_settings(): array
+{
+    return json_read_file(kds_settings_file()) + [
+        'dine_in_prep_minutes'  => 15,
+        'delivery_prep_minutes' => 20,
+        'pickup_prep_minutes'   => 15,
+        'sound_enabled'         => true,
+    ];
+}
+
+function kds_prep_seconds(string $type): int
+{
+    $s = kds_settings();
+    switch ($type) {
+        case 'delivery': return (int) $s['delivery_prep_minutes'] * 60;
+        case 'dine-in':  return (int) $s['dine_in_prep_minutes'] * 60;
+        default:         return (int) $s['pickup_prep_minutes'] * 60;
+    }
+}
+
+// --- order helpers ---
+
+/** All today's orders (and yesterday if early) with KDS-relevant fields. */
+function kds_orders(): array
+{
+    $today = date('Y-m-d');
+    $yesterday = date('Y-m-d', strtotime('-1 day'));
+    $meta = meta_all()['order'] ?? [];
+    $out = [];
+
+    foreach ([$yesterday, $today] as $day) {
+        $file = orders_dir() . "/$day.jsonl";
+        if (!is_file($file)) continue;
+        foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $o = json_decode($line, true);
+            if (!is_array($o) || empty($o['number'])) continue;
+            $o = order_with_meta($o, $meta);
+            $m = $meta[$o['number']] ?? [];
+
+            // skip orders that are fully done (completed/cancelled) unless completed recently (last 30 min)
+            if ($o['status'] === 'cancelled') continue;
+            if ($o['status'] === 'completed') {
+                $completedAt = $m['kds_completed'] ?? null;
+                if ($completedAt && (time() - strtotime($completedAt)) > 1800) continue;
+                if (!$completedAt && $day < $today) continue;
+            }
+
+            $out[] = [
+                'number'       => $o['number'],
+                'type'         => $o['type'],
+                'table'        => $o['table'] ?? null,
+                'name'         => $o['name'],
+                'phone'        => $o['phone'],
+                'email'        => $o['email'],
+                'payment'      => $o['payment'],
+                'items'        => $o['items'],
+                'notes'        => $o['notes'] ?? '',
+                'note'         => $o['note'],
+                'total'        => $o['total'],
+                'ts'           => $o['ts'],
+                'time'         => $o['time'] ?? date('c', $o['ts']),
+                'status'       => $o['status'],
+                'prep_started' => $m['kds_started'] ?? null,
+                'prep_duration'=> $m['kds_duration'] ?? kds_prep_seconds($o['type']),
+                'completed_at' => $m['kds_completed'] ?? null,
+            ];
+        }
+    }
+    usort($out, fn($a, $b) => $a['ts'] <=> $b['ts']);
+    return $out;
+}
+
+// --- actions ---
+
+if ($action === 'orders') {
+    send_json(['ok' => true, 'orders' => kds_orders(), 'settings' => kds_settings()]);
+}
+
+if ($action === 'counts') {
+    $orders = kds_orders();
+    $counts = ['queue' => 0, 'preparing' => 0, 'overdue' => 0, 'completed' => 0, 'total' => count($orders)];
+    $now = time();
+    foreach ($orders as $o) {
+        if ($o['status'] === 'completed' || $o['status'] === 'ready') {
+            $counts['completed']++;
+        } elseif ($o['status'] === 'preparing') {
+            $counts['preparing']++;
+            if ($o['prep_started']) {
+                $elapsed = $now - strtotime($o['prep_started']);
+                if ($elapsed > $o['prep_duration']) $counts['overdue']++;
+            }
+        } else {
+            $counts['queue']++;
+        }
+    }
+    send_json(['ok' => true, 'counts' => $counts]);
+}
+
+if ($action === 'start') {
+    $num = strtoupper(trim((string) ($req['number'] ?? '')));
+    $o = order_find($num);
+    if (!$o) fail('Order not found.');
+
+    $duration = kds_prep_seconds($o['type']);
+    meta_set_status('order', $num, 'preparing');
+    meta_set('order', $num, [
+        'kds_started'  => date('c'),
+        'kds_duration' => $duration,
+    ]);
+    admin_log('kds.start', '#' . $num);
+    send_json(['ok' => true]);
+}
+
+if ($action === 'complete') {
+    $num = strtoupper(trim((string) ($req['number'] ?? '')));
+    $o = order_find($num);
+    if (!$o) fail('Order not found.');
+
+    meta_set_status('order', $num, 'ready');
+    meta_set('order', $num, ['kds_completed' => date('c')]);
+    admin_log('kds.complete', '#' . $num);
+    send_json(['ok' => true]);
+}
+
+if ($action === 'recall') {
+    $num = strtoupper(trim((string) ($req['number'] ?? '')));
+    $o = order_find($num);
+    if (!$o) fail('Order not found.');
+
+    meta_set_status('order', $num, 'preparing');
+    meta_set('order', $num, ['kds_completed' => null]);
+    admin_log('kds.recall', '#' . $num);
+    send_json(['ok' => true]);
+}
+
+if ($action === 'settings-get') {
+    send_json(['ok' => true, 'settings' => kds_settings()]);
+}
+
+if ($action === 'settings-save') {
+    $s = $req['settings'] ?? [];
+    $data = [
+        'dine_in_prep_minutes'  => max(1, min(120, (int) ($s['dine_in_prep_minutes'] ?? 15))),
+        'delivery_prep_minutes' => max(1, min(120, (int) ($s['delivery_prep_minutes'] ?? 20))),
+        'pickup_prep_minutes'   => max(1, min(120, (int) ($s['pickup_prep_minutes'] ?? 15))),
+        'sound_enabled'         => !empty($s['sound_enabled']),
+    ];
+    json_update_file(kds_settings_file(), fn($old) => $data);
+    admin_log('kds.settings', json_encode($data));
+    send_json(['ok' => true, 'settings' => $data]);
+}
+
+fail('Unknown action.');

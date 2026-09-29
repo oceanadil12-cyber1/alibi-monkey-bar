@@ -47,6 +47,15 @@ if (($_GET['api'] ?? '') === 'counts') {
     send_json(['ok' => true] + admin_counts());
 }
 
+// Dine-in order creation API (POST from the waiter interface).
+if (($_GET['api'] ?? '') === 'dine-in') {
+    if (!admin_signed_in()) send_json(['ok' => false, 'error' => 'Not signed in.'], 401);
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail('Use POST.', 405);
+    require_same_site();
+    require __DIR__ . '/inc/dine-in-api.php';
+    // dine_in_create() sends the JSON response and exits
+}
+
 if (!admin_signed_in()) admin_login($password); // shows the sign-in page, or redirects once the password is right
 
 if (is_post() && isset($_POST['logout'])) {

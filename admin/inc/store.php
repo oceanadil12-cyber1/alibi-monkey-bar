@@ -10,7 +10,7 @@
  * side file, data/admin-meta.json, keyed by record; every change is also noted in
  * data/admin-activity.jsonl.
  */
-if (!defined('ADMIN')) { http_response_code(403); exit('Forbidden'); }
+if (!defined('ADMIN') && !defined('KDS')) { http_response_code(403); exit('Forbidden'); }
 
 // status key => [label, tone]. The first key is what a record has until someone changes it.
 const ORDER_STATUSES = [
@@ -144,6 +144,8 @@ function order_with_meta(array $o, array $meta): array
     $o['items'] = array_values(array_map('strval', (array) ($o['items'] ?? [])));
     foreach (['subtotal', 'deliveryFee', 'total'] as $k) $o[$k] = (int) ($o[$k] ?? 0);
     foreach (['number', 'name', 'phone', 'email', 'address', 'type', 'payment'] as $k) $o[$k] = (string) ($o[$k] ?? '');
+    if (isset($o['table'])) $o['table'] = (int) $o['table'];
+    if (isset($o['notes'])) $o['notes'] = (string) $o['notes'];
     return $o;
 }
 
@@ -436,6 +438,13 @@ const ADMIN_ACTIONS = [
     'settings.save'      => ['Store settings saved', 'gold'],
     'knowledge.save'     => ['Chat knowledge saved', 'gold'],
     'knowledge.restore'  => ['Chat knowledge restored', 'gold'],
+    'order.dine-in'      => ['Dine-in order created', 'gold'],
+    'kds.login'          => ['KDS signed in', 'muted'],
+    'kds.login.failed'   => ['KDS wrong password', 'crit'],
+    'kds.start'          => ['KDS order started', 'gold'],
+    'kds.complete'       => ['KDS order completed', 'good'],
+    'kds.recall'         => ['KDS order recalled', 'warn'],
+    'kds.settings'       => ['KDS settings saved', 'gold'],
 ];
 
 function admin_action_label(string $code): array
