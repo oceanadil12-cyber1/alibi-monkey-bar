@@ -40,6 +40,15 @@ if ($password === '') {
     kds_page('KDS Offline', '<div class="kds-login"><h1>Kitchen Display System</h1><p>Set <code>admin_password</code> in config to enable.</p></div>');
 }
 
+// ?reset clears stale session cookies that can block login
+if (isset($_GET['reset'])) {
+    foreach (['/', '/kds/', '/kds', $KDS_BASE] as $p) {
+        setcookie('alibi_kds', '', ['expires' => time() - 3600, 'path' => $p, 'httponly' => true, 'samesite' => 'Lax']);
+    }
+    header('Location: ' . $KDS_BASE);
+    exit;
+}
+
 session_name('alibi_kds');
 session_set_cookie_params([
     'lifetime' => 0,
