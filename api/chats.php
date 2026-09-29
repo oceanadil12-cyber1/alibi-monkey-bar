@@ -89,7 +89,7 @@ function save_food_overrides(array $base): void
     write_menu_overrides($out);
 }
 
-/** Category id → name, from the base (Square) menu. */
+/** Category id → name, from the base menu. */
 function food_categories(array $base): array
 {
     $cats = [];
@@ -97,7 +97,7 @@ function food_categories(array $base): array
     return $cats;
 }
 
-/** Add a brand-new custom item (not in Square) from the "Add item" form. */
+/** Add a brand-new custom item from the "Add item" form. */
 function add_custom_item(array $base): void
 {
     $name = trim(mb_substr((string) ($_POST['name'] ?? ''), 0, 80));
@@ -213,7 +213,7 @@ function settings_html(array $store, string $csrf, bool $saved): string
     };
 
     return '<h1>Store settings</h1>'
-        . '<p class="muted">Hours, delivery area and fees for the website &mdash; these used to come from Square, now they\'re yours to edit. Leave a day\'s times blank to mark it closed.</p>'
+        . '<p class="muted">Hours, delivery area and fees for the website &mdash; yours to edit. Leave a day\'s times blank to mark it closed.</p>'
         . ($saved ? '<div class="fsaved">&#10003; Saved. The website updates within a couple of minutes.</div>' : '')
         . '<form method="post" action="?view=settings"><input type="hidden" name="csrf" value="' . h($csrf) . '">'
         . '<section class="fadd"><h2>Business</h2><div class="fadd-grid">'
@@ -288,7 +288,7 @@ function item_editor_html(array $item, array $o, string $csrf, bool $saved): str
             $price = $cp[$c['id']] ?? $c['price'];
             $choices .= '<tr>'
                 . '<td>' . h($c['name']) . '</td>'
-                . '<td><span class="fp-in">$<input name="chprice[' . h($c['id']) . ']" inputmode="decimal" value="' . number_format((int) $price / 100, 2, '.', '') . '"></span> <small class="muted">Square $' . number_format((int) $c['price'] / 100, 2) . '</small></td>'
+                . '<td><span class="fp-in">$<input name="chprice[' . h($c['id']) . ']" inputmode="decimal" value="' . number_format((int) $price / 100, 2, '.', '') . '"></span> <small class="muted">Base Price $' . number_format((int) $c['price'] / 100, 2) . '</small></td>'
                 . '<td><label class="fchk"><input type="checkbox" name="hidechoice[]" value="' . h($c['id']) . '" ' . (isset($hideC[$c['id']]) ? 'checked' : '') . '> Hide</label></td></tr>';
         }
         $groups .= '<section class="fgrp"><div class="fgrp-head"><strong>' . h($g['name']) . '</strong>'
@@ -412,12 +412,12 @@ function food_html(array $base, array $over, string $csrf, bool $saved): string
                 $label = $v['name'] !== 'Regular' ? h($v['name']) : 'Price';
                 $priceInputs .= '<label class="fp"><span class="fp-lbl">' . $label . '</span>'
                     . '<span class="fp-in">$<input inputmode="decimal" name="price[' . h($id) . '][' . h($v['id']) . ']" value="' . number_format($cur / 100, 2, '.', '') . '"></span>'
-                    . '<small>Square ' . $money($v['price']) . '</small></label>';
+                    . '<small>Base Price ' . $money($v['price']) . '</small></label>';
             }
             $items .= '<tr class="' . ($hidden ? 'is-off' : '') . '">'
                 . '<td><label class="fsw"><input type="checkbox" name="avail[' . h($id) . ']" value="1" ' . ($hidden ? '' : 'checked') . '><span></span></label></td>'
                 . '<td class="fname"><a href="?view=food&amp;item=' . rawurlencode($id) . '" title="Edit options &amp; description">' . h($it['name']) . '</a>'
-                . (!empty($it['soldOut']) ? ' <span class="fbadge">sold out on Square</span>' : '')
+                . (!empty($it['soldOut']) ? ' <span class="fbadge">sold out</span>' : '')
                 . (($it['modifiers'] ?? []) ? ' <span class="fopts">' . count($it['modifiers']) . ' option' . (count($it['modifiers']) === 1 ? '' : 's') . '</span>' : '') . '</td>'
                 . '<td class="fprices">' . $priceInputs . '</td>'
                 . '<td><label class="fchk"><input type="checkbox" name="pickup[' . h($id) . ']" value="1" ' . (!empty($o['pickupOnly']) ? 'checked' : '') . '> Pickup only</label></td>'
@@ -435,7 +435,7 @@ function food_html(array $base, array $over, string $csrf, bool $saved): string
 
     // "Add a new item" form (op=add).
     $addForm = '<section class="fadd"><h2>Add a new item</h2>'
-        . '<p class="muted">Items you add here don\'t have to exist in Square &mdash; they\'re orderable on the website (cash on delivery).</p>'
+        . '<p class="muted">Add your own items here &mdash; they\'re orderable on the website (cash on delivery).</p>'
         . '<form method="post" action="?view=food"><input type="hidden" name="csrf" value="' . h($csrf) . '"><input type="hidden" name="op" value="add">'
         . '<div class="fadd-grid">'
         . '<label class="fa"><span>Name</span><input name="name" maxlength="80" required></label>'
@@ -471,11 +471,11 @@ function food_html(array $base, array $over, string $csrf, bool $saved): string
         : '';
 
     return '<h1>Food &amp; menu</h1>'
-        . '<p class="muted">Live from your Square store; changes here apply on top of it, for the website only. Orders are cash on delivery, so the price you set is what the guest pays. Turn an item off to hide it; blank price keeps the Square price; blank prep uses the store default (' . $storePrep . ' min).</p>'
+        . '<p class="muted">Your menu for the website. Orders are cash on delivery, so the price you set is what the guest pays. Turn an item off to hide it; blank price keeps the base price; blank prep uses the store default (' . $storePrep . ' min).</p>'
         . ($saved ? '<div class="fsaved">&#10003; Saved. The website updates within a couple of minutes.</div>' : '')
         . $addForm
         . $customSection
-        . '<section class="fgridsec"><h2>Square menu</h2>'
+        . '<section class="fgridsec"><h2>Menu</h2>'
         . '<form class="ffood" method="post" action="?view=food">'
         . '<input type="hidden" name="csrf" value="' . h($csrf) . '"><input type="hidden" name="op" value="items">'
         . '<div class="fbar"><span class="muted">' . $count . ' items</span><button type="submit" class="fsave">Save changes</button></div>'
@@ -804,7 +804,7 @@ $effTo   = $rangeMode ? $to : date('Y-m-d');
 
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 
-// Food & menu tab (edit the Square menu locally: hide/price/pickup/surcharge/prep).
+// Food & menu tab (edit the menu locally: hide/price/pickup/surcharge/prep).
 if (($_GET['view'] ?? '') === 'food') {
     $base = load_menu_base();
     $navF = '<nav class="views"><a href="?days=30">Conversations</a><a href="?days=30&amp;view=insights">Insights</a><a href="?view=food" class="on">Food</a><a href="?view=settings">Settings</a><a href="?view=happy">Happy Hour</a></nav>';
@@ -969,7 +969,7 @@ $nav = '<nav class="views"><a href="?' . $period . '"' . ($view === 'list' ? ' c
 
 if ($view === 'insights') {
     require_once __DIR__ . '/chat-insights.php';
-    page('Insights', $nav . '<h1>Insights</h1><p class="muted">What guests ask about and order in the chat. Counted from their own words, so treat it as a guide rather than exact figures. Full sales are in Square.</p>'
+    page('Insights', $nav . '<h1>Insights</h1><p class="muted">What guests ask about and order in the chat. Counted from their own words, so treat it as a guide rather than exact figures.</p>'
         . '<div class="bar">' . $tabs . '</div>' . $dateForm . insights_html(chat_insights($convos), $days));
 }
 
