@@ -352,6 +352,9 @@ body {
     align-items: center;
     justify-content: center;
 }
+.kds-settings-panel[hidden] {
+    display: none;
+}
 .kds-settings-overlay {
     position: absolute;
     inset: 0;
