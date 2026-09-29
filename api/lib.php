@@ -49,6 +49,9 @@ function config(): array
             'chat_daily_limit'  => 500,
             'chat_log'          => true,
             'chat_log_days'     => 120,
+            // Password for the admin panel (/admin/); empty = panel switched off.
+            // 'chat_admin_password' is the older name for the same setting.
+            'admin_password'      => '',
             'chat_admin_password' => '',
             // How online orders are paid: 'cod' (cash on delivery, no online
             // charge) or 'card' (charge via Square). No payment processor has
@@ -238,11 +241,11 @@ function require_same_site(): void
 }
 
 /**
- * Allow at most $max requests per $windowSeconds from one visitor (by IP) for a
- * bucket such as 'form' or 'pay'; stops spam floods and card-testing. Counts are
+ * Count one request from this visitor (by IP) for a bucket such as 'form' or
+ * 'pay'; true once they have made $max requests within $windowSeconds. Counts are
  * kept in api/cache/rate/ (private). A disk problem never blocks a customer.
  */
-function rate_limit(string $bucket, int $max, int $windowSeconds): void
+function rate_limited(string $bucket, int $max, int $windowSeconds): bool
 {
     $dir = CACHE_DIR . '/rate';
     if (!is_dir($dir)) @mkdir($dir, 0755, true);
@@ -251,7 +254,7 @@ function rate_limit(string $bucket, int $max, int $windowSeconds): void
         foreach (glob("$dir/*.json") ?: [] as $old) if ($now - @filemtime($old) > 86400) @unlink($old);
     }
     $fh = @fopen("$dir/$bucket-" . hash('sha256', $_SERVER['REMOTE_ADDR'] ?? '') . '.json', 'c+');
-    if (!$fh) return;
+    if (!$fh) return false;
     flock($fh, LOCK_EX);
     $hits = array_values(array_filter(json_decode((string) stream_get_contents($fh), true) ?: [], fn($t) => $t > $now - $windowSeconds));
     $blocked = count($hits) >= $max;
@@ -263,7 +266,13 @@ function rate_limit(string $bucket, int $max, int $windowSeconds): void
     }
     flock($fh, LOCK_UN);
     fclose($fh);
-    if ($blocked) fail('Too many attempts. Please wait a few minutes and try again, or call us at (954) 565-2526.', 429);
+    return $blocked;
+}
+
+/** Allow at most $max requests per $windowSeconds per visitor; stops spam floods and card-testing. */
+function rate_limit(string $bucket, int $max, int $windowSeconds): void
+{
+    if (rate_limited($bucket, $max, $windowSeconds)) fail('Too many attempts. Please wait a few minutes and try again, or call us at (954) 565-2526.', 429);
 }
 
 /** Parse a JSON POST body; basic bot checks shared by the public forms. */
@@ -295,10 +304,12 @@ function save_row(string $file, array $row): bool
     $fh = @fopen($path, 'a');
     if (!$fh) return false;
     flock($fh, LOCK_EX);
-    // Neutralise spreadsheet formulas in user input.
+    // Neutralise spreadsheet formulas in user input. The empty escape argument
+    // gives standard CSV (quotes doubled): a guest's backslash can't break a row,
+    // and the admin panel reads these files back the same way.
     $safe = array_map(fn($v) => preg_match('/^[=+\-@\t\r]/', (string) $v) ? "'" . $v : $v, $row);
-    if ($new) fputcsv($fh, array_keys($row));
-    fputcsv($fh, array_values($safe));
+    if ($new) fputcsv($fh, array_keys($row), ',', '"', '');
+    fputcsv($fh, array_values($safe), ',', '"', '');
     flock($fh, LOCK_UN);
     fclose($fh);
     return true;

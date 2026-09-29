@@ -1,6 +1,6 @@
 <?php
 /**
- * Local menu overrides for the Food admin tab (api/chats.php?view=food).
+ * Local menu overrides for the admin's Menu & food page (admin/?page=menu).
  *
  * The food menu itself comes live from Square (api/menu.php). This file lets the
  * restaurant adjust it locally, on top of Square, without touching Square:

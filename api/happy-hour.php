@@ -2,7 +2,7 @@
 /**
  * GET api/happy-hour.php  →  the Happy Hour settings as JSON.
  *
- * Edited from the admin (api/chats.php?view=happy) and stored in
+ * Edited from the admin (admin/?page=happy-hour) and stored in
  * api/data/happy-hour.json. The menu page + sitewide ticker read this (js/main.js)
  * and the chat assistant reads it too (api/chat.php), so Happy Hour lives in one
  * place. Falls back to the seeded defaults below until it's first edited.

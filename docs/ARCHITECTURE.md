@@ -15,6 +15,8 @@ Browser ──► static pages (HTML/CSS/JS/images)          served as plain fil
    ├──► api/chat.php ──► Ollama (local testing) or Claude API (live)
    │         └─ facts: data/chatbot-knowledge.md + events.html + menu.html + Square menu
    │
+   ├──► admin/ (the team's panel, password) ──► api/data/*, events.html, images/events/
+   │
    ├──► Square Web Payments SDK (card field, loaded on the menu page)
    └──► Elfsight widgets (Google reviews, Instagram feed)
 ```
@@ -32,7 +34,7 @@ when you edit them.
 | --- | --- | --- |
 | `index.html` | `main.js`, `elfsight-badge.js`, `upcoming.js` | Hero slider; upcoming-events slider built from `events.html` |
 | `menu.html` | `main.js`, `order.js` | Ordering UI renders into `#order-menu` |
-| `events.html` | `main.js`, `events.js` | The single source of the weekly lineup |
+| `events.html` | `main.js`, `events.js` | The single source of the weekly lineup (its tabs, day panels and week-at-a-glance are written by Admin → Events) |
 | `gallery.html` | `main.js`, `instagram-more.js` | Instagram feed through Elfsight |
 | `contact.html` | `main.js` | Forms post to `api/contact.php` |
 | other pages | `main.js` | Static content |
@@ -43,8 +45,8 @@ when you edit them.
 | --- | --- |
 | `main.js` | Shared by every page: header style on scroll, mobile nav, hero slider, lazy loading for background images and Elfsight widgets, and AJAX form submission (any `<form data-endpoint="…">`) |
 | `order.js` | The whole ordering flow: menu, item options, cart (saved in `localStorage` as `alibi-cart-v1`), pickup/delivery, tip, quote and Square card payment |
-| `events.js` | Turns the weekly lineup on `events.html` into day tabs and opens on today's day in restaurant time (America/New_York) |
-| `upcoming.js` | Home page slider. It fetches `events.html`, reads the lineup and shows events starting with the next one. It pauses on hover and respects reduced motion |
+| `events.js` | Turns the weekly lineup on `events.html` into day tabs and opens on today's day in restaurant time (America/New_York). It also removes one-night events (`data-date`) once their night is over and fixes the tab counts |
+| `upcoming.js` | Home page slider. It fetches `events.html`, reads the lineup and shows events starting with the next one (a one-night event only on its own date). It pauses on hover and respects reduced motion |
 | `instagram-more.js` | Gallery paging: shows 20 posts, then 8 more per click |
 | `elfsight-badge.js` | Tidies the Elfsight widget badge |
 | `chat.js` | Loaded on every page. Adds the "Ask us" chat button and panel, which post to `api/chat.php`. (It can also sit inside a page: add an empty `<div data-chat-embed>` and optional `[data-ask]` buttons. No page uses this at the moment.) It renders cards (shows, party packages, food order, "Talk to our team") and follow-up suggestions from the reply. The conversation is kept for the browser tab (`sessionStorage`, `alibi-chat-v1`). Dishes ordered in the chat go into the same cart as `order.js` (through `window.alibiOrder`, or `localStorage` on other pages) |
@@ -82,7 +84,22 @@ PHP with no framework and no database. See [API.md](API.md) for each endpoint.
   responses, same-site checks, rate limiting, CSV saving, email and caching.
 - `config.php` (private, not in git) holds the Square credentials and email settings.
 - `cache/` is created automatically for the menu cache and rate-limit counters.
-- `data/` is created automatically for the form submission CSVs.
+- `data/` is created automatically for the form submission CSVs, the orders and
+  chat logs, and what the admin panel saves.
+
+## Admin panel (`admin/`)
+
+The team's control panel, at `/admin/`: one PHP entry point (`admin/index.php`),
+one file per section in `admin/inc/pages/`, and shared code in `admin/inc/`. It
+reuses the `api/` libraries, so it edits exactly what the website reads (menu
+overrides, store settings, Happy Hour) and reads exactly what the website writes
+(orders, form submissions, chats). The guests' records are never edited; the
+team's statuses and notes go in a side file. The **Events** section is the one
+place that writes into the site itself: it regenerates the lineup in `events.html`
+between two comment markers (the day tabs, the home slider and the chat assistant
+all read that markup) and saves poster pictures in `images/events/`. The panel
+has its own stylesheet and scripts in `admin/assets/` and is documented in
+[ADMIN.md](ADMIN.md).
 
 ## Security
 
@@ -93,3 +110,6 @@ PHP with no framework and no database. See [API.md](API.md) for each endpoint.
 - Checkout **re-prices every cart item on the server** from the live menu, so
   a tampered browser can't change prices.
 - Card details go straight into Square's hosted field and never touch this server.
+- The admin panel needs a password, checks a CSRF token on every save, escapes
+  everything guests typed, and sends no-index, no-cache and
+  Content-Security-Policy headers (details in [ADMIN.md](ADMIN.md#security)).

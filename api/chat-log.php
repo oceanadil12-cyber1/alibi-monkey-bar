@@ -9,7 +9,7 @@
  * first message, and the visitor's IP, device and browser. Files older than
  * config 'chat_log_days' (120) are deleted automatically.
  *
- * Written by chat.php, read by chats.php (the password-protected history page).
+ * Written by chat.php, read by the admin's Conversations and Insights pages (admin/).
  */
 
 function chat_log_dir(): string

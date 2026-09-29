@@ -43,6 +43,7 @@ function chat_cards(string $question, string $reply): array
 
     // Shows named in the reply, in the order it names them.
     $tonight = date('l', time() - (date('G') < 4 ? 86400 : 0));
+    $tonightDate = date('Y-m-d', time() - (date('G') < 4 ? 86400 : 0));
     $found = [];
     foreach (weekly_lineup()['shows'] as $show) {
         $n = card_norm($show['name']);
@@ -53,9 +54,11 @@ function chat_cards(string $question, string $reply): array
     }
     uasort($found, fn($a, $b) => $a['pos'] <=> $b['pos']);
     if ($found) {
-        $cards[] = ['type' => 'shows', 'shows' => array_values(array_map(function ($f) use ($tonight) {
+        $cards[] = ['type' => 'shows', 'shows' => array_values(array_map(function ($f) use ($tonight, $tonightDate) {
             $s = $f['show'];
-            $s['when'] = ($s['day'] === $tonight ? 'Tonight' : $s['day']) . ' · ' . $s['time'];
+            // A one-night event is named by its date; a weekly show by its day.
+            $day = !empty($s['date']) ? ($s['date'] === $tonightDate ? 'Tonight' : date('D, M j', strtotime($s['date']))) : ($s['day'] === $tonight ? 'Tonight' : $s['day']);
+            $s['when'] = $day . ' · ' . $s['time'];
             return $s;
         }, array_slice($found, 0, 4)))];
     }

@@ -12,9 +12,10 @@ step and no framework. A small PHP backend powers three major systems:
 2. **AI Chat Assistant** — a conversational assistant that answers guests'
    questions about hours, events, the menu and more, and can add food to the
    cart directly from the chat.
-3. **Admin Panel (Team Dashboard)** — a password-protected web app for the
-   restaurant team to manage conversations, food settings, store hours,
-   delivery, and Happy Hour — all without touching code.
+3. **Admin Panel** — a password-protected web app at `/admin/` for the
+   restaurant team: orders, reservations, messages, newsletter sign-ups, the
+   chat assistant, events (with poster uploads), the menu, Happy Hour and store
+   settings — all without touching code.
 
 > **Private repository.** This is client work. Do not make the repository
 > public, and never commit `api/config.php`, which holds the Square access
@@ -28,7 +29,7 @@ step and no framework. A small PHP backend powers three major systems:
 2. [Pages](#pages)
 3. [Online ordering system](#online-ordering-system)
 4. [AI chat assistant](#ai-chat-assistant)
-5. [Admin panel (Team Dashboard)](#admin-panel-team-dashboard)
+5. [Admin panel](#admin-panel)
 6. [Project structure](#project-structure)
 7. [Tech at a glance](#tech-at-a-glance)
 8. [Security](#security)
@@ -78,8 +79,8 @@ Then open <http://localhost:3456>.
   Without them, checkout shows "Online payment is being set up". See
   [ORDERING-SETUP.md](ORDERING-SETUP.md).
 - **Chat assistant** needs an AI provider configured in `api/config.php`.
-- **Admin panel** needs `chat_admin_password` set in `api/config.php`. Open
-  <http://localhost:3456/api/chats.php> and sign in.
+- **Admin panel** needs `admin_password` set in `api/config.php`. Open
+  <http://localhost:3456/admin/> and sign in.
 - **Forms** save submissions to `api/data/*.csv`. Email notifications need a
   mail server, so they normally only arrive on the live host.
 
@@ -219,91 +220,35 @@ built from the site's own pages, not from the AI's text.
 
 ---
 
-## Admin panel (Team Dashboard)
+## Admin panel
 
-A password-protected web app at `/api/chats.php` for the restaurant team. Sign
-in with `chat_admin_password` from `api/config.php`.
+A password-protected web app at **`/admin/`** for the restaurant team, and the one
+place to see what guests sent the website and to control what it shows. Sign in
+with `admin_password` from `api/config.php` (the older name
+`chat_admin_password` still works). It works on phones and tablets too. The full
+guide is **[docs/ADMIN.md](docs/ADMIN.md)**.
 
-### Tabs
+| Section | What it does |
+| --- | --- |
+| **Dashboard** | What needs attention now (new orders, reservation requests, unread messages), the last two weeks, what the website is showing right now, setup checks, recent activity |
+| **Orders** | Cash-on-delivery orders as they come in: one-tap status (New → Preparing → Ready → Completed), team notes, printable ticket, sales totals, spreadsheet export |
+| **Reservations** | Table requests from the reservation form: confirm or decline with a ready-made email, notes, upcoming and past views |
+| **Messages** | The contact-form inbox: unread, replied, archived; reply by email; delete spam |
+| **Subscribers** | Newsletter sign-ups: search, export, remove |
+| **Conversations** | Every chat with the assistant, with returning-guest and reservation-request flags, a follow-up flag and notes, and a spreadsheet export |
+| **Insights** | What guests ask and order in the chat, and how orders are going (sales, busiest times, best sellers) |
+| **Knowledge** | Edit what the chat assistant knows (`data/chatbot-knowledge.md`), with one-click restore of earlier versions |
+| **Events** | Add weekly or one-night events with a poster (a size guide and cropping editor), host, description and tags, then publish them to the Events page and the home page slider |
+| **Menu & food** | Hide items, change prices, pickup-only or delivery-only, delivery surcharge, prep time, edit descriptions and options, add your own dishes |
+| **Happy Hour** | The Happy Hour menu, its times, and the scrolling ticker |
+| **Store settings** | Business details, hours, delivery area and fees |
+| **Activity log** | Who signed in and what they changed |
 
-#### 1. Conversations
-
-The main view. Shows all chat conversations from a selectable time range
-(today, 7 days, 30 days, 120 days, or a custom date range).
-
-**Features:**
-- **Summary stats:** total conversations, total messages, dishes ordered
-  through chat, reservation intents detected.
-- **Conversation list:** each row shows the last message time, guest device
-  type, distance from the restaurant, number of questions, whether they
-  ordered food, and the first question.
-- **Conversation detail:** click any row to see the full conversation as a
-  chat (question and answer pairs, timestamps, dishes added to cart).
-- **Reservation detection:** conversations where the guest asked about a
-  table reservation are flagged with party size when mentioned.
-- **CSV export:** download all conversations as a spreadsheet.
-
-#### 2. Insights
-
-Analytics dashboard built from chat logs (keyword-based, in
-`api/chat-insights.php`).
-
-**Shows:**
-- What guests ask about (topics breakdown)
-- Which foods interest them and which dishes they ordered through the chat
-- Which shows and days guests ask about
-- When they chat (time of day distribution)
-- Private-party demand: occasions, group sizes, packages discussed and budget
-  concerns, in guests' own words
-- Questions the assistant couldn't answer (add those facts to
-  `data/chatbot-knowledge.md`)
-
-#### 3. Food & Menu
-
-Manage the website's menu on top of Square, without touching Square.
-
-**Features:**
-- **Enable/disable items:** toggle items on or off for the website.
-- **Override prices:** set a website-specific price different from Square.
-- **Fulfillment rules:**
-  - *Pickup only* — item is only available for pickup orders.
-  - *Delivery only* — item is only available for delivery orders.
-- **Delivery surcharge:** add a per-item fee for delivery orders.
-- **Prep time:** override the default prep time per item.
-- **Per-item options editor:** click any item name to edit its description
-  and option groups (hide groups, hide choices, re-price choices).
-- **Add custom items:** create items that don't exist in Square. They appear
-  on the website, are orderable (cash on delivery), and can have all the same
-  rules (pickup/delivery only, surcharge, prep time, category).
-- **Custom items editor:** edit or delete custom items you've added.
-
-#### 4. Settings (Store Settings)
-
-Control the ordering system's business rules.
-
-**Fields:**
-- Business name, address, phone
-- Default prep time (minutes)
-- Pickup minimum order amount
-- Delivery: enable/disable, delivery fee, delivery minimum, allowed ZIP codes
-- Pickup instructions (shown to the guest at checkout)
-- Pickup hours (per day of week)
-- Delivery hours (per day of week)
-
-#### 5. Happy Hour
-
-Manage the Happy Hour menu and scrolling ticker that appears across the site.
-
-**Fields:**
-- Enable/disable Happy Hour display
-- Enable/disable the scrolling ticker
-- Start and end times
-- Intro line (shown above the menu)
-- Items: name, description, price
-- Sides: name, price
-
-Blank rows at the end are for adding new items. Leave an item's name blank to
-remove it.
+The sidebar shows live counts of new orders, reservation requests and messages.
+Statuses, notes and flags that the team adds are kept beside the guests' records
+(an order, reservation or message is never edited), and every change is logged.
+`api/chats.php`, the old address of the chat history page, forwards to the panel,
+so existing bookmarks keep working.
 
 ---
 
@@ -311,7 +256,11 @@ remove it.
 
 ```
 alibi-monkey-bar/
-├── *.html                 Site pages (edit these directly)
+├── *.html                 Site pages (edit these directly; events.html's lineup is written by the admin)
+├── admin/                 Admin panel (see docs/ADMIN.md)
+│   ├── index.php          Sign-in, routing (?page=orders …)
+│   ├── assets/            admin.css, admin.js, events.js (the poster editor)
+│   └── inc/               Shared code, plus one file per section in pages/
 ├── css/style.css          All styling, including icons (inline SVG)
 ├── js/                    Page scripts (no libraries)
 │   ├── main.js            Shared: header, mobile nav, hero slider, lazy load, forms
@@ -339,7 +288,7 @@ alibi-monkey-bar/
 │   ├── chat-cards.php     Show/package cards and follow-up suggestions
 │   ├── chat-log.php       Chat logging to JSONL files
 │   ├── chat-insights.php  Analytics: topic/food/show/time breakdowns from logs
-│   ├── chats.php          GET — Admin Panel (Team Dashboard), password-protected
+│   ├── chats.php          Old chat-history address; forwards to admin/
 │   ├── happy-hour.php     Happy Hour data read/write
 │   ├── contact.php        POST — contact and reservation forms
 │   ├── subscribe.php      POST — newsletter sign-up (CSV + Square Customers)
@@ -383,11 +332,16 @@ alibi-monkey-bar/
   a tampered browser can't change prices.
 - Card details go straight into Square's hosted field and never touch this
   server.
-- The admin panel is protected by a password, uses PHP session cookies, and
-  rate-limits failed login attempts (10 per 15 minutes).
-- All guest text in the admin panel is HTML-escaped.
-- Chat conversations are anonymous (no account needed) and auto-deleted after
-  120 days.
+- The admin panel is protected by a password, uses PHP session cookies
+  (`HttpOnly`, `SameSite`), puts a CSRF token on every form, rate-limits
+  sign-in attempts (10 per 15 minutes), and sends `noindex`, no-cache and
+  Content-Security-Policy headers. Uploaded posters are checked to be real
+  480 × 600 images.
+- All guest text in the admin panel is HTML-escaped, and spreadsheet downloads
+  neutralise formulas.
+- Chat conversations need no account: guests give an email (and optionally a
+  name) before chatting, and their IP address, device and browser are saved with
+  the chat. Chats are deleted automatically after 120 days.
 
 ---
 
@@ -416,7 +370,7 @@ All configuration lives in `api/config.php` (not committed to git). Copy
 | `chat_log` | Enable/disable chat logging (default on) | No |
 | `chat_log_days` | Days to keep chat logs (default 120) | No |
 | `chat_daily_limit` | Max messages per day site-wide (default 500) | No |
-| `chat_admin_password` | Admin panel password (empty = panel disabled) | For admin |
+| `admin_password` | Admin panel password, 12+ characters (empty = panel disabled). The older name `chat_admin_password` still works | For admin |
 
 ---
 
@@ -447,6 +401,7 @@ where the pages link to it, so visitors get the new version (see
 | Document | Read it when you want to... |
 | --- | --- |
 | **This README** | understand the whole project: scope, features, architecture |
+| [docs/ADMIN.md](docs/ADMIN.md) | use or extend the admin panel: orders, reservations, events and posters, menu, settings |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | understand how the site is built, page by page and script by script |
 | [docs/CONTENT-GUIDE.md](docs/CONTENT-GUIDE.md) | change events, dancers, photos, text, hours or the menu |
 | [docs/API.md](docs/API.md) | work on the PHP endpoints (menu, checkout, chat, forms) |

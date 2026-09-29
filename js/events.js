@@ -7,6 +7,38 @@
   const panels = [...document.querySelectorAll('.ev-day')];
   const glanceDays = [...document.querySelectorAll('.ev-glance-day')];
 
+  // One-night events carry data-date="YYYY-MM-DD" and drop off the page once that night is
+  // over (a night runs until 4 AM, restaurant time). The tab counts follow.
+  const night = {};
+  new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date()).forEach((p) => { night[p.type] = p.value; });
+  const tonight = new Date(Date.UTC(+night.year, +night.month - 1, +night.day - (+night.hour < 4 ? 1 : 0))).toISOString().slice(0, 10);
+  const over = [...document.querySelectorAll('[data-date]')].filter((el) => el.dataset.date < tonight);
+  if (over.length) {
+    over.forEach((el) => el.remove());
+    panels.forEach((panel) => {
+      const n = panel.querySelectorAll('.ev-card').length;
+      const count = tabs.querySelector('[data-day="' + panel.dataset.day + '"] .ev-tab-count');
+      if (count) count.textContent = n + (n === 1 ? ' event' : ' events');
+      if (!n && !panel.querySelector('.ev-empty')) {
+        const none = document.createElement('p');
+        none.className = 'ev-empty';
+        none.textContent = 'No shows are scheduled for ' + panel.querySelector('.ev-day-title').textContent + ' yet. Check back soon!';
+        panel.querySelector('.ev-grid')?.remove();
+        panel.append(none);
+      }
+    });
+    glanceDays.forEach((g) => {
+      const list = g.querySelector('ul');
+      if (list && !list.children.length) {
+        const li = document.createElement('li');
+        li.className = 'ev-empty';
+        li.textContent = 'Nothing scheduled yet';
+        list.append(li);
+      }
+    });
+  }
+
   const today = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' })
     .format(new Date()).toLowerCase().slice(0, 3);
 

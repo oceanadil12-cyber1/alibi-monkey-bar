@@ -1,6 +1,7 @@
 /* Home page "Upcoming Events" slider: every show in the Weekly Lineup on events.html,
  * starting with the next one (restaurant time), scrolling right to left in a loop.
- * The lineup is only edited in events.html. The slider pauses on hover or keyboard
+ * The lineup is edited in the admin (Events), which writes events.html; one-night
+ * events (data-date) show only on their own date. The slider pauses on hover or keyboard
  * focus. If JavaScript is off, the fetch fails, or the visitor prefers reduced
  * motion, the cards stay in a row they can swipe. */
 (function () {
@@ -36,7 +37,7 @@
     const lineup = {};
     doc.querySelectorAll('.ev-day[data-day]').forEach((day) => {
       lineup[day.dataset.day] = [...day.querySelectorAll('.ev-card')]
-        .map((card) => ({ card, start: toMinutes(card.querySelector('.ev-time')?.textContent) }))
+        .map((card) => ({ card, start: toMinutes(card.querySelector('.ev-time')?.textContent), only: card.dataset.date || '' }))
         .filter((ev) => ev.start !== null)
         .sort((a, b) => a.start - b.start);
     });
@@ -52,7 +53,9 @@
     for (let i = 0; i <= 7; i++) {
       const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
       const key = DAY_KEYS[date.getDay()];
+      const iso = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
       (lineup[key] || []).forEach((ev) => {
+        if (ev.only && ev.only !== iso) return; // a one-night event shows on its own date only
         const upcoming = ev.start > nowMin;
         if ((i === 0 && upcoming) || (i > 0 && i < 7) || (i === 7 && !upcoming)) {
           shows.push({ ...ev, date, key, tonight: i === 0 });
@@ -67,6 +70,7 @@
     link.className = 'ev-slide';
     link.href = 'events.html#ev-' + ev.key;
     const card = document.importNode(ev.card, true);
+    card.querySelector('.ev-date')?.remove(); // the time badge below already carries the day and date
     const badge = card.querySelector('.ev-time');
     const when = ev.tonight ? 'Tonight' : DAY_NAMES[ev.date.getDay()] + ' ' + ev.date.getDate();
     badge.textContent = when + ' · ' + badge.textContent.trim();

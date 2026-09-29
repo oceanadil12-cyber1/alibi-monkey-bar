@@ -1,6 +1,6 @@
 <?php
 /**
- * Trends from the chat history, for the Insights tab of api/chats.php.
+ * Trends from the chat history, for the Insights page of the admin (admin/?page=insights).
  *
  * Everything is counted from the guests' own words with keyword lists (below,
  * easy to extend) plus what the chat logged: dishes added to orders and the

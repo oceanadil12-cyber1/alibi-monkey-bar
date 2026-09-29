@@ -2976,6 +2976,21 @@ body.ev-tabbed .ev-day-title {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
+/* One-night events (published from Admin > Events) also show their date, opposite the time. */
+.ev-date {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 6px 12px;
+  background: rgba(10, 10, 10, 0.88);
+  border: 1px solid var(--gold);
+  color: var(--gold-light);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
 .ev-body {
   display: flex;
   flex-direction: column;
@@ -3077,6 +3092,19 @@ body.ev-tabbed .ev-day-title {
   display: block;
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* A day with nothing scheduled (written by Publish in the admin panel). */
+.ev-empty {
+  padding: 30px 0;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.ev-glance-day li.ev-empty {
+  padding: 5px 0;
+  font-size: 13px;
+  text-align: left;
 }
 
 .ev-note {

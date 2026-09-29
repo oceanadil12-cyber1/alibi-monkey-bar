@@ -22,6 +22,7 @@ must stay private**.
 | `notify_email` | Where contact and reservation messages are emailed |
 | `from_email` | Sender address. Use one on the site's own domain |
 | `data_dir` | Where CSVs are saved. Empty means `api/data/`. On Nginx hosts, use a folder outside the web root |
+| `admin_password` | Password for the admin panel at `/admin/` (see [ADMIN.md](ADMIN.md)). Empty turns the panel off. The older name `chat_admin_password` also works |
 
 With no `config.php`, the menu still works, because it uses the public store
 feed. Checkout replies "Online payment is being set up", and forms still save to CSV.
@@ -71,6 +72,12 @@ Prices are never read from the browser.
 - **pay:** runs the same checks, creates the Square order (it appears in the
   POS like any online order) and charges the card. The `idempotencyKey` means a
   double-click or retry can't charge twice.
+- **place** (cash on delivery, the default until a payment processor is chosen):
+  runs the same checks, then saves the order to `api/data/orders/DAY.jsonl`,
+  emails `notify_email` and returns a six-character order number. Nothing is
+  charged. The admin panel's **Orders** section reads these files and keeps each
+  order's status and notes beside them. It takes at most 12 orders per 15 minutes
+  from one visitor.
 
 Server-side checks, which never trust the browser:
 
@@ -97,6 +104,7 @@ Handles contact messages and reservation requests.
 
 - Reservations need a valid phone number, a date from today onward, a time and a party size.
 - Each submission is saved to `contact.csv` or `reservations.csv` and emailed to `notify_email`.
+  The admin panel's Messages and Reservations sections read these files.
 - It succeeds if either the save or the email works. If both fail, it returns
   500 with a "please call us" message.
 
@@ -156,26 +164,26 @@ The "Ask us" chat assistant, used by `js/chat.js`.
   `chat_daily_limit` messages per day for the whole site (then 503).
 - When `chat_log` is on, every exchange is saved (`chat-log.php`) to
   `data_dir()/chats/YYYY-MM-DD.jsonl`, one JSON line each. A line holds the
-  time, an anonymous conversation id (`cid`, made per browser tab by
-  `chat.js`), the question, the reply, the dishes added, the AI used, token
-  counts and seconds. Days older than `chat_log_days` (120) are deleted
-  automatically.
+  time, a conversation id (`cid`, made per browser tab by `chat.js`), the
+  guest's email and optional name, their IP address, device and browser, the
+  question, the reply, the dishes added, the AI used, token counts and seconds.
+  Days older than `chat_log_days` (120) are deleted automatically.
 
-## `GET api/chats.php`
-
-A private chat history page, protected by `chat_admin_password` in
-`config.php`. If that's empty, the page is off. It lists conversations from
-today or the last 7 / 30 / 120 days, with totals. `?c=<id>` shows one
-conversation as a chat, `?view=insights&days=N` shows trends
-(`chat-insights.php`: topics, foods, dishes ordered, shows, days, chat times,
-private-party demand and unanswered questions, all counted from the log with
-keyword lists), and `?csv=1&days=N` downloads a spreadsheet. Sign-in
-uses a PHP session cookie, and failed attempts are rate-limited (10 per 15
-minutes). Guests' text is always escaped.
 - Errors return 502 with a "please call us" message. On `localhost` the reply
   also includes `detail` with the real cause.
 - CLI: `php api/chat.php --prompt` prints the prompt, and
   `php api/chat.php "question"` asks one question.
+- The weekly lineup in the prompt is read from `events.html`. A card with a
+  `data-date` is a one-night event: it is left out once its night is over
+  (nights run until 4 AM) and is marked "one night only".
+
+## `GET api/chats.php` (moved)
+
+The chat history page is now part of the **admin panel** at `/admin/`
+(Conversations and Insights; see [ADMIN.md](ADMIN.md)). `api/chats.php` is only a
+redirect, so old links and bookmarks still land in the right place: `?c=<id>`,
+`?view=insights`, `?view=food`, `?view=settings`, `?view=happy` and `?csv=1`
+forward to their pages in the panel.
 
 ## Testing locally
 

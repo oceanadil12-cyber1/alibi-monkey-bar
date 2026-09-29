@@ -5,8 +5,11 @@ api/config.php
 # ---- Server-generated ----
 # Menu cache and rate-limit files
 api/cache/
-# Customer form submissions (contact, reservations, newsletter CSVs) and the chat log
+# Customer form submissions (contact, reservations, newsletter CSVs), orders, the chat log,
+# and everything the admin panel saves (statuses, notes, activity, events working copy, backups, sessions)
 api/data/
+# Temporary copy of events.html while the admin publishes it (renamed into place a moment later)
+events.html.tmp*
 # Anthropic PHP SDK for the chat assistant (reinstall with: composer install, in api/)
 api/vendor/
 

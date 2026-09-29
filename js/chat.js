@@ -49,7 +49,7 @@
     state.messages = state.messages.slice(-MAX_KEEP);
     try { sessionStorage.setItem(STORE, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
   }
-  // Anonymous id that groups one conversation in the chat history (api/chats.php).
+  // Anonymous id that groups one conversation in the chat history (admin/?page=chats).
   const newCid = () => 'c-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const state = load();
   if (!state.cid) state.cid = newCid();

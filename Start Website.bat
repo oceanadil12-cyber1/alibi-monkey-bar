@@ -19,6 +19,7 @@ echo.
 
 if defined PHP (
   echo  Mode: PHP server - live menu, ordering and forms enabled.
+  echo  Admin panel: http://localhost:%PORT%/admin/
   echo.
   start "" http://localhost:%PORT%
   "%PHP%" -S localhost:%PORT% -t .

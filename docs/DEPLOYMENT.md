@@ -16,7 +16,7 @@ Upload the **contents** of this repository to the web root (usually
 | `Start Website.bat`, `Save to GitHub.bat`, `.gitignore`, `.gitattributes` | Only used on your own computer |
 
 Must upload: all `*.html`, `css/`, `js/`, `images/`, `fonts/`, `data/`, `api/`,
-`.htaccess`, `api/.htaccess` and `robots.txt`.
+`admin/`, `.htaccess`, `api/.htaccess`, `admin/.htaccess` and `robots.txt`.
 
 > Dot-files like `.htaccess` are hidden by default in some FTP programs and in
 > the cPanel File Manager. Turn on "show hidden files" and make sure both get uploaded.
@@ -48,11 +48,7 @@ into the server's `api/config.php`: `chat_provider`, `chat_fallback`,
 Groq account in the restaurant's name, and turn on Zero Data Retention in the
 Groq console (Settings → Data Controls). The free plans allow a few questions
 per minute across all the fallbacks. Check the chat history
-(`/api/chats.php`) now and then. If guests often hit the limit, switch to a paid plan.
-
-**Chat history page:** set a long `chat_admin_password` in the server's
-`api/config.php`, then open `https://DOMAIN/api/chats.php`. Keep the password
-private, since the page shows every conversation.
+(Admin → Conversations) now and then. If guests often hit the limit, switch to a paid plan.
 
 **Paid option (Claude):**
 
@@ -67,10 +63,26 @@ private, since the page shows every conversation.
 4. In `api/config.php`, set `'chat_provider' => 'claude'`, paste the key into
    `'anthropic_api_key'` and choose `'claude_model'`.
 5. Ask the chat a few questions on the live site. Check the replies in the
-   chat history (`/api/chats.php`), which also shows the token counts behind the bill.
+   chat history (Admin → Conversations), which also shows the token counts behind the bill.
 
 `chat_daily_limit` in `config.php` caps how many messages the site answers per
 day (default 500), so spam can't run up the bill.
+
+## Admin panel on the live site
+
+Set a long `admin_password` (12+ characters) in the server's `api/config.php`,
+then open `https://DOMAIN/admin/`. Keep the password private: the panel shows every
+order, message and conversation, and can change the menu and the website. Turn on
+HTTPS first (step 4 above) so the password isn't sent in the clear. The panel is
+never indexed and needs no other setup; see [ADMIN.md](ADMIN.md).
+
+Set `notify_email` and `from_email` too, so new orders and messages are emailed
+as well as shown in the panel.
+
+**Events** are published by the panel by rewriting part of `events.html` and saving
+posters in `images/events/`, so those two must be writable by the website (they
+are on ordinary cPanel hosting). **Never upload your own copy of `events.html` or
+`images/events/` over the live ones** once the team is using the panel.
 
 ## Updating the live site
 
@@ -80,7 +92,8 @@ day (default 500), so spam can't run up the bill.
 4. Upload **only the changed files** to the server, overwriting the old ones.
 
 **Never overwrite on the server:** `api/config.php` (live keys), `api/data/`
-(customer submissions) or `api/cache/`.
+(customer submissions, orders and what the admin panel saves), `api/cache/`, and
+`events.html` and `images/events/` (the team publishes events there from the panel).
 
 ## Checklist after deploying
 
@@ -90,6 +103,8 @@ day (default 500), so spam can't run up the bill.
 - [ ] Contact form sends and the email arrives at `notify_email`
 - [ ] `https://DOMAIN/api/config.php` is **blocked** (403), not downloadable
 - [ ] `https://DOMAIN/api/data/` is **blocked** (403)
+- [ ] `https://DOMAIN/admin/` shows the sign-in page, and `https://DOMAIN/admin/inc/store.php` is **blocked** (403)
+- [ ] Signing in to the admin works, and a test event can be published and appears on the Events page
 - [ ] The "Ask us" chat answers a question, and `https://DOMAIN/api/vendor/` and
       `https://DOMAIN/data/chatbot-knowledge.md` are **blocked**
 - [ ] A made-up URL shows the branded 404 page
@@ -98,8 +113,9 @@ day (default 500), so spam can't run up the bill.
 ## Other hosting
 
 - **Nginx or hosts without `.htaccess`:** recreate the rules yourself. Deny
-  `api/config.php`, `api/lib.php`, `api/cache/`, `api/data/` and `/.git`, and set
-  `data_dir` in `config.php` to a folder outside the web root.
+  `api/config.php`, `api/lib.php`, `api/cache/`, `api/data/`, `admin/inc/` and
+  `/.git`, make `index.php` the index of `admin/`, and set `data_dir` in
+  `config.php` to a folder outside the web root.
 - **Static-only hosts (Netlify Drop, GitHub Pages):** the pages display, but
   the live menu, ordering and forms need PHP and won't work. That's fine for a
   design preview only. Don't use GitHub Pages on this private repository, because

@@ -100,7 +100,9 @@ return [
     // Days to keep chat history; older days are deleted automatically.
     'chat_log_days'     => 120,
 
-    // Password for the chat history page, /api/chats.php. Leave empty to turn
-    // the page off. Use a long password nobody else knows.
-    'chat_admin_password' => '',
+    // Password for the admin panel, /admin/ (orders, reservations, messages, chats,
+    // menu, events, settings). Leave empty to turn the panel off. Use a long
+    // password (12+ characters) nobody else knows. The older name for this setting,
+    // 'chat_admin_password', still works if you already have it.
+    'admin_password' => '',
 ];

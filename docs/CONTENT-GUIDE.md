@@ -7,11 +7,24 @@ Preview your changes locally first (see the README, "How to display the website"
 
 ## Events (weekly lineup)
 
-**Edit only `events.html`.** The home page's "Upcoming Events" slider reads
-this page automatically, so you never edit the home page for events.
+**Use the admin panel: Admin → Events** (see [ADMIN.md](ADMIN.md#events-adding-and-publishing)).
+Add an event with its title, host, description, tags, time, days (or a single
+date) and a poster, then press **Save & publish**. The panel writes the lineup on
+`events.html` for you, and the home page's "Upcoming Events" slider and the chat
+assistant read it from there, so you never edit the home page for events.
 
-Each day is a `<div class="ev-day" data-day="mon">` block. Each event inside it
-is one `<article class="ev-card">`:
+The poster should be **480 × 600 px** (portrait, 4:5); the editor in the panel
+crops and resizes any picture to that. On the Events page and the slider the poster
+is shown as a square from the bottom of the picture (the top 120 px is cut off,
+and the time badge covers the top-left corner), so keep the artwork and title low.
+
+> Editing `events.html` by hand still works, but the panel replaces the text
+> between the `admin:events` markers on every publish. Use **Load the page's
+> events here** in Admin → Events to bring hand edits into the panel first.
+
+The markup the panel writes, if you ever need to edit by hand: each day is a
+`<div class="ev-day" data-day="mon">` block, and each event inside it is one
+`<article class="ev-card">`:
 
 ```html
 <article class="ev-card">
@@ -35,6 +48,9 @@ is one `<article class="ev-card">`:
 - **Tab counts:** update the "N events" text on that day's tab button near the
   top of the lineup (`<span class="ev-tab-count">`).
 - **Poster:** save a 480×600 WebP in `images/events/`.
+- **One-night event:** add `data-date="YYYY-MM-DD"` to the `<article>` (and a
+  `<span class="ev-date">Fri, Oct 31</span>` badge after the time). The page hides
+  it after that night, and the slider and chat show it on that date only.
 
 ## Dancers
 
@@ -60,12 +76,20 @@ every copy (in VS Code: Ctrl+Shift+F).
 
 ## Menu and prices
 
-**Don't edit the menu in the website.** It comes live from the restaurant's
-**Square** account. Change items, prices, options, sold-out status, pickup
-hours or delivery settings in Square, and the site updates within 15 minutes.
+**Use the admin panel: Admin → Menu & food.** Turn an item off to hide it, change
+its price, make it pickup-only or delivery-only, add a delivery surcharge or a
+longer prep time, edit its description and options, or add dishes of your own.
+Hours, delivery area and fees are in **Admin → Store settings**, and the Happy
+Hour menu is in **Admin → Happy Hour**. Changes are live as soon as you save.
+(See [ADMIN.md](ADMIN.md).)
 
-`data/menu.json` is only a backup snapshot, used when Square can't be reached.
-To refresh it on a machine with PHP:
+Where the base menu comes from is the `menu_source` setting in `api/config.php`:
+`'local'` (the default) uses the saved snapshot `data/menu.json` and never contacts
+Square; `'square'` reads the restaurant's Square account live (cached for
+`menu_cache_mins`). Either way, the changes made in the admin are applied on top.
+
+`data/menu.json` is also the backup used when Square can't be reached. To refresh
+it from Square on a machine with PHP:
 
 ```bash
 php api/menu.php --snapshot
@@ -75,8 +99,9 @@ php api/menu.php --snapshot
 
 Contact, reservation and newsletter forms are `<form data-endpoint="api/…">`
 elements, sent by `main.js`. Submissions are emailed to `notify_email` in
-`api/config.php` and saved in `api/data/*.csv` on the server. You can download
-the CSVs from the host's file manager.
+`api/config.php` and saved in `api/data/*.csv` on the server. Read and answer them
+in **Admin → Reservations, Messages and Subscribers** (each can be downloaded as
+a spreadsheet), or download the CSVs from the host's file manager.
 
 ## Chat assistant
 
@@ -84,35 +109,38 @@ The "Ask us" chat answers guests from:
 
 | What | Where it comes from | How to change it |
 | --- | --- | --- |
-| Hours, policies, reservations, private events, FAQs | `data/chatbot-knowledge.md` | Edit the file (plain text) |
-| Weekly show lineup | `events.html` | Edit the lineup as usual |
-| Happy Hour and drinks | `menu.html` | Edit the page as usual |
-| Food menu, prices, pickup/delivery | Square | Change it in Square |
+| Hours, policies, reservations, private events, FAQs | `data/chatbot-knowledge.md` | **Admin → Knowledge** (plain text) |
+| Weekly show lineup | `events.html` | **Admin → Events** |
+| Happy Hour | The Happy Hour settings | **Admin → Happy Hour** |
+| Drinks list | `menu.html` | Edit the page as usual |
+| Food menu, prices, pickup/delivery | The menu (see above) | **Admin → Menu & food** |
 
 Changes take effect on the next chat message. To see exactly what the
 assistant knows, run `php api/chat.php --prompt`. To try a question without the
 website, run `php api/chat.php "Are you open now?"`.
 
-If it gives a wrong or vague answer, add the fact to `chatbot-knowledge.md` in
-plain words.
+If it gives a wrong or vague answer, add the fact in **Admin → Knowledge** in
+plain words. That page also lists the recent questions the assistant couldn't
+answer.
 
-**Chat history:** open `https://YOUR-DOMAIN/api/chats.php` and sign in with
-`chat_admin_password` from `api/config.php`. You can read every conversation,
-see which ones ordered food, and download a spreadsheet. Chats are anonymous
-and are deleted automatically after 120 days (`chat_log_days`).
+**Chat history:** in **Admin → Conversations** (sign in with `admin_password` from
+`api/config.php`) you can read every conversation, see which ones ordered food or
+asked about a reservation, flag one for follow-up, and download a spreadsheet.
+Guests give an email (and optionally a name) before chatting, and their IP
+address, device and browser are saved with the chat. Chats are deleted
+automatically after 120 days (`chat_log_days`).
 
-The **Insights** tab on that page shows trends:
+**Admin → Insights** shows trends:
 - what guests ask about
 - which foods interest them and which dishes they order through the chat
 - which shows and days they ask about
 - when they chat
 - private-party demand: occasions, group sizes, packages discussed and budget worries, in guests' own words
-- questions the assistant couldn't answer (add those facts to `chatbot-knowledge.md`)
+- questions the assistant couldn't answer (add those facts in **Admin → Knowledge**)
 
 It counts with keyword lists at the top of `api/chat-insights.php`, which you
-can extend. The chat
-window doesn't mention this, so cover chat storage in the site's privacy
-policy.
+can extend. The chat window doesn't say that chats are stored, so cover chat
+storage (emails and IP addresses) in the site's privacy policy.
 
 ## Google reviews and Instagram
 

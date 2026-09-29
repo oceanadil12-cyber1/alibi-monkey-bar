@@ -11,7 +11,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/playfair-display-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="images/site/hero-banner-crowd-scene-1-1600.webp" as="image" fetchpriority="high">
-  <link rel="stylesheet" href="css/style.css?v=20260928c">
+  <link rel="stylesheet" href="css/style.css?v=20260929">
 </head>
 <body>
 
@@ -91,6 +91,10 @@
         <li><i class="fas fa-music" aria-hidden="true"></i> Live music, drag &amp; DJs</li>
       </ul>
 
+      <!-- The day tabs, the seven day panels and the week-at-a-glance grid are written by the
+           admin panel (Admin > Events > Publish). Change events there: the text between the
+           admin:events markers is replaced on every publish. Everything else on this page is yours to edit. -->
+      <!-- admin:events:lineup -->
       <div class="ev-tabs" role="tablist" aria-label="Day of the week" hidden>
         <button type="button" role="tab" id="tab-mon" aria-controls="ev-mon" aria-selected="false" data-day="mon"><span class="ev-tab-day">Mon</span><span class="ev-tab-count">3 events</span></button>
         <button type="button" role="tab" id="tab-tue" aria-controls="ev-tue" aria-selected="false" data-day="tue"><span class="ev-tab-day">Tue</span><span class="ev-tab-count">3 events</span></button>
@@ -454,10 +458,12 @@
           </article>
         </div>
       </div>
+      <!-- /admin:events:lineup -->
 
       <!-- Week at a glance -->
       <div class="ev-glance">
         <h3>The Week at a Glance</h3>
+        <!-- admin:events:glance -->
         <div class="ev-glance-grid">
           <div class="ev-glance-day" data-day="mon">
             <h4>Monday</h4>
@@ -521,6 +527,7 @@
             </ul>
           </div>
         </div>
+        <!-- /admin:events:glance -->
         <p class="ev-note">Lineup and showtimes can change &mdash; follow <a href="https://www.instagram.com/alibimonkeybar/" target="_blank" rel="noopener">@alibimonkeybar</a> for the latest.</p>
       </div>
     </div>
@@ -577,7 +584,7 @@
   </footer>
 
   <script src="js/main.js?v=20260925"></script>
-  <script src="js/events.js?v=20260925"></script>
+  <script src="js/events.js?v=20260929"></script>
   <script src="js/chat.js?v=20260928f"></script>
 </body>
 </html>
