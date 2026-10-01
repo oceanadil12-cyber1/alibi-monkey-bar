@@ -119,7 +119,7 @@ img {
   align-items: center;
   justify-content: space-between;
   padding: 12px 40px;
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -132,24 +132,24 @@ img {
 
 .logo img {
   display: block;
-  height: 64px;
+  height: 80px;
   width: auto;
 }
 
 .nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .nav a {
   font-family: 'Inter', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--white);
-  padding: 8px 14px;
+  padding: 8px 12px;
   position: relative;
   transition: color 0.3s ease;
 }
@@ -2656,10 +2656,13 @@ body.order-lock {
 }
 
 /* ====== RESPONSIVE ====== */
-@media (max-width: 1024px) {
+@media (max-width: 1280px) {
   .nav { display: none; }
   .btn-reserve { display: none; }
   .menu-toggle { display: flex; }
+}
+
+@media (max-width: 1024px) {
 
   .experience-grid { grid-template-columns: 1fr; }
   .spaces-grid { grid-template-columns: repeat(2, 1fr); }
@@ -3485,9 +3488,9 @@ body.ev-tabbed .ev-day-title {
 }
 /* ====== END MEET OUR DANCERS ====== */
 
-/* ====== HEADER NAV FIT (9 items incl. Dancers) ======
-   Keep every label on one line and tighten spacing on mid-size
-   desktops so the menu never wraps before the 1024px hamburger. */
+/* ====== HEADER NAV FIT ======
+   Keep labels on one line; tighten slightly on mid-size desktops,
+   then switch to hamburger at 1280px so the nav never gets cramped. */
 .nav a { white-space: nowrap; }
 
 @media (max-width: 1440px) {
@@ -3495,16 +3498,9 @@ body.ev-tabbed .ev-day-title {
   .nav a { padding: 8px 10px; letter-spacing: 1.2px; }
 }
 
-@media (max-width: 1240px) {
-  .nav a { padding: 8px 7px; font-size: 11px; letter-spacing: 0.8px; }
-}
-
-@media (max-width: 1120px) {
-  .nav a { padding: 8px 5px; letter-spacing: 0.4px; }
-}
-
-@media (max-width: 1080px) {
-  .nav a { font-size: 10.5px; letter-spacing: 0.2px; }
+@media (max-width: 1360px) {
+  .nav a { padding: 8px 8px; font-size: 11.5px; letter-spacing: 1px; }
+  .btn-reserve { padding: 10px 20px; margin-left: 12px; }
 }
 /* ====== END HEADER NAV FIT ====== */
 
