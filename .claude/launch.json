@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "alibi-site",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "3000", "."],
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["-S", "localhost:3000", "-t", "."],
       "port": 3000
     }
   ]
