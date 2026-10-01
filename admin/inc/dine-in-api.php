@@ -73,6 +73,16 @@ if (!is_dir($ordersDir)) @mkdir($ordersDir, 0750, true);
 
 admin_log('order.dine-in', '#' . $number . ' table ' . $table . ' (' . count($itemLines) . ' items)');
 
+notify("Dine-in order #$number (Table $table)", [
+    'Order'    => "#$number",
+    'Placed'   => date('l, M j, Y g:i A'),
+    'Type'     => 'DINE-IN',
+    'Table'    => $table,
+    'Items'    => implode("\n", $itemLines),
+    'Notes'    => $orderNotes ?: '(none)',
+    'Subtotal' => '$' . number_format($subtotal / 100, 2),
+]);
+
 send_json([
     'ok'          => true,
     'orderNumber' => $number,
