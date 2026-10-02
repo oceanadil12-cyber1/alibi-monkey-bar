@@ -21,6 +21,11 @@ function config(): array
         $file = __DIR__ . '/config.php';
         $cfg = is_file($file) ? require $file : [];
         $cfg += [
+            'db_host'         => 'localhost',
+            'db_name'         => '',
+            'db_user'         => '',
+            'db_pass'         => '',
+            'db_port'         => 3306,
             'environment'     => 'sandbox',
             'application_id'  => '',
             'access_token'    => '',
@@ -295,24 +300,17 @@ function clean_field($value, int $max = 200): string
     return mb_substr($value, 0, $max);
 }
 
-/** Append a row to a private CSV in api/data/ (blocked from the web by .htaccess). */
-function save_row(string $file, array $row): bool
+/** Save a row to the database. $table is the DB table name, $row is col => value. */
+function save_row(string $table, array $row): bool
 {
-    if (!is_dir(data_dir())) @mkdir(data_dir(), 0750, true);
-    $path = data_dir() . "/$file.csv";
-    $new = !is_file($path);
-    $fh = @fopen($path, 'a');
-    if (!$fh) return false;
-    flock($fh, LOCK_EX);
-    // Neutralise spreadsheet formulas in user input. The empty escape argument
-    // gives standard CSV (quotes doubled): a guest's backslash can't break a row,
-    // and the admin panel reads these files back the same way.
-    $safe = array_map(fn($v) => preg_match('/^[=+\-@\t\r]/', (string) $v) ? "'" . $v : $v, $row);
-    if ($new) fputcsv($fh, array_keys($row), ',', '"', '');
-    fputcsv($fh, array_values($safe), ',', '"', '');
-    flock($fh, LOCK_UN);
-    fclose($fh);
-    return true;
+    try {
+        require_once __DIR__ . '/db.php';
+        db_insert($table, $row);
+        return true;
+    } catch (Throwable $e) {
+        error_log("save_row($table): " . $e->getMessage());
+        return false;
+    }
 }
 
 /** Email the restaurant (config notify_email). Returns false if not configured or mail fails. */

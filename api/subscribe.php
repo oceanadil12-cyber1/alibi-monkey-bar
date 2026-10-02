@@ -12,7 +12,16 @@ $in = read_form();
 $email = strtolower(clean_field($in['email'] ?? '', 120));
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) fail('Please enter a valid email address.');
 
-$saved = save_row('newsletter', ['signed_up' => date('c'), 'email' => $email, 'page' => clean_field($in['page'] ?? '', 60)]);
+$page = clean_field($in['page'] ?? '', 60);
+try {
+    require_once __DIR__ . '/db.php';
+    $stmt = db()->prepare("INSERT INTO subscribers (email, page) VALUES (?, ?) ON DUPLICATE KEY UPDATE page = page");
+    $stmt->execute([$email, $page]);
+    $saved = true;
+} catch (Throwable $e) {
+    error_log('subscribe: ' . $e->getMessage());
+    $saved = false;
+}
 
 $inSquare = false;
 if (payments_enabled()) {

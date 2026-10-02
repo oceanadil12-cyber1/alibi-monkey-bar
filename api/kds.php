@@ -64,14 +64,15 @@ if (!is_array($req)) fail('Invalid request.');
 $action = (string) ($req['action'] ?? '');
 
 // --- KDS settings ---
-function kds_settings_file(): string
-{
-    return data_dir() . '/kds-settings.json';
-}
-
 function kds_settings(): array
 {
-    return json_read_file(kds_settings_file()) + [
+    try {
+        require_once __DIR__ . '/db.php';
+        $s = db_setting('kds_settings');
+    } catch (Throwable $e) {
+        $s = null;
+    }
+    return (is_array($s) ? $s : []) + [
         'dine_in_prep_minutes'  => 15,
         'delivery_prep_minutes' => 20,
         'pickup_prep_minutes'   => 15,
@@ -216,7 +217,8 @@ if ($action === 'settings-save') {
         'pickup_prep_minutes'   => max(1, min(120, (int) ($s['pickup_prep_minutes'] ?? 15))),
         'sound_enabled'         => !empty($s['sound_enabled']),
     ];
-    json_update_file(kds_settings_file(), fn($old) => $data);
+    require_once __DIR__ . '/db.php';
+    db_setting_save('kds_settings', $data);
     admin_log('kds.settings', json_encode($data));
     send_json(['ok' => true, 'settings' => $data]);
 }

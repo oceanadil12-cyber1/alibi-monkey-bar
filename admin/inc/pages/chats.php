@@ -64,8 +64,11 @@ function admin_chats_post(): void
     $cid = chat_log_cid($_POST['cid'] ?? '');
     switch ($_POST['action'] ?? '') {
         case 'flag':
-            $on = empty(meta_get('chat', $cid)['flag']);
-            meta_set('chat', $cid, ['flag' => $on ? true : null]);
+            $stmt = db()->prepare("SELECT flagged FROM chat_sessions WHERE cid = ?");
+            $stmt->execute([$cid]);
+            $cur = $stmt->fetch();
+            $on = $cur ? !(bool) $cur['flagged'] : true;
+            meta_set('chat', $cid, ['flagged' => $on]);
             admin_log('chat.flag', $cid . ($on ? ': flagged for follow-up' : ': flag removed'));
             flash($on ? 'Flagged for follow-up.' : 'Flag removed.');
             break;
@@ -166,7 +169,7 @@ function admin_chats_list(): void
     $qRaw = get_str('q', 80);
     $q = mb_strtolower($qRaw);
     $convos = chat_log_conversations($period['days'], $period['custom'] ? $period['from'] : null, $period['custom'] ? $period['to'] : null);
-    $flags = meta_all()['chat'] ?? [];
+    $flags = [];
 
     if (isset($_GET['csv'])) {
         $rows = [];
@@ -196,7 +199,7 @@ function admin_chats_list(): void
         'reservation' => fn($c) => isset($rezMap[$c['cid']]),
         'ordered'     => $hasOrder,
         'contact'     => fn($c) => trim((string) ($c['email'] ?? '')) !== '',
-        'flagged'     => fn($c) => !empty($flags[$c['cid']]['flag']),
+        'flagged'     => fn($c) => !empty($c['flagged']),
     ];
     $filters = chat_filters($_GET);
     unset($filters['pg']);
@@ -223,12 +226,12 @@ function admin_chats_list(): void
         $badges = '';
         if ($email !== '' && ($emailCounts[strtolower(trim($email))] ?? 1) > 1) $badges .= ' <span class="ret" title="Several chats from this email in this period">' . icon('refresh', 12) . ' returning</span>';
         if (isset($rezMap[$c['cid']])) $badges .= ' <span class="rez" title="Asked about a reservation">' . icon('calendar', 12) . ' reservation</span>';
-        if (!empty($flags[$c['cid']]['flag'])) $badges .= ' <span class="flagged" title="Flagged for follow-up">' . icon('flag', 12) . ' follow-up</span>';
+        if (!empty($c['flagged'])) $badges .= ' <span class="flagged" title="Flagged for follow-up">' . icon('flag', 12) . ' follow-up</span>';
         $guest = ($name !== '' || $email !== '') ? guest_cell($name, $email, $badges) : '<div class="gcell"><span class="avatar empty">?</span><span class="ginfo"><span class="muted">No contact</span>' . $badges . '</span></div>';
         $device = (string) ($c['device'] ?? '');
         $browser = (string) ($c['browser'] ?? '');
         $d = !empty($c['ip']) ? geo_distance($c['ip']) : null;
-        $note = (string) ($flags[$c['cid']]['note'] ?? '');
+        $note = (string) ($c['note'] ?? '');
         $rows .= '<tr><td class="nowrap">' . h(fmt_when((string) $c['end'])) . '<div class="cell-sub">' . h(fmt_ago((int) strtotime((string) $c['end']))) . '</div></td><td>' . $guest . '</td>'
             . '<td>' . ($device !== '' ? h($device) . ($browser !== '' ? '<div class="cell-sub">' . h($browser) . '</div>' : '') : '<span class="muted">&ndash;</span>') . '</td>'
             . '<td>' . ($d ? '~' . number_format($d['miles'], $d['miles'] < 10 ? 1 : 0) . ' mi' . ($d['place'] !== '' ? '<div class="cell-sub">' . h($d['place']) . '</div>' : '') : '<span class="muted">&ndash;</span>') . '</td>'

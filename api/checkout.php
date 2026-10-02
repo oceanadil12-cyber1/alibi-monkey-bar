@@ -281,16 +281,22 @@ if ($action === 'place') {
         if (trim((string) ($a['instructions'] ?? '')) !== '') $addr .= ' (' . trim(mb_substr((string) $a['instructions'], 0, 500)) . ')';
     }
 
-    // Save a private record so no order is lost even if email is not set up.
-    $record = [
-        'time' => date('c'), 'number' => $number, 'payment' => 'cash on delivery',
-        'type' => $fulfillment['type'], 'name' => $customer['name'], 'phone' => $customer['phone'],
-        'email' => $customer['email'], 'address' => $addr, 'items' => $itemLines,
-        'subtotal' => $subtotal, 'deliveryFee' => $fee, 'total' => $total,
-    ];
-    $dir = data_dir() . '/orders';
-    if (!is_dir($dir)) @mkdir($dir, 0750, true);
-    @file_put_contents("$dir/" . date('Y-m-d') . '.jsonl', json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
+    // Save the order to the database.
+    require_once __DIR__ . '/db.php';
+    save_row('orders', [
+        'number'       => $number,
+        'payment'      => 'cash on delivery',
+        'order_type'   => $fulfillment['type'],
+        'name'         => $customer['name'],
+        'phone'        => $customer['phone'],
+        'email'        => $customer['email'],
+        'address'      => $addr,
+        'items'        => json_encode($itemLines, JSON_UNESCAPED_UNICODE),
+        'subtotal'     => $subtotal,
+        'delivery_fee' => $fee,
+        'total'        => $total,
+        'ip'           => client_ip(),
+    ]);
 
     // Email the restaurant (if notify_email is configured).
     notify("New website order #$number (CASH ON DELIVERY)", [

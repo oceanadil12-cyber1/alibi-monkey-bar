@@ -26,15 +26,15 @@ if ($type === 'reservation') {
     if (strlen(preg_replace('/\D/', '', $phone)) < 10) fail('Please enter a valid phone number.');
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || $date < date('Y-m-d')) fail('Please choose a date from today onward.');
     if ($time === '' || $guests === '') fail('Please choose a time and party size.');
-    $row = ['received' => date('c'), 'name' => $name, 'email' => $email, 'phone' => $phone, 'date' => $date, 'time' => $time, 'guests' => $guests, 'area' => $area, 'notes' => $notes];
+    $row = ['name' => $name, 'email' => $email, 'phone' => $phone, 'reservation_date' => $date, 'reservation_time' => $time, 'guests' => $guests, 'area' => $area, 'notes' => $notes, 'ip' => client_ip()];
     $saved = save_row('reservations', $row);
     $mailed = notify("Reservation request: $name, $date $time ($guests)", $row, $email);
 } else {
     $subject = clean_field($in['subject'] ?? 'general', 40);
     $message = clean_field($in['message'] ?? '', 3000);
     if ($message === '') fail('Please enter a message.');
-    $row = ['received' => date('c'), 'name' => $name, 'email' => $email, 'phone' => $phone, 'subject' => $subject, 'message' => $message];
-    $saved = save_row('contact', $row);
+    $row = ['name' => $name, 'email' => $email, 'phone' => $phone, 'subject' => $subject, 'message' => $message, 'ip' => client_ip()];
+    $saved = save_row('contacts', $row);
     $mailed = notify("Website message ($subject) from $name", $row, $email);
 }
 

@@ -33,26 +33,29 @@ const HAPPY_HOUR_DEFAULTS = [
     ],
 ];
 
-function happy_hour_file(): string
-{
-    return data_dir() . '/happy-hour.json';
-}
-
 function write_happy_hour(array $data): bool
 {
-    $dir = data_dir();
-    if (!is_dir($dir)) @mkdir($dir, 0750, true);
-    return (bool) @file_put_contents(happy_hour_file(),
-        json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    try {
+        require_once __DIR__ . '/db.php';
+        db_setting_save('happy_hour', $data);
+        return true;
+    } catch (Throwable $e) {
+        error_log('write_happy_hour: ' . $e->getMessage());
+        return false;
+    }
 }
 
 /** Stored Happy Hour settings merged over the defaults. */
 function happy_hour_data(): array
 {
-    $saved = json_decode((string) @file_get_contents(happy_hour_file()), true);
+    try {
+        require_once __DIR__ . '/db.php';
+        $saved = db_setting('happy_hour');
+    } catch (Throwable $e) {
+        $saved = null;
+    }
     if (!is_array($saved)) return HAPPY_HOUR_DEFAULTS;
     $d = array_merge(HAPPY_HOUR_DEFAULTS, $saved);
-    // Items/sides come as whole lists when edited.
     if (!isset($saved['items']) || !is_array($saved['items'])) $d['items'] = HAPPY_HOUR_DEFAULTS['items'];
     if (!isset($saved['sides']) || !is_array($saved['sides'])) $d['sides'] = HAPPY_HOUR_DEFAULTS['sides'];
     return $d;

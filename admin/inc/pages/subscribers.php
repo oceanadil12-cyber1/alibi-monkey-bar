@@ -8,7 +8,7 @@ function admin_page_subscribers(): void
         require_csrf();
         $email = strtolower(post_str('email', 120));
         if (($_POST['action'] ?? '') === 'remove' && $email !== '') {
-            if (csv_rewrite('newsletter', fn($r) => strtolower(trim((string) ($r['email'] ?? ''))) !== $email)) {
+            if (subscriber_remove($email)) {
                 admin_log('subscriber.remove', mask_email($email));
                 flash('Removed ' . $email . ' from the newsletter list.');
             } else {

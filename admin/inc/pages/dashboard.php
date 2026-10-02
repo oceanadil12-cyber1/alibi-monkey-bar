@@ -67,7 +67,7 @@ function admin_page_dashboard(): void
         $chatPerDay[$end] = ($chatPerDay[$end] ?? 0) + 1;
         if ($end === $today) { $chatsToday++; $questionsToday += count($c['turns']); }
     }
-    $flagged = count(array_filter(meta_all()['chat'] ?? [], fn($m) => !empty($m['flag'])));
+    try { $flagged = (int) db()->query("SELECT COUNT(*) FROM chat_sessions WHERE flagged = 1")->fetchColumn(); } catch (Throwable $e) { $flagged = 0; }
 
     // ---- the two charts ----
     $orderPoints = [];

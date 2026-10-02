@@ -28,6 +28,38 @@ function events_file(): string
     return data_dir() . '/events.json';
 }
 
+/** A JSON file as an array ([] if missing or unreadable). Used by events only. */
+function json_read_file(string $file): array
+{
+    $fh = is_file($file) ? @fopen($file, 'r') : false;
+    if (!$fh) return [];
+    flock($fh, LOCK_SH);
+    $raw = stream_get_contents($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+    $data = json_decode((string) $raw, true);
+    return is_array($data) ? $data : [];
+}
+
+/** Read, change and save a JSON file under one lock. Used by events only. */
+function json_update_file(string $file, callable $change): bool
+{
+    $dir = dirname($file);
+    if (!is_dir($dir)) @mkdir($dir, 0750, true);
+    $fh = @fopen($file, 'c+');
+    if (!$fh) return false;
+    flock($fh, LOCK_EX);
+    $data = json_decode((string) stream_get_contents($fh), true);
+    $data = $change(is_array($data) ? $data : []);
+    ftruncate($fh, 0);
+    rewind($fh);
+    $ok = fwrite($fh, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) !== false;
+    fflush($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+    return $ok;
+}
+
 function events_page_file(): string
 {
     return dirname(__DIR__, 2) . '/events.html';

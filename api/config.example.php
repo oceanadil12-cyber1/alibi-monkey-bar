@@ -12,6 +12,13 @@
  * payments on the restaurant's account.
  */
 return [
+    // ---------- MySQL database (create in cPanel → MySQL Databases) ----------
+    'db_host' => 'localhost',
+    'db_name' => '',          // e.g. 'username_alibi'
+    'db_user' => '',          // e.g. 'username_alibi'
+    'db_pass' => '',
+    'db_port' => 3306,
+
     // 'sandbox' for testing, 'production' for real orders.
     'environment'    => 'sandbox',
 

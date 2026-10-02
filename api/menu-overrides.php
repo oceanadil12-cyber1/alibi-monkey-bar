@@ -15,46 +15,54 @@
  */
 require_once __DIR__ . '/lib.php';
 
-function menu_overrides_file(): string
-{
-    return data_dir() . '/menu-overrides.json';
-}
-
 /** The saved overrides, as ['items' => [itemId => [...]]]. */
 function read_menu_overrides(): array
 {
-    $data = json_decode((string) @file_get_contents(menu_overrides_file()), true);
+    try {
+        require_once __DIR__ . '/db.php';
+        $data = db_setting('menu_overrides');
+    } catch (Throwable $e) {
+        $data = null;
+    }
     return is_array($data) && isset($data['items']) && is_array($data['items']) ? $data : ['items' => []];
 }
 
 function write_menu_overrides(array $data): bool
 {
-    $dir = data_dir();
-    if (!is_dir($dir)) @mkdir($dir, 0750, true);
-    return (bool) @file_put_contents(menu_overrides_file(),
-        json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    try {
+        require_once __DIR__ . '/db.php';
+        db_setting_save('menu_overrides', $data);
+        return true;
+    } catch (Throwable $e) {
+        error_log('write_menu_overrides: ' . $e->getMessage());
+        return false;
+    }
 }
 
 // ---------- store settings (hours, delivery, fees) ----------
 
-function store_settings_file(): string
-{
-    return data_dir() . '/store-settings.json';
-}
-
 /** Locally-edited store settings (empty = use the frozen snapshot's values). */
 function read_store_settings(): array
 {
-    $d = json_decode((string) @file_get_contents(store_settings_file()), true);
+    try {
+        require_once __DIR__ . '/db.php';
+        $d = db_setting('store_settings');
+    } catch (Throwable $e) {
+        $d = null;
+    }
     return is_array($d) ? $d : [];
 }
 
 function write_store_settings(array $data): bool
 {
-    $dir = data_dir();
-    if (!is_dir($dir)) @mkdir($dir, 0750, true);
-    return (bool) @file_put_contents(store_settings_file(),
-        json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    try {
+        require_once __DIR__ . '/db.php';
+        db_setting_save('store_settings', $data);
+        return true;
+    } catch (Throwable $e) {
+        error_log('write_store_settings: ' . $e->getMessage());
+        return false;
+    }
 }
 
 /** Merge the locally-edited store settings over the menu's store block. */

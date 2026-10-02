@@ -35,7 +35,7 @@ function admin_page_messages(): void
 function admin_messages_post(): void
 {
     require_csrf();
-    $id = preg_match('/^[a-f0-9]{12}$/', (string) ($_POST['id'] ?? '')) ? (string) $_POST['id'] : '';
+    $id = (string) ($_POST['id'] ?? '');
     $m = $id !== '' ? admin_message($id) : null;
     if (!$m) {
         flash('That message wasn\'t found.', 'err');
@@ -59,8 +59,7 @@ function admin_messages_post(): void
             flash('Note saved.');
             break;
         case 'delete':
-            csv_rewrite('contact', fn($r) => csv_row_id($r, MESSAGE_ID_FIELDS) !== $id);
-            meta_forget('message', $id);
+            message_delete((int) $id);
             admin_log('message.delete', $who . ' <' . mask_email($m['email']) . '>');
             flash('Message deleted.');
             $back = admin_url('messages');

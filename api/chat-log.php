@@ -77,41 +77,73 @@ function ua_browser(string $ua): string
 function log_chat(string $cid, string $question, string $reply, array $usage, float $seconds, array $contact = [], array $meta = [], array $ordered = [], array $shows = []): void
 {
     if (!config()['chat_log']) return;
-    $dir = chat_log_dir();
-    if (!is_dir($dir)) @mkdir($dir, 0750, true);
-    $row = [
-        'time'          => date('c'),
-        'cid'           => $cid,
-        'name'          => (string) ($contact['name'] ?? ''),
-        'email'         => (string) ($contact['email'] ?? ''),
-        'ip'            => (string) ($meta['ip'] ?? ''),
-        'device'        => (string) ($meta['device'] ?? ''),
-        'browser'       => (string) ($meta['browser'] ?? ''),
-        'question'      => $question,
-        'reply'         => $reply,
-        'ordered'       => array_values($ordered),
-        'shows'         => array_values($shows),
-        'provider'      => $usage['provider'] ?? config()['chat_provider'],
-        'model'         => $usage['model'] ?? '',
-        'input_tokens'  => $usage['input_tokens'] ?? 0,
-        'cache_read'    => $usage['cache_read'] ?? 0,
-        'output_tokens' => $usage['output_tokens'] ?? 0,
-        'seconds'       => round($seconds, 1),
-    ];
-    @file_put_contents("$dir/" . date('Y-m-d') . '.jsonl', json_encode($row, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
-    if (mt_rand(1, 50) === 1) chat_log_cleanup();
+    try {
+        require_once __DIR__ . '/db.php';
+        $name  = (string) ($contact['name'] ?? '');
+        $email = (string) ($contact['email'] ?? '');
+        $ip    = (string) ($meta['ip'] ?? '');
+        $device = (string) ($meta['device'] ?? '');
+        $browser = (string) ($meta['browser'] ?? '');
+
+        $stmt = db()->prepare("SELECT id FROM chat_sessions WHERE cid = ?");
+        $stmt->execute([$cid]);
+        $session = $stmt->fetch();
+
+        if ($session) {
+            $sessionId = (int) $session['id'];
+            $updates = ['ended_at' => date('Y-m-d H:i:s')];
+            if ($name !== '')   $updates['name'] = $name;
+            if ($email !== '')  $updates['email'] = $email;
+            if ($ip !== '')     $updates['ip'] = $ip;
+            if ($device !== '') $updates['device'] = $device;
+            if ($browser !== '') $updates['browser'] = $browser;
+            db_update('chat_sessions', $updates, ['id' => $sessionId]);
+        } else {
+            $sessionId = db_insert('chat_sessions', [
+                'cid'     => $cid,
+                'name'    => $name,
+                'email'   => $email,
+                'ip'      => $ip,
+                'device'  => $device,
+                'browser' => $browser,
+            ]);
+        }
+
+        db_insert('chat_messages', [
+            'session_id'    => $sessionId,
+            'question'      => $question,
+            'reply'         => $reply,
+            'ordered'       => $ordered ? json_encode(array_values($ordered)) : null,
+            'shows'         => $shows ? json_encode(array_values($shows)) : null,
+            'provider'      => $usage['provider'] ?? config()['chat_provider'],
+            'model'         => $usage['model'] ?? '',
+            'input_tokens'  => $usage['input_tokens'] ?? 0,
+            'cache_read'    => $usage['cache_read'] ?? 0,
+            'output_tokens' => $usage['output_tokens'] ?? 0,
+            'seconds'       => round($seconds, 1),
+        ]);
+
+        if (mt_rand(1, 50) === 1) chat_log_cleanup();
+    } catch (Throwable $e) {
+        error_log('log_chat: ' . $e->getMessage());
+    }
 }
 
-/** Deletes days older than config 'chat_log_days', and stale geo-lookup cache. */
+/** Deletes chat data older than config 'chat_log_days', and stale geo-lookup cache. */
 function chat_log_cleanup(): void
 {
     $keep = max(1, (int) config()['chat_log_days']);
-    $cutoff = date('Y-m-d', strtotime("-$keep days"));
-    foreach (glob(chat_log_dir() . '/*.jsonl') ?: [] as $file) {
-        if (basename($file, '.jsonl') < $cutoff) @unlink($file);
+    $cutoff = date('Y-m-d H:i:s', strtotime("-$keep days"));
+    try {
+        require_once __DIR__ . '/db.php';
+        $stmt = db()->prepare("DELETE m FROM chat_messages m JOIN chat_sessions s ON m.session_id = s.id WHERE s.started_at < ?");
+        $stmt->execute([$cutoff]);
+        db()->prepare("DELETE FROM chat_sessions WHERE started_at < ? AND id NOT IN (SELECT DISTINCT session_id FROM chat_messages)")->execute([$cutoff]);
+    } catch (Throwable $e) {
+        error_log('chat_log_cleanup: ' . $e->getMessage());
     }
     foreach (glob(CACHE_DIR . '/geo/*.json') ?: [] as $file) {
-        if (time() - @filemtime($file) > 5184000) @unlink($file); // 60 days
+        if (time() - @filemtime($file) > 5184000) @unlink($file);
     }
 }
 
@@ -127,29 +159,57 @@ function chat_log_conversations(int $days, ?string $from = null, ?string $to = n
     $from = $from ?: date('Y-m-d', strtotime('-' . max(0, $days - 1) . ' days'));
     $to   = $to ?: date('Y-m-d');
     if ($from > $to) [$from, $to] = [$to, $from];
-    $files = glob(chat_log_dir() . '/*.jsonl') ?: [];
-    sort($files);
-    $convos = [];
-    foreach ($files as $file) {
-        $day = basename($file, '.jsonl');
-        if ($day < $from || $day > $to) continue;
-        foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $row = json_decode($line, true);
-            if (!is_array($row)) continue;
-            $cid = (string) ($row['cid'] ?? 'unknown');
-            $convos[$cid]['cid'] = $cid;
-            $convos[$cid]['start'] = $convos[$cid]['start'] ?? $row['time'];
-            $convos[$cid]['end'] = $row['time'];
-            // These are the same for a whole conversation; keep the first
-            // non-empty one seen (older logs won't have every field).
-            foreach (['email', 'name', 'ip', 'device', 'browser'] as $k) {
-                if (empty($convos[$cid][$k]) && !empty($row[$k])) $convos[$cid][$k] = $row[$k];
+    try {
+        require_once __DIR__ . '/db.php';
+        $stmt = db()->prepare(
+            "SELECT s.cid, s.name, s.email, s.ip, s.device, s.browser, s.flagged, s.note AS session_note,
+                    m.sent_at AS time, m.question, m.reply, m.ordered, m.shows,
+                    m.provider, m.model, m.input_tokens, m.cache_read, m.output_tokens, m.seconds
+             FROM chat_sessions s
+             JOIN chat_messages m ON m.session_id = s.id
+             WHERE DATE(m.sent_at) BETWEEN ? AND ?
+             ORDER BY m.sent_at ASC"
+        );
+        $stmt->execute([$from, $to]);
+        $convos = [];
+        while ($row = $stmt->fetch()) {
+            $cid = $row['cid'];
+            if (!isset($convos[$cid])) {
+                $convos[$cid] = [
+                    'cid' => $cid, 'start' => $row['time'], 'end' => $row['time'],
+                    'name' => $row['name'], 'email' => $row['email'], 'ip' => $row['ip'],
+                    'device' => $row['device'], 'browser' => $row['browser'],
+                    'flagged' => (bool) $row['flagged'], 'note' => $row['session_note'],
+                    'turns' => [],
+                ];
             }
-            $convos[$cid]['turns'][] = $row;
+            $convos[$cid]['end'] = $row['time'];
+            $convos[$cid]['turns'][] = [
+                'time'          => $row['time'],
+                'cid'           => $cid,
+                'name'          => $row['name'],
+                'email'         => $row['email'],
+                'ip'            => $row['ip'],
+                'device'        => $row['device'],
+                'browser'       => $row['browser'],
+                'question'      => $row['question'],
+                'reply'         => $row['reply'],
+                'ordered'       => $row['ordered'] ? json_decode($row['ordered'], true) : [],
+                'shows'         => $row['shows'] ? json_decode($row['shows'], true) : [],
+                'provider'      => $row['provider'],
+                'model'         => $row['model'],
+                'input_tokens'  => (int) $row['input_tokens'],
+                'cache_read'    => (int) $row['cache_read'],
+                'output_tokens' => (int) $row['output_tokens'],
+                'seconds'       => (float) $row['seconds'],
+            ];
         }
+        uasort($convos, fn($a, $b) => strcmp($b['end'], $a['end']));
+        return $convos;
+    } catch (Throwable $e) {
+        error_log('chat_log_conversations: ' . $e->getMessage());
+        return [];
     }
-    uasort($convos, fn($a, $b) => strcmp($b['end'], $a['end']));
-    return $convos;
 }
 
 // ---------- location & distance ----------

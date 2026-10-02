@@ -46,30 +46,19 @@ if (count($itemLines) === 0) fail('No valid items in the order.');
 
 $number = strtoupper(bin2hex(random_bytes(3)));
 
-$record = [
-    'time'        => date('c'),
-    'number'      => $number,
-    'payment'     => 'dine-in',
-    'type'        => 'dine-in',
-    'table'       => $table,
-    'name'        => '',
-    'phone'       => '',
-    'email'       => '',
-    'address'     => '',
-    'items'       => $itemLines,
-    'notes'       => $orderNotes,
-    'subtotal'    => $subtotal,
-    'deliveryFee' => 0,
-    'total'       => $subtotal,
-];
-
-$ordersDir = data_dir() . '/orders';
-if (!is_dir($ordersDir)) @mkdir($ordersDir, 0750, true);
-@file_put_contents(
-    "$ordersDir/" . date('Y-m-d') . '.jsonl',
-    json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n",
-    FILE_APPEND | LOCK_EX
-);
+require_once __DIR__ . '/../../api/db.php';
+save_row('orders', [
+    'number'       => $number,
+    'payment'      => 'dine-in',
+    'order_type'   => 'dine-in',
+    'table_number' => $table,
+    'items'        => json_encode($itemLines, JSON_UNESCAPED_UNICODE),
+    'order_notes'  => $orderNotes,
+    'subtotal'     => $subtotal,
+    'delivery_fee' => 0,
+    'total'        => $subtotal,
+    'ip'           => client_ip(),
+]);
 
 admin_log('order.dine-in', '#' . $number . ' table ' . $table . ' (' . count($itemLines) . ' items)');
 
