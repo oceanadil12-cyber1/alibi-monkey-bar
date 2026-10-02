@@ -25,6 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
   else window.addEventListener('load', loadAllHeroImages);
 
   function showHeroSlide(index) {
+    var outgoing = heroSlides[heroIndex];
+    if (outgoing) {
+      var img = outgoing.querySelector('img');
+      if (img) {
+        img.style.transform = getComputedStyle(img).transform;
+        setTimeout(function() { img.style.transform = ''; }, 3100);
+      }
+    }
     heroSlides.forEach(s => s.classList.remove('active'));
     heroDots.forEach(d => d.classList.remove('active'));
     heroIndex = (index + heroSlides.length) % heroSlides.length;
