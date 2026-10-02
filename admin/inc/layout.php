@@ -24,6 +24,7 @@ const ADMIN_NAV = [
     ]],
     ['Website', [
         ['events', 'Events', 'music'],
+        ['performers', 'Performers', 'users'],
         ['menu', 'Menu & food', 'list'],
         ['happy-hour', 'Happy Hour', 'glass'],
         ['settings', 'Store settings', 'sliders'],
