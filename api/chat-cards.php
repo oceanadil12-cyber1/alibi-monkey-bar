@@ -35,6 +35,44 @@ function party_packages(): array
     return $packages;
 }
 
+/**
+ * Menu items mentioned in the AI's reply, as cards the guest can tap to order.
+ * Only shown when the reply lists or recommends dishes (2+ items found), so
+ * single-item price answers don't sprout cards.
+ */
+function menu_cards(string $reply): array
+{
+    $menu = load_menu();
+    if (!$menu) return [];
+    $text = ' ' . card_norm($reply) . ' ';
+    $found = [];
+    foreach ($menu['categories'] as $cat) {
+        foreach ($cat['itemIds'] as $id) {
+            $item = $menu['items'][$id] ?? null;
+            if (!$item || !empty($item['soldOut'])) continue;
+            $n = card_norm($item['name']);
+            if (strlen($n) < 4 || strpos($text, " $n ") === false) continue;
+            $variations = array_filter($item['variations'], fn($v) => empty($v['soldOut']));
+            if (!$variations) continue;
+            $prices = array_values(array_map(fn($v) => $v['price'], $variations));
+            $lo = min($prices);
+            $hi = max($prices);
+            $price = $lo === $hi ? money($lo) : money($lo) . ' to ' . money($hi);
+            $desc = trim(preg_split('/\s*Choose one Side\b|\s*Served with choice of\b/i', $item['description'])[0]);
+            $found[] = [
+                'name'  => $item['name'],
+                'price' => $price,
+                'desc'  => mb_strimwidth($desc, 0, 60, '...'),
+                'image' => $item['image'] ?? '',
+                'pos'   => strpos($text, " $n "),
+            ];
+        }
+    }
+    if (count($found) < 2) return [];
+    usort($found, fn($a, $b) => $a['pos'] <=> $b['pos']);
+    return array_map(fn($f) => ['name' => $f['name'], 'price' => $f['price'], 'desc' => $f['desc'], 'image' => $f['image']], array_slice($found, 0, 6));
+}
+
 function chat_cards(string $question, string $reply): array
 {
     $cards = [];
@@ -68,6 +106,10 @@ function chat_cards(string $question, string $reply): array
     foreach (party_packages() as $p) if (strpos($text, ' ' . card_norm($p['name']) . ' ') !== false) $named++;
     $party = preg_match('/\b(party|birthday|private|event|buyout|corporate|celebrat|shower|anniversary)/', card_norm($question));
     if ($named >= 2 || ($named === 1 && $party)) $cards[] = ['type' => 'packages', 'packages' => party_packages()];
+
+    // Food items the reply recommends or lists: tappable cards to start ordering.
+    $menuItems = menu_cards($reply);
+    if ($menuItems) $cards[] = ['type' => 'menu', 'items' => $menuItems];
 
     return $cards;
 }

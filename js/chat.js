@@ -197,6 +197,7 @@
     (m.cards || []).forEach((c) => {
       if (c.type === 'shows') showCards(c.shows, animate);
       if (c.type === 'packages') packagesCard(c.packages, animate);
+      if (c.type === 'menu') menuCards(c.items, animate);
     });
     if (m.human) humanCard(animate);
   }
@@ -376,6 +377,25 @@
     btn.addEventListener('click', reviewOrder);
     c.append(list, btn);
     log.append(c);
+    scrollDown();
+  }
+
+  // Menu items the AI recommends: tappable cards with name, price and "Add to order".
+  function menuCards(items, animate) {
+    const wrap = el('div', 'chat-menu' + (animate ? ' is-new' : ''));
+    items.forEach((item) => {
+      const c = el('div', 'chat-menu-item');
+      if (item.image) c.append(el('img', '', '', { src: item.image, alt: '', width: '56', height: '56', loading: 'lazy' }));
+      const info = el('div', 'chat-menu-info');
+      info.append(el('strong', '', item.name), el('span', 'chat-menu-price', item.price));
+      if (item.desc) info.append(el('small', '', item.desc));
+      c.append(info);
+      const btn = el('button', 'chat-menu-add', '+ Order', { type: 'button' });
+      btn.addEventListener('click', () => send("I'd like to order " + item.name));
+      c.append(btn);
+      wrap.append(c);
+    });
+    log.append(wrap);
     scrollDown();
   }
 

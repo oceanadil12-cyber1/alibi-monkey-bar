@@ -3934,6 +3934,60 @@ body:has(.mobile-nav.open) .chat-panel { display: none; }
 .chat-order button:hover { background: var(--gold-light); }
 .chat-order button:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
 
+/* Menu item cards: tappable dishes the AI recommends */
+.chat-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: 34px;
+  max-width: calc(88% + 8px);
+}
+
+.chat-menu.is-new { animation: chat-pop 0.25s ease-out; }
+
+.chat-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #2c2c2c;
+  border-radius: 12px;
+  background: #151515;
+  transition: border-color 0.15s ease;
+}
+
+.chat-menu-item:hover { border-color: rgba(200, 168, 78, 0.4); }
+
+.chat-menu-item img {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #0a0a0a;
+}
+
+.chat-menu-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.chat-menu-info strong { color: var(--white); font-size: 13.5px; line-height: 1.3; }
+.chat-menu-price { color: var(--gold-light); font-size: 12.5px; font-weight: 600; }
+.chat-menu-info small { color: var(--text-muted); font-size: 11.5px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.chat-menu-add {
+  flex: none;
+  padding: 7px 12px;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gold-light);
+  font: 600 12.5px/1 'Inter', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.chat-menu-add:hover { background: var(--gold); color: var(--black); }
+.chat-menu-add:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
 /* Cards under replies: shows, party packages, "talk to our team" */
 .chat-card {
   margin-left: 34px;
@@ -4106,7 +4160,7 @@ body:has(.mobile-nav.open) .chat-panel { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-panel, .chat-row.is-new, .chat-card.is-new, .chat-order.is-new, .chat-dots i, .chat-launcher.is-pulse::after { animation: none; }
+  .chat-panel, .chat-row.is-new, .chat-card.is-new, .chat-order.is-new, .chat-menu.is-new, .chat-dots i, .chat-launcher.is-pulse::after { animation: none; }
   .chat-launcher, .chat-chips button, .chat-send { transition: none; }
 }
 
