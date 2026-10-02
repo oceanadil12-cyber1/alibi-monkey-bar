@@ -18,7 +18,7 @@
   const MAX_KEEP = 30;                                   // messages remembered per tab
   const PHONE = '(954) 565-2526';
   const PHONE_TEL = 'tel:+19545652526';
-  const GREETING = "I'm the Alibi's virtual assistant. Ask me about tonight's shows, the menu, Happy Hour, reservations or private events.";
+  const GREETING = "I'm the Alibi's virtual assistant. I can help you order food, check tonight's shows, find Happy Hour deals, book a table or plan a private event.";
   const HUMAN_RE = /\b(talk|speak|chat)\s+(to|with)\s+(a\s+|an\s+|the\s+|someone|somebody)?(human|person|real person|staff|manager|team|someone|somebody)\b|\breal person\b/i;
   const HUMAN_MSG = "Of course! Our team is happy to help. Call us any day from 11 AM to 2 AM, or send a message and we'll get back to you.";
   // Guests give an email (required) and name (optional) before the first message,
@@ -26,10 +26,10 @@
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   const GATE_INTRO = "Before we start, what's your email? We'll use it to follow up if you'd like. Your name is optional.";
   const SUGGESTIONS = [
+    { icon: '\u{1F354}', label: 'Order food', text: "I'd like to order some food. What do you recommend?" },
     { icon: '\u{1F3AD}', label: "Tonight's shows", text: "What's on tonight?" },
     { icon: '\u{1F379}', label: 'Happy Hour', text: 'What are the Happy Hour deals?' },
     { icon: '\u{1F4C5}', label: 'Book a table', text: 'How do I book a table?' },
-    { icon: '\u{1F389}', label: 'Private parties', text: 'Tell me about private party packages.' },
   ];
 
   const ICONS = {
@@ -102,7 +102,7 @@
     '</div>' +
     '<form class="chat-form">' +
       '<div class="chat-compose">' +
-        '<textarea rows="1" maxlength="600" placeholder="Ask about shows, food, bookings&hellip;" aria-label="Your message"></textarea>' +
+        '<textarea rows="1" maxlength="600" placeholder="Order food, ask about shows, bookings&hellip;" aria-label="Your message"></textarea>' +
         '<button type="submit" class="chat-send" aria-label="Send" disabled>' + ICONS.send + '</button>' +
       '</div>' +
     '</form>' +

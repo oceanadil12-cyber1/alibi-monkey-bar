@@ -79,12 +79,18 @@ function chat_suggestions(string $question, string $reply, array $topics, array 
     $r = card_norm($reply);
     $types = array_column($cards, 'type');
     $pool = [];
-    if ($ordered) array_push($pool, 'How long until my order is ready?', 'Do you deliver to my area?');
+    if ($ordered) array_push($pool, 'Add something else to my order', 'How long until my order is ready?', 'Do you deliver to my area?');
     if (in_array('shows', $types, true)) array_push($pool, 'Can I book a table?', "What's on tomorrow?");
     if (in_array('packages', $types, true) || preg_match('/\b(party|birthday|private|event|buyout|corporate)\b/', $q)) {
         array_push($pool, 'How do I plan a private event?', 'Talk to a person');
     }
-    if (in_array('food', $topics, true) && !$ordered) array_push($pool, 'Order food for pickup', 'What are the Happy Hour deals?');
+    if (in_array('food', $topics, true) && !$ordered) {
+        if (preg_match('/\b(recommend|popular|suggest|what.s good|favorite|favourit)\b/', $q)) {
+            array_push($pool, "I'll order the wings", "I'll have a burger", 'What else is popular?');
+        } else {
+            array_push($pool, "What's popular?", 'Order food for pickup', 'What are the Happy Hour deals?');
+        }
+    }
     if (in_array('drinks', $topics, true)) array_push($pool, 'What are the Happy Hour deals?', "What's on tonight?");
     if (preg_match('/\b(not sure|please call|give us a call)\b/', $r)) $pool[] = 'Talk to a person';
     array_push($pool, "What's on tonight?", 'Can I book a table?', 'What are the Happy Hour deals?');

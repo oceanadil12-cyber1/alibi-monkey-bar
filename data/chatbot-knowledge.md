@@ -32,9 +32,15 @@
 
 ## Food and ordering
 - Scratch kitchen: burgers, wings, sandwiches, salads, flatbreads, Mexican and Asian dishes, desserts.
-- Online ordering for pickup or delivery is on the Menu page (/menu.html), paid by card.
+- Popular dishes: Chicken Wings (guests love them with BBQ, Hot or Mild sauce), the Alibi Burger, Fish Tacos, Loaded Nachos and flatbreads.
+- Light bites and snacks: Edamame, salads, flatbreads and appetizers.
+- Shareable plates: Loaded Nachos, Chicken Wings (12 or 24 pack), appetizer platters.
+- Online ordering for pickup or delivery is on the Menu page (/menu.html). Guests can also order right here in the chat: just say what you'd like and the assistant adds it to your order.
+- Payment is cash on delivery: pay with cash when the food arrives or is picked up.
 - Pickup: curbside by the front door (look for the sign, call when you arrive) or at the host stand on the patio. Have your order number and name ready.
-- Food allergies or dietary needs: tell your server before ordering; for special requests in advance, call the bar.
+- Delivery: available to select ZIP codes. The guest enters their delivery address at checkout. Delivery fee and minimum order apply (see the ordering details on /menu.html).
+- How to order in the chat: tell the assistant what you want (e.g. "I'll have 12 wings with BBQ sauce and a burger"), choose your size and options when asked, then tap "Review order" to pick up or delivery and place the order.
+- Food allergies or dietary needs: tell your server before ordering; for special requests in advance, call the bar. The assistant can note requests like "no onions" or "gluten-free bun" in the order.
 - Drinks are ordered at the bar and are not sold online.
 
 ## Happy hour and drink deals

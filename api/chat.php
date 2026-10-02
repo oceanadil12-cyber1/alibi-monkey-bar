@@ -236,10 +236,14 @@ const CHAT_TOPICS = [
         'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado', 'domingo', 'mañana', 'musica', 'música', 'fiesta'],
     'drinks' => ['drink', 'cocktail', 'margarita', 'martini', 'tini', 'beer', 'wine', 'vodka', 'tequila', 'rum', 'whisk', 'gin', 'frozen', 'sangria',
         'spritz', 'colada', 'daiquiri', 'mojito', 'paloma', 'alcohol', 'booze', 'shot', 'bebida', 'trago', 'cerveza', 'vino', 'coctel', 'cóctel'],
-    'food'   => ['food', 'eat', 'menu', 'hungry', 'dish', 'kitchen', 'price', 'cost', 'how much', 'cheap', 'burger', 'wing', 'salad', 'taco', 'nacho',
+    'food'   => ['food', 'eat', 'menu', 'hungry', 'starving', 'dish', 'kitchen', 'price', 'cost', 'how much', 'cheap', 'affordable', 'burger', 'wing', 'salad', 'taco', 'nacho',
         'sandwich', 'pizza', 'flatbread', 'chicken', 'beef', 'pork', 'fish', 'shrimp', 'mahi', 'tuna', 'steak', 'rice', 'fries', 'side', 'dessert',
-        'cake', 'appetizer', 'starter', 'vegan', 'vegetarian', 'veggie', 'gluten', 'allerg', 'nut', 'dairy', 'spicy', 'order', 'deliver', 'pickup',
-        'pick up', 'takeout', 'take out', 'lunch', 'dinner', 'soda', 'comida', 'comer', 'precio', 'cuánto', 'cuanto', 'menú', 'hambre', 'pedido'],
+        'cake', 'appetizer', 'starter', 'snack', 'entree', 'main course', 'vegan', 'vegetarian', 'veggie', 'gluten', 'allerg', 'nut', 'dairy', 'spicy',
+        'order', 'deliver', 'pickup', 'pick up', 'takeout', 'take out', 'carry out', 'to go', 'lunch', 'dinner', 'supper', 'soda',
+        'recommend', 'popular', 'best seller', 'favorite', 'favourite', 'what\'s good', 'what should i', 'feed me', 'i\'ll have', 'can i get', 'give me',
+        'add to', 'put in', 'i want', 'i\'d like', 'place an order', 'place order', 'want to order', 'wanna order', 'get some food',
+        'quesadilla', 'wrap', 'soup', 'edamame', 'calamari', 'slider', 'tender', 'nugget', 'bacon', 'cheese',
+        'comida', 'comer', 'precio', 'cuánto', 'cuanto', 'menú', 'hambre', 'pedido', 'ordenar', 'pedir', 'quiero'],
 ];
 
 /** Which big lists the guest's last couple of messages need. */
@@ -282,12 +286,38 @@ function chat_system_prompt(?array $topics = null): string
 const CHAT_ORDERING = <<<'TXT'
 # Taking food orders in the chat
 You can put dishes from the food menu into the guest's online order with the add_to_order tool.
-- Only when the guest clearly wants to order. Use the dish names from the food menu.
+
+## When to use the tool
+- Only when the guest clearly wants to order (says "I'll have", "order", "can I get", "add", "give me", "I want to order", etc.). Use the dish names from the food menu.
+- When a guest says "I'm hungry", "what should I eat", "what's good", or asks for recommendations, suggest a few popular items from the menu first. Don't add anything until they say they want it.
+
+## How to use it
 - Include the size and any choices the guest gave (sauce, side, cooking temperature). If the tool says something is missing or unclear, ask the guest in one short question, then call the tool again for those dishes only.
 - The website note lists what's already in the guest's order. Never add those again, unless the guest asks for more (then set extra: true). When the guest answers a question, add only the dishes that were still missing.
 - Never choose a size, sauce, side or cooking temperature for the guest. If they didn't say, leave it out; the tool tells you what to ask.
-- After adding, say briefly what's in their order and that they tap "Review order" to choose pickup or delivery and place it. Ordering is cash on delivery: they pay with cash when the order arrives or is picked up.
-- Never ask for card or payment details in the chat; ordering is cash on delivery and the address is entered at checkout. Drinks can't be ordered online.
+- The guest can order multiple items at once: add them all in one tool call.
+- Special instructions from the guest (like "no onions", "extra crispy", "well done") go in the note field.
+
+## Guiding the guest through ordering
+- If a guest seems interested in food but hasn't decided, mention a few popular picks: Chicken Wings, Alibi Burger, Fish Tacos and Loaded Nachos are crowd favorites.
+- If a guest asks about a dish (price, ingredients, what comes with it), answer from the menu facts, then ask "Would you like to add it to your order?"
+- When the guest says "that's it" or "that's all", confirm what's in their order and tell them to tap "Review order" to choose pickup or delivery and place it.
+- If a guest asks "what comes with" a burger or sandwich, tell them it includes a side (french fries, coleslaw or potato and egg salad; other sides for a small extra charge).
+
+## After adding items
+- Say briefly what was added and the price.
+- If there are more items to add, ask "Anything else?"
+- When they're done, tell them to tap "Review order" to choose pickup or delivery and place the order. Payment is cash on delivery.
+- Never ask for card or payment details in the chat; ordering is cash on delivery and the address is entered at checkout.
+- Drinks can't be ordered online (they're ordered at the bar).
+
+## Common ordering situations
+- "What do you recommend?" or "What's popular?": Suggest Chicken Wings, the Alibi Burger, Fish Tacos or Loaded Nachos. Ask what sounds good.
+- "I want something light / a snack": Suggest appetizers like Edamame, a salad or a flatbread.
+- "Something for a group / to share": Suggest Loaded Nachos, Chicken Wings (12 or 24 pack) or appetizer platters.
+- "I'm vegetarian / vegan": Point out vegetarian and vegan options from the menu (salads, veggie burger, edamame, flatbreads).
+- "What's cheap / affordable?": Mention Happy Hour deals if it's 4 to 6:45 PM, and point to the lower-priced items.
+- Delivery questions: the guest enters their address at checkout. Mention delivery ZIP codes and minimums from the ordering facts above.
 TXT;
 
 /**
@@ -301,7 +331,8 @@ const CHAT_REMINDERS = <<<'TXT'
 - Groups of 8 or more: ask them to call (954) 565-2526.
 - Say "tonight" only for the shows listed as tonight's shows in the website note. For any other day, name the day.
 - Only state facts written above. If they don't answer the question, say you're not sure and suggest calling.
-- Never ask for card or payment details in the chat.
+- Never ask for card or payment details in the chat. Payment is always cash on delivery.
+- When a guest wants to order food, help them through it step by step: suggest dishes if they're unsure, add items with the tool when they decide, ask about required options (size, sauce, side), then tell them to tap "Review order" when they're done.
 TXT;
 
 // ---------- the conversation ----------

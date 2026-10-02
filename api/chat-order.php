@@ -17,9 +17,10 @@ const ORDER_TOOL = [
     'function' => [
         'name'        => 'add_to_order',
         'description' => "Add dishes from the food menu to the guest's online order (their cart on the website). "
-            . 'Call it only when the guest clearly asks to order, with only the dishes, sizes and choices the guest actually said. '
+            . 'Call it when the guest says they want to order something (e.g. "I\'ll have wings", "can I get a burger", "add nachos"). '
+            . 'Include only the dishes, sizes and choices the guest actually said. '
             . 'Never pick a size or choice for the guest: leave it out and the result tells you what to ask. '
-            . 'The result lists what was added and what still needs an answer from the guest.',
+            . 'You can add multiple items in one call. The result lists what was added and what still needs an answer.',
         'parameters'  => [
             'type'       => 'object',
             'properties' => [
@@ -28,12 +29,12 @@ const ORDER_TOOL = [
                     'items' => [
                         'type'       => 'object',
                         'properties' => [
-                            'dish'     => ['type' => 'string', 'description' => 'Dish name as written on the food menu, e.g. "Chicken Wings"'],
-                            'size'     => ['type' => 'string', 'description' => 'Size or version when the dish has several, e.g. "12 Wings" or "Beef"'],
-                            'quantity' => ['type' => 'integer', 'description' => 'How many (1-20)'],
-                            'choices'  => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Only options the guest said themselves (sauce, side, cooking temperature). Empty if they said none.'],
-                            'note'     => ['type' => 'string', 'description' => 'Special instructions from the guest, if any'],
-                            'extra'    => ['type' => 'boolean', 'description' => 'True only when the guest asked for MORE of a dish that is already in their order'],
+                            'dish'     => ['type' => 'string', 'description' => 'Dish name from the food menu, e.g. "Chicken Wings", "Alibi Burger", "Fish Tacos". Use menu names; close matches are accepted.'],
+                            'size'     => ['type' => 'string', 'description' => 'Size or version when the dish has several, e.g. "12 Wings", "6 Wings", "Beef", "Shrimp"'],
+                            'quantity' => ['type' => 'integer', 'description' => 'How many (1-20). Default 1.'],
+                            'choices'  => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Only options the guest said (sauce like "BBQ" or "Hot", side like "fries", temperature like "medium rare"). Empty if they said none.'],
+                            'note'     => ['type' => 'string', 'description' => 'Special instructions: "no onions", "extra cheese", "well done", "gluten-free bun", etc.'],
+                            'extra'    => ['type' => 'boolean', 'description' => 'True only when the guest asked for MORE of a dish already in their order'],
                         ],
                         'required'   => ['dish', 'quantity'],
                     ],
@@ -304,7 +305,7 @@ function resolve_order(array $items): array
         'not_added'      => $problems,
         'online_ordering_hours_today' => $hours ? implode(', ', $hours) : 'closed today',
         'next_step'      => $added
-            ? 'Tell the guest what was added. They tap "Review & pay" in the chat to choose pickup or delivery and pay securely. Ask about anything in not_added.'
-            : 'Nothing was added yet. Ask the guest about the items in not_added.',
+            ? 'Tell the guest what was added and the price. Ask "Anything else?" If they say no, tell them to tap "Review order" to choose pickup or delivery and place it. Payment is cash on delivery.'
+            : 'Nothing was added yet. Ask the guest about the items in not_added. Be specific: name the missing choice and list the options.',
     ]];
 }
