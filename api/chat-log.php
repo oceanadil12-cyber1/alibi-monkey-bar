@@ -136,8 +136,7 @@ function chat_log_cleanup(): void
     $cutoff = date('Y-m-d H:i:s', strtotime("-$keep days"));
     try {
         require_once __DIR__ . '/db.php';
-        $stmt = db()->prepare("DELETE m FROM chat_messages m JOIN chat_sessions s ON m.session_id = s.id WHERE s.started_at < ?");
-        $stmt->execute([$cutoff]);
+        db()->prepare("DELETE FROM chat_messages WHERE session_id IN (SELECT id FROM chat_sessions WHERE started_at < ?)")->execute([$cutoff]);
         db()->prepare("DELETE FROM chat_sessions WHERE started_at < ? AND id NOT IN (SELECT DISTINCT session_id FROM chat_messages)")->execute([$cutoff]);
     } catch (Throwable $e) {
         error_log('chat_log_cleanup: ' . $e->getMessage());

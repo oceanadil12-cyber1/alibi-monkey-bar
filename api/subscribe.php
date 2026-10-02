@@ -15,7 +15,10 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) fail('Please enter a valid email
 $page = clean_field($in['page'] ?? '', 60);
 try {
     require_once __DIR__ . '/db.php';
-    $stmt = db()->prepare("INSERT INTO subscribers (email, page) VALUES (?, ?) ON DUPLICATE KEY UPDATE page = page");
+    $sql = db_is_sqlite()
+        ? "INSERT INTO subscribers (email, page) VALUES (?, ?) ON CONFLICT(email) DO UPDATE SET page = page"
+        : "INSERT INTO subscribers (email, page) VALUES (?, ?) ON DUPLICATE KEY UPDATE page = page";
+    $stmt = db()->prepare($sql);
     $stmt->execute([$email, $page]);
     $saved = true;
 } catch (Throwable $e) {
