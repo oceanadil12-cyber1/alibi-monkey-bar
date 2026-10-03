@@ -477,7 +477,7 @@
       var header = el('button', 'chat-menu-cat-head', '', { type: 'button' });
       var icon = el('span', 'chat-menu-cat-toggle', '+');
       header.append(icon, document.createTextNode(' ' + cat.name));
-      var count = el('span', 'chat-menu-cat-count', ids.length + ' items');
+      var count = el('span', 'chat-menu-cat-count', ids.length === 1 ? '1 item' : ids.length + ' items');
       header.append(count);
       var body = el('div', 'chat-menu-cat-body');
       body.hidden = true;
