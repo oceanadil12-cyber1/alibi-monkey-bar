@@ -21,12 +21,13 @@
   const GREETING = "I'm the Alibi's virtual assistant. I can help you order food, check tonight's shows, find Happy Hour deals, book a table or plan a private event.";
   const HUMAN_RE = /\b(talk|speak|chat)\s+(to|with)\s+(a\s+|an\s+|the\s+|someone|somebody)?(human|person|real person|staff|manager|team|someone|somebody)\b|\breal person\b/i;
   const HUMAN_MSG = "Of course! Our team is happy to help. Call us any day from 11 AM to 2 AM, or send a message and we'll get back to you.";
+  const MENU_RE = /\b(show|see|browse|view|open)\s+(me\s+)?(the\s+|your\s+|full\s+|complete\s+|entire\s+)?(food\s+)?menu\b|\b(full|complete|entire)\s+menu\b|\bbrowse\s+(the\s+)?(food|menu)\b/i;
   // Guests give an email (required) and name (optional) before the first message,
   // so the team can follow up. Kept for the browser tab and sent with each message.
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   const GATE_INTRO = "Before we start, what's your email? We'll use it to follow up if you'd like. Your name is optional.";
   const SUGGESTIONS = [
-    { icon: '\u{1F354}', label: 'Order food', text: "I'd like to order some food. What do you recommend?" },
+    { icon: '\u{1F4CB}', label: 'See our menu', text: 'Show me the menu' },
     { icon: '\u{1F3AD}', label: "Tonight's shows", text: "What's on tonight?" },
     { icon: '\u{1F379}', label: 'Happy Hour', text: 'What are the Happy Hour deals?' },
     { icon: '\u{1F4C5}', label: 'Book a table', text: 'How do I book a table?' },
@@ -199,6 +200,7 @@
       if (c.type === 'packages') packagesCard(c.packages, animate);
       if (c.type === 'menu') menuCards(c.items, animate);
     });
+    if (m.menuBrowse) menuBrowseRestore();
     if (m.human) humanCard(animate);
   }
 
@@ -427,11 +429,118 @@
     showReply(m, true);
   }
 
+  // "Show me the menu": fetch the food menu and render a browsable accordion.
+  async function browseMenu(text) {
+    if (busy) return;
+    if (!contactOk()) { pendingQuestion = text || null; return revealGate(); }
+    busy = true;
+    clearSuggestions();
+    chips.hidden = true;
+    if (text) {
+      state.messages.push({ role: 'user', content: text });
+      bubble('user', text);
+    }
+    input.value = '';
+    grow();
+    const stopTyping = typing();
+
+    let menu = null;
+    try {
+      const res = await fetch(new URL('api/menu.php', SITE).href);
+      menu = await res.json();
+    } catch (e) { /* handled below */ }
+    stopTyping();
+
+    if (menu && menu.categories && menu.categories.length) {
+      const m = { role: 'assistant', content: "Here's our food menu! Tap a category to see the dishes, then hit \"+ Order\" to add something to your order.", menuBrowse: true };
+      state.messages.push(m);
+      save();
+      bubble('assistant', m.content);
+      menuBrowseCard(menu, true);
+      suggestionChips(['What do you recommend?', 'Do you deliver to my area?', "What's on tonight?"]);
+    } else {
+      state.messages.push({ role: 'assistant', content: "I couldn't load the menu right now. You can browse it at /menu.html or call us at " + PHONE + '.' });
+      save();
+      bubble('assistant', state.messages[state.messages.length - 1].content, { error: true });
+    }
+    busy = false;
+    if (!panel.hidden) input.focus({ preventScroll: true });
+  }
+
+  // The interactive menu accordion: categories expand to show items with prices and "Order" buttons.
+  function menuBrowseCard(menu, animate) {
+    const wrap = el('div', 'chat-menu-browse' + (animate ? ' is-new' : ''));
+    menu.categories.forEach((cat) => {
+      var ids = cat.itemIds.filter(function (id) { return menu.items[id] && !menu.items[id].soldOut; });
+      if (!ids.length) return;
+      var section = el('div', 'chat-menu-cat');
+      var header = el('button', 'chat-menu-cat-head', '', { type: 'button' });
+      var icon = el('span', 'chat-menu-cat-toggle', '+');
+      header.append(icon, document.createTextNode(' ' + cat.name));
+      var count = el('span', 'chat-menu-cat-count', ids.length + ' items');
+      header.append(count);
+      var body = el('div', 'chat-menu-cat-body');
+      body.hidden = true;
+
+      ids.forEach(function (id) {
+        var item = menu.items[id];
+        var variations = item.variations.filter(function (v) { return !v.soldOut; });
+        if (!variations.length) return;
+        var prices = variations.map(function (v) { return v.price; });
+        var lo = Math.min.apply(null, prices);
+        var hi = Math.max.apply(null, prices);
+        var priceText = lo === hi ? money(lo) : money(lo) + ' to ' + money(hi);
+
+        var row = el('div', 'chat-menu-item');
+        if (item.image) row.append(el('img', '', '', { src: item.image, alt: '', width: '44', height: '44', loading: 'lazy' }));
+        var info = el('div', 'chat-menu-info');
+        info.append(el('strong', '', item.name), el('span', 'chat-menu-price', priceText));
+        row.append(info);
+        var btn = el('button', 'chat-menu-add', '+ Order', { type: 'button' });
+        btn.addEventListener('click', function () { send("I'd like to order " + item.name); });
+        row.append(btn);
+        body.append(row);
+      });
+
+      header.addEventListener('click', function () {
+        var open = !body.hidden;
+        body.hidden = open;
+        icon.textContent = open ? '+' : '−';
+        section.classList.toggle('is-open', !open);
+        if (!open) scrollDown();
+      });
+      section.append(header, body);
+      wrap.append(section);
+    });
+    log.append(wrap);
+    scrollDown();
+  }
+
+  // On session restore, show a compact button instead of re-fetching the full menu.
+  function menuBrowseRestore() {
+    var wrap = el('div', 'chat-menu-browse-btn');
+    var btn = el('button', 'chat-card-btn', '\u{1F4CB} Browse the menu', { type: 'button' });
+    btn.addEventListener('click', async function () {
+      wrap.remove();
+      var stopTyping = typing();
+      try {
+        var res = await fetch(new URL('api/menu.php', SITE).href);
+        var menu = await res.json();
+        stopTyping();
+        if (menu && menu.categories) menuBrowseCard(menu, true);
+      } catch (e) { stopTyping(); }
+    });
+    wrap.append(btn);
+    log.append(wrap);
+    scrollDown();
+  }
+
   async function send(text) {
     text = text.trim().slice(0, 600);
     if (!text || busy) return;
     if (!contactOk()) { pendingQuestion = text; input.value = ''; grow(); return revealGate(); }
     if (HUMAN_RE.test(text)) { input.value = ''; grow(); return talkToPerson(text); }
+    if (MENU_RE.test(text)) { input.value = ''; grow(); return browseMenu(text); }
     busy = true;
     clearSuggestions();
     chips.hidden = true;

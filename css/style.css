@@ -3988,6 +3988,73 @@ body:has(.mobile-nav.open) .chat-panel { display: none; }
 .chat-menu-add:hover { background: var(--gold); color: var(--black); }
 .chat-menu-add:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
+/* Browsable menu accordion: categories expand to show items */
+.chat-menu-browse {
+  margin-left: 34px;
+  max-width: calc(88% + 8px);
+  border: 1px solid #2c2c2c;
+  border-radius: 14px;
+  background: #151515;
+  overflow: hidden;
+}
+
+.chat-menu-browse.is-new { animation: chat-pop 0.25s ease-out; }
+
+.chat-menu-cat + .chat-menu-cat { border-top: 1px solid #222; }
+
+.chat-menu-cat-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  color: var(--white);
+  font: 600 14px/1.2 'Inter', sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.chat-menu-cat-head:hover { background: #1a1a1a; }
+.chat-menu-cat-head:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+.chat-menu-cat-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 6px;
+  background: #2a2a2a;
+  color: var(--gold-light);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.chat-menu-cat.is-open .chat-menu-cat-toggle { background: rgba(200, 168, 78, 0.2); }
+
+.chat-menu-cat-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.chat-menu-cat-body { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 4px; }
+.chat-menu-cat-body[hidden] { display: none; }
+
+.chat-menu-cat-body .chat-menu-item { padding: 8px 10px; }
+.chat-menu-cat-body .chat-menu-item img { width: 44px; height: 44px; }
+
+/* Compact "Browse the menu" button shown on session restore */
+.chat-menu-browse-btn { margin-left: 34px; max-width: calc(80% + 8px); }
+.chat-menu-browse-btn .chat-card-btn { display: block; width: 100%; text-align: center; cursor: pointer; }
+
 /* Cards under replies: shows, party packages, "talk to our team" */
 .chat-card {
   margin-left: 34px;
@@ -4160,7 +4227,7 @@ body:has(.mobile-nav.open) .chat-panel { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-panel, .chat-row.is-new, .chat-card.is-new, .chat-order.is-new, .chat-menu.is-new, .chat-dots i, .chat-launcher.is-pulse::after { animation: none; }
+  .chat-panel, .chat-row.is-new, .chat-card.is-new, .chat-order.is-new, .chat-menu.is-new, .chat-menu-browse.is-new, .chat-dots i, .chat-launcher.is-pulse::after { animation: none; }
   .chat-launcher, .chat-chips button, .chat-send { transition: none; }
 }
 

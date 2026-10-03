@@ -128,9 +128,9 @@ function chat_suggestions(string $question, string $reply, array $topics, array 
     }
     if (in_array('food', $topics, true) && !$ordered) {
         if (preg_match('/\b(recommend|popular|suggest|what.s good|favorite|favourit)\b/', $q)) {
-            array_push($pool, "I'll order the wings", "I'll have a burger", 'What else is popular?');
+            array_push($pool, "I'll order the wings", "I'll have a burger", 'Browse the full menu');
         } else {
-            array_push($pool, "What's popular?", 'Order food for pickup', 'What are the Happy Hour deals?');
+            array_push($pool, 'Browse the full menu', "What's popular?", 'What are the Happy Hour deals?');
         }
     }
     if (in_array('drinks', $topics, true)) array_push($pool, 'What are the Happy Hour deals?', "What's on tonight?");
