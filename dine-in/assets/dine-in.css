@@ -264,20 +264,82 @@
 }
 
 /* ========== CATEGORY TABS ========== */
-.dinein-cats {
+.dinein-cats-wrap {
   position: sticky;
   top: 53px;
   z-index: 99;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.dinein-cats {
   display: flex;
   gap: 6px;
   padding: 10px 16px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  scroll-behavior: smooth;
 }
 .dinein-cats::-webkit-scrollbar { display: none; }
+
+/* Fade edges — indicate more content to scroll */
+.dinein-cats-wrap::before,
+.dinein-cats-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 1px;
+  width: 40px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.dinein-cats-wrap::before {
+  left: 0;
+  background: linear-gradient(to right, var(--bg) 20%, transparent);
+}
+.dinein-cats-wrap::after {
+  right: 0;
+  background: linear-gradient(to left, var(--bg) 20%, transparent);
+}
+.dinein-cats-wrap.can-scroll-left::before { opacity: 1; }
+.dinein-cats-wrap.can-scroll-right::after { opacity: 1; }
+
+/* Arrow buttons */
+.dinein-cats-arrow {
+  display: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--gold);
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+  padding: 0;
+}
+.dinein-cats-arrow:hover {
+  background: rgba(200,168,78,0.15);
+  border-color: var(--gold);
+}
+.dinein-cats-arrow--left { left: 4px; }
+.dinein-cats-arrow--right { right: 4px; }
+.dinein-cats-wrap.can-scroll-left .dinein-cats-arrow--left,
+.dinein-cats-wrap.can-scroll-right .dinein-cats-arrow--right {
+  display: flex;
+}
 
 .dinein-cat-tab {
   flex-shrink: 0;

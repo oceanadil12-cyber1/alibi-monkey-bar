@@ -273,6 +273,32 @@
     updateCartBar();
   }
 
+  var catsWrap   = document.getElementById('dinein-cats-wrap');
+  var catsLeft   = document.getElementById('dinein-cats-left');
+  var catsRight  = document.getElementById('dinein-cats-right');
+
+  function updateCatsArrows() {
+    if (!catsWrap) return;
+    var sl = catsEl.scrollLeft;
+    var canLeft = sl > 2;
+    var canRight = sl < catsEl.scrollWidth - catsEl.clientWidth - 2;
+    catsWrap.classList.toggle('can-scroll-left', canLeft);
+    catsWrap.classList.toggle('can-scroll-right', canRight);
+  }
+
+  catsEl.addEventListener('scroll', updateCatsArrows, { passive: true });
+
+  if (catsLeft) {
+    catsLeft.addEventListener('click', function () {
+      catsEl.scrollBy({ left: -160, behavior: 'smooth' });
+    });
+  }
+  if (catsRight) {
+    catsRight.addEventListener('click', function () {
+      catsEl.scrollBy({ left: 160, behavior: 'smooth' });
+    });
+  }
+
   function renderCategoryTabs() {
     var html = '';
     menu.categories.forEach(function (cat) {
@@ -284,6 +310,8 @@
     // Scroll active tab into view
     var active = catsEl.querySelector('.active');
     if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+    setTimeout(updateCatsArrows, 50);
   }
 
   catsEl.addEventListener('click', function (e) {

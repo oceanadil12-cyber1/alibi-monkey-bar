@@ -85,7 +85,7 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
   <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/fonts/playfair-display-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/style.css?v=20261002">
-  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=7">
+  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=8">
 </head>
 <body>
 
@@ -140,7 +140,11 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
         </div>
         <img src="/images/logo.webp" alt="Alibi" class="dinein-topbar-logo" width="100" height="61">
       </div>
-      <nav class="dinein-cats" id="dinein-cats"></nav>
+      <div class="dinein-cats-wrap" id="dinein-cats-wrap">
+        <button class="dinein-cats-arrow dinein-cats-arrow--left" id="dinein-cats-left" aria-label="Scroll left">&lsaquo;</button>
+        <nav class="dinein-cats" id="dinein-cats"></nav>
+        <button class="dinein-cats-arrow dinein-cats-arrow--right" id="dinein-cats-right" aria-label="Scroll right">&rsaquo;</button>
+      </div>
       <div class="dinein-menu-grid" id="dinein-menu-grid">
         <p class="dinein-loading">Loading menu&hellip;</p>
       </div>
@@ -194,6 +198,6 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
 <?php if ($menuJson): ?>
   <script>window.__DINEIN_MENU = <?= $menuJson ?>;</script>
 <?php endif; ?>
-  <script src="/dine-in/assets/dine-in.js?v=7"></script>
+  <script src="/dine-in/assets/dine-in.js?v=8"></script>
 </body>
 </html>
