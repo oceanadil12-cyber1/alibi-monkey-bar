@@ -21,6 +21,7 @@
     const cartEl = document.getElementById('dinein-cart');
     const cartEmpty = document.getElementById('dinein-cart-empty');
     const tableInput = document.getElementById('dinein-table');
+    const guestInput = document.getElementById('dinein-guest');
     const notesInput = document.getElementById('dinein-notes');
     const totalEl = document.getElementById('dinein-total');
     const submitBtn = document.getElementById('dinein-submit');
@@ -200,6 +201,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     table,
+                    guest: guestInput.value.trim(),
                     items: cart.map(c => ({
                         name: c.name,
                         qty: c.qty,
@@ -217,6 +219,7 @@
                 resultEl.className = 'flash ok';
                 resultEl.innerHTML = '<b>Order #' + esc(data.orderNumber) + '</b> sent to kitchen! Table ' + data.table + ' · ' + data.items + ' items';
                 cart = [];
+                guestInput.value = '';
                 notesInput.value = '';
                 renderCart();
                 setTimeout(() => { resultEl.hidden = true; }, 8000);

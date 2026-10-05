@@ -17,6 +17,7 @@ $items = $req['items'] ?? [];
 if (!is_array($items) || count($items) === 0) fail('Please add at least one item.');
 if (count($items) > 50) fail('Too many items.');
 
+$guest = trim(mb_substr((string) ($req['guest'] ?? ''), 0, 80));
 $orderNotes = trim(mb_substr((string) ($req['notes'] ?? ''), 0, 500));
 
 $itemLines = [];
@@ -52,6 +53,7 @@ save_row('orders', [
     'payment'      => 'dine-in',
     'order_type'   => 'dine-in',
     'table_number' => $table,
+    'name'         => $guest,
     'items'        => json_encode($itemLines, JSON_UNESCAPED_UNICODE),
     'order_notes'  => $orderNotes,
     'subtotal'     => $subtotal,
@@ -67,6 +69,7 @@ notify("Dine-in order #$number (Table $table)", [
     'Placed'   => date('l, M j, Y g:i A'),
     'Type'     => 'DINE-IN',
     'Table'    => $table,
+    'Guest'    => $guest ?: '(not provided)',
     'Items'    => implode("\n", $itemLines),
     'Notes'    => $orderNotes ?: '(none)',
     'Subtotal' => '$' . number_format($subtotal / 100, 2),
