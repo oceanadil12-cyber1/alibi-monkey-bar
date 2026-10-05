@@ -97,46 +97,36 @@ function kds_orders(): array
 {
     $today = date('Y-m-d');
     $yesterday = date('Y-m-d', strtotime('-1 day'));
-    $meta = meta_all()['order'] ?? [];
+    $rows = orders_between($yesterday, $today);
     $out = [];
 
-    foreach ([$yesterday, $today] as $day) {
-        $file = orders_dir() . "/$day.jsonl";
-        if (!is_file($file)) continue;
-        foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $o = json_decode($line, true);
-            if (!is_array($o) || empty($o['number'])) continue;
-            $o = order_with_meta($o, $meta);
-            $m = $meta[$o['number']] ?? [];
-
-            // skip orders that are fully done (completed/cancelled) unless completed recently (last 30 min)
-            if ($o['status'] === 'cancelled') continue;
-            if ($o['status'] === 'completed') {
-                $completedAt = $m['kds_completed'] ?? null;
-                if ($completedAt && (time() - strtotime($completedAt)) > 1800) continue;
-                if (!$completedAt && $day < $today) continue;
-            }
-
-            $out[] = [
-                'number'       => $o['number'],
-                'type'         => $o['type'],
-                'table'        => $o['table'] ?? null,
-                'name'         => $o['name'],
-                'phone'        => $o['phone'],
-                'email'        => $o['email'],
-                'payment'      => $o['payment'],
-                'items'        => $o['items'],
-                'notes'        => $o['notes'] ?? '',
-                'note'         => $o['note'],
-                'total'        => $o['total'],
-                'ts'           => $o['ts'],
-                'time'         => $o['time'] ?? date('c', $o['ts']),
-                'status'       => $o['status'],
-                'prep_started' => $m['kds_started'] ?? null,
-                'prep_duration'=> $m['kds_duration'] ?? kds_prep_seconds($o['type']),
-                'completed_at' => $m['kds_completed'] ?? null,
-            ];
+    foreach ($rows as $o) {
+        if ($o['status'] === 'cancelled') continue;
+        if ($o['status'] === 'completed' || $o['status'] === 'ready') {
+            $completedAt = $o['kds_completed'] ?? null;
+            if ($completedAt && (time() - strtotime($completedAt)) > 1800) continue;
+            if (!$completedAt && date('Y-m-d', $o['ts']) < $today) continue;
         }
+
+        $out[] = [
+            'number'       => $o['number'],
+            'type'         => $o['type'],
+            'table'        => $o['table'] ?? null,
+            'name'         => $o['name'],
+            'phone'        => $o['phone'],
+            'email'        => $o['email'],
+            'payment'      => $o['payment'],
+            'items'        => $o['items'],
+            'notes'        => $o['notes'] ?? '',
+            'note'         => $o['note'],
+            'total'        => $o['total'],
+            'ts'           => $o['ts'],
+            'time'         => $o['time'] ?? date('c', $o['ts']),
+            'status'       => $o['status'],
+            'prep_started' => $o['kds_started'] ?? null,
+            'prep_duration'=> $o['kds_duration'] ?? kds_prep_seconds($o['type']),
+            'completed_at' => $o['kds_completed'] ?? null,
+        ];
     }
     usort($out, fn($a, $b) => $a['ts'] <=> $b['ts']);
     return $out;
