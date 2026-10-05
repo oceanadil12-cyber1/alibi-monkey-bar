@@ -123,7 +123,7 @@ function log_chat(string $cid, string $question, string $reply, array $usage, fl
             'seconds'       => round($seconds, 1),
         ]);
 
-        if (mt_rand(1, 50) === 1) chat_log_cleanup();
+        // Auto-cleanup disabled — data is kept until manually deleted.
     } catch (Throwable $e) {
         error_log('log_chat: ' . $e->getMessage());
     }

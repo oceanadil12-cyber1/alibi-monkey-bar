@@ -487,13 +487,7 @@ function admin_log(string $action, string $detail = ''): void
             'detail' => mb_substr($detail, 0, 300),
             'ip'     => client_ip(),
         ]);
-        if (mt_rand(1, 40) === 1) {
-            $count = (int) db()->query("SELECT COUNT(*) FROM admin_activity")->fetchColumn();
-            if ($count > 1500) {
-                $keep = (int) db()->query("SELECT id FROM admin_activity ORDER BY id DESC LIMIT 1 OFFSET 1499")->fetchColumn();
-                if ($keep) db()->exec("DELETE FROM admin_activity WHERE id < $keep");
-            }
-        }
+        // Activity log trim disabled — all entries are kept until manually deleted.
     } catch (Throwable $e) {
         error_log('admin_log: ' . $e->getMessage());
     }

@@ -48,7 +48,7 @@ function chat_haystack(array $c): string
 
 function admin_page_chats(): void
 {
-    chat_log_cleanup();
+    // chat_log_cleanup() disabled — data kept until manually deleted.
     if (is_post()) admin_chats_post();
     $cid = get_str('c', 40);
     if ($cid !== '') admin_chat_detail($cid); // ends the request
