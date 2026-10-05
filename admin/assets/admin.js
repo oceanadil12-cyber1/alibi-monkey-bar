@@ -84,6 +84,35 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggle.checked = false; });
   }
 
+  // ----- Info tooltip bubbles (fixed-position, escapes overflow:hidden cards) -----
+  const bubble = document.createElement('div');
+  bubble.className = 'itip-bubble';
+  document.body.appendChild(bubble);
+  let bubbleTarget = null;
+  document.addEventListener('pointerenter', (e) => {
+    const el = e.target.closest('.itip');
+    if (!el || !el.dataset.info) return;
+    bubbleTarget = el;
+    bubble.textContent = el.dataset.info;
+    bubble.classList.add('on');
+    const r = el.getBoundingClientRect();
+    bubble.style.left = '-9999px';
+    bubble.style.top = '0';
+    const bw = bubble.offsetWidth;
+    const bh = bubble.offsetHeight;
+    let left = r.left + r.width / 2 - bw / 2;
+    left = Math.max(8, Math.min(window.innerWidth - bw - 8, left));
+    let top = r.top - bh - 8;
+    if (top < 4) top = r.bottom + 8;
+    bubble.style.left = left + 'px';
+    bubble.style.top = top + 'px';
+    const arrowLeft = r.left + r.width / 2 - left;
+    bubble.style.setProperty('--arrow', arrowLeft + 'px');
+  }, true);
+  document.addEventListener('pointerleave', (e) => {
+    if (e.target.closest('.itip') === bubbleTarget) { bubble.classList.remove('on'); bubbleTarget = null; }
+  }, true);
+
   // ----- Toasts -----
   const toasts = $('#toasts');
   const toast = (message, href, linkText) => {
