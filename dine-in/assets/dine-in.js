@@ -26,7 +26,8 @@
     customerName: '',
     activeCat: null,
     cart: [],         // { key, itemId, variationId, qty, modifiers:[], note }
-    orderNotes: ''
+    orderNotes: '',
+    orders: []        // { number, items, total, time } — all orders this session
   };
 
   var menu = window.__DINEIN_MENU || null;
@@ -168,7 +169,10 @@
     state.cart = [];
     state.orderNotes = '';
     state.activeCat = null;
+    state.orders = [];
+    state.lastOrder = null;
     if (orderNotesEl) orderNotesEl.value = '';
+    clearIdleTimer();
     showScreen('welcome');
     nameInput.focus();
   }
@@ -644,18 +648,73 @@
     });
   });
 
-  // ========== SCREEN 4: ORDER CONFIRMATION (placeholder for Option 4) ==========
+  // ========== SCREEN 4: ORDER CONFIRMATION ==========
 
   function renderConfirmation() {
     var o = state.lastOrder;
     if (!o) return;
+
+    // Track this order in session history
+    state.orders.push({
+      number: o.number,
+      items: o.items,
+      total: o.total,
+      time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    });
+
     var el = document.getElementById('screen-confirmation');
     var html = '<div class="dinein-confirmation">';
     html += '<div class="dinein-confirm-icon">&#10003;</div>';
     html += '<h2>Order Placed!</h2>';
     html += '<p class="dinein-confirm-number">Order #' + esc(o.number) + '</p>';
     html += '<p>Your order has been sent to the kitchen.<br>Table ' + o.table + ' &middot; ' + o.items + ' item' + (o.items !== 1 ? 's' : '') + ' &middot; ' + money(o.total) + '</p>';
+
+    // Order details
+    html += '<div class="dinein-confirm-details">';
+    o.cart.forEach(function (line) {
+      var it = menuItem(line.itemId);
+      if (!it) return;
+      var detail = lineDetail(line);
+      html += '<div class="dinein-confirm-line">';
+      html += '<span class="dinein-confirm-line-qty">' + line.qty + 'x</span>';
+      html += '<span class="dinein-confirm-line-name">' + esc(it.name);
+      if (detail) html += '<small>' + esc(detail) + '</small>';
+      html += '</span>';
+      html += '<span class="dinein-confirm-line-price">' + money(linePrice(line)) + '</span>';
+      html += '</div>';
+    });
+    if (o.notes) {
+      html += '<div class="dinein-confirm-notes">Note: ' + esc(o.notes) + '</div>';
+    }
+    html += '</div>';
+
+    // Session order history (if multiple orders)
+    if (state.orders.length > 1) {
+      var sessionTotal = 0;
+      state.orders.forEach(function (so) { sessionTotal += so.total; });
+      html += '<div class="dinein-session-history">';
+      html += '<h3>Orders This Visit</h3>';
+      state.orders.forEach(function (so) {
+        html += '<div class="dinein-session-row">';
+        html += '<span>#' + esc(so.number) + ' &middot; ' + so.time + '</span>';
+        html += '<span>' + money(so.total) + '</span>';
+        html += '</div>';
+      });
+      html += '<div class="dinein-session-row total">';
+      html += '<span>Session Total</span>';
+      html += '<span>' + money(sessionTotal) + '</span>';
+      html += '</div>';
+      html += '</div>';
+    }
+
+    html += '<div class="dinein-confirm-actions">';
     html += '<button class="dinein-btn dinein-btn--primary" id="dinein-new-order">Order More</button>';
+    html += '<button class="dinein-btn dinein-btn--secondary" id="dinein-new-guest">New Guest / Done</button>';
+    html += '</div>';
+
+    // Auto-reset notice
+    html += '<p class="dinein-confirm-auto-reset">This screen resets automatically after 5 minutes.</p>';
+
     html += '</div>';
     el.innerHTML = html;
 
@@ -663,7 +722,52 @@
       showScreen('menu');
       renderMenu();
     });
+
+    document.getElementById('dinein-new-guest').addEventListener('click', function () {
+      resetFlow();
+    });
+
+    // Start auto-reset countdown on confirmation screen
+    startAutoReset();
   }
+
+  // ========== AUTO-RESET & IDLE TIMER ==========
+
+  var autoResetTimer = null;
+  var AUTO_RESET_MS = 5 * 60 * 1000; // 5 minutes on confirmation screen
+
+  var idleTimer = null;
+  var IDLE_MS = 10 * 60 * 1000; // 10 minutes of inactivity anywhere
+
+  function startAutoReset() {
+    clearAutoReset();
+    autoResetTimer = setTimeout(function () {
+      if (state.screen === 'confirmation') resetFlow();
+    }, AUTO_RESET_MS);
+  }
+
+  function clearAutoReset() {
+    if (autoResetTimer) { clearTimeout(autoResetTimer); autoResetTimer = null; }
+  }
+
+  function resetIdleTimer() {
+    if (state.screen === 'welcome') return;
+    clearIdleTimer();
+    idleTimer = setTimeout(function () {
+      if (state.screen !== 'welcome') resetFlow();
+    }, IDLE_MS);
+  }
+
+  function clearIdleTimer() {
+    if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+  }
+
+  ['click', 'touchstart', 'scroll', 'keydown'].forEach(function (evt) {
+    document.addEventListener(evt, function () {
+      resetIdleTimer();
+      if (state.screen === 'confirmation') startAutoReset();
+    }, { passive: true });
+  });
 
   // ========== EXPOSE FOR OTHER OPTIONS ==========
 

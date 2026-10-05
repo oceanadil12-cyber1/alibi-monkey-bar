@@ -750,11 +750,118 @@
   color: var(--text-muted);
   font-size: 0.95rem;
   line-height: 1.5;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
-.dinein-confirmation .dinein-btn {
-  max-width: 280px;
+
+/* --- Confirmation order details --- */
+.dinein-confirm-details {
   width: 100%;
+  max-width: 380px;
+  text-align: left;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.dinein-confirm-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.88rem;
+}
+.dinein-confirm-line-qty {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 24px;
+}
+.dinein-confirm-line-name {
+  flex: 1;
+}
+.dinein-confirm-line-name small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin-top: 1px;
+}
+.dinein-confirm-line-price {
+  color: var(--gold);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dinein-confirm-notes {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+
+/* --- Session order history --- */
+.dinein-session-history {
+  width: 100%;
+  max-width: 380px;
+  text-align: left;
+  margin-bottom: 24px;
+}
+.dinein-session-history h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.dinein-session-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.dinein-session-row.total {
+  font-weight: 700;
+  color: var(--white);
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 4px;
+  font-size: 0.95rem;
+}
+
+/* --- Confirmation action buttons --- */
+.dinein-confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 280px;
+  margin-bottom: 20px;
+}
+.dinein-btn--secondary {
+  display: block;
+  width: 100%;
+  padding: 14px 28px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: transparent;
+  transition: border-color 0.2s, color 0.2s;
+  text-align: center;
+}
+.dinein-btn--secondary:hover {
+  border-color: var(--gold);
+  color: var(--white);
+}
+
+.dinein-confirm-auto-reset {
+  font-size: 0.78rem !important;
+  color: var(--text-muted) !important;
+  opacity: 0.6;
+  margin-top: 8px;
 }
 
 /* Body lock when modal is open */
