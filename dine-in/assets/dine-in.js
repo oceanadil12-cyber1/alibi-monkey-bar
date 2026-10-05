@@ -203,7 +203,7 @@
     })
     .then(function (data) {
       if (data.ok) {
-        btn.textContent = data.already ? 'Already Called' : 'Waiter Called!';
+        btn.textContent = data.already ? 'Already Called' : 'Waiter is Coming';
         btn.classList.add('dinein-btn--waiter-called');
         setTimeout(function () {
           btn.textContent = label;
