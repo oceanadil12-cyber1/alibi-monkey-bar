@@ -54,6 +54,15 @@ code { padding: 1px 6px; border-radius: 5px; background: var(--card-2); border: 
 .grow { flex: 1 1 auto; }
 .hint { margin-top: 12px; font-size: 12.5px; color: var(--muted); }
 
+/* ---------- info tooltip icon ---------- */
+.itip { display: inline-flex; align-items: center; justify-content: center; position: relative; width: 16px; height: 16px; margin-left: 4px; vertical-align: middle; border-radius: 50%; background: var(--line); color: var(--muted); cursor: help; flex-shrink: 0; transition: background .15s, color .15s; }
+.itip:hover { background: var(--gold); color: var(--ink); }
+.itip .i { pointer-events: none; }
+.itip::after { content: attr(data-info); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 260px; padding: 8px 12px; border-radius: 8px; background: var(--text); color: var(--bg); font-size: 12px; font-weight: 400; line-height: 1.45; white-space: normal; text-align: left; pointer-events: none; opacity: 0; transition: opacity .15s; z-index: 30; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+.itip::before { content: ""; position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--text); pointer-events: none; opacity: 0; transition: opacity .15s; z-index: 30; }
+.itip:hover::after, .itip:hover::before { opacity: 1; }
+@media (max-width: 600px) { .itip::after { left: auto; right: -8px; transform: none; } .itip::before { left: auto; right: 0; transform: none; } }
+
 /* ---------- shell ---------- */
 .navtoggle { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
 .shell { display: grid; grid-template-columns: 252px minmax(0, 1fr); min-height: 100vh; }
