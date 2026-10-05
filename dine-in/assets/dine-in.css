@@ -702,6 +702,61 @@
 }
 .dinein-cart-empty a { color: var(--gold); text-decoration: underline; }
 
+/* --- Order error message --- */
+.dinein-order-error {
+  color: #E40303;
+  font-size: 0.88rem;
+  text-align: center;
+  margin-top: 12px;
+  line-height: 1.4;
+}
+
+/* ========== CONFIRMATION SCREEN ========== */
+.dinein-confirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80dvh;
+  padding: 40px 20px;
+  text-align: center;
+}
+.dinein-confirm-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: #000;
+  font-size: 2.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.dinein-confirmation h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+}
+.dinein-confirm-number {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+}
+.dinein-confirmation p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 28px;
+}
+.dinein-confirmation .dinein-btn {
+  max-width: 280px;
+  width: 100%;
+}
+
 /* Body lock when modal is open */
 body.dinein-modal-open { overflow: hidden; }
 

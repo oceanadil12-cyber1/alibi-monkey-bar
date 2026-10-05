@@ -570,13 +570,100 @@
     });
   }
 
-  // Place order — placeholder for Option 3
+  // ========== PLACE ORDER ==========
+
+  var orderErrorEl = null;
+
+  function showOrderError(msg) {
+    if (!orderErrorEl) {
+      orderErrorEl = document.createElement('p');
+      orderErrorEl.className = 'dinein-order-error';
+      placeOrderBtn.parentNode.insertBefore(orderErrorEl, placeOrderBtn.nextSibling);
+    }
+    orderErrorEl.textContent = msg;
+    orderErrorEl.hidden = !msg;
+  }
+
   placeOrderBtn.addEventListener('click', function () {
     if (state.cart.length === 0) return;
+    if (placeOrderBtn.dataset.sending === '1') return;
+
     state.orderNotes = orderNotesEl ? orderNotesEl.value.trim() : '';
-    // Option 3 will handle the API call and KDS integration
-    alert('Order placement will be implemented in Option 3.');
+    showOrderError('');
+
+    var payload = {
+      table: TABLE,
+      name: state.customerName,
+      cart: state.cart.map(function (line) {
+        return {
+          itemId: line.itemId,
+          variationId: line.variationId,
+          qty: line.qty,
+          modifiers: line.modifiers,
+          note: line.note || ''
+        };
+      }),
+      notes: state.orderNotes
+    };
+
+    placeOrderBtn.dataset.sending = '1';
+    placeOrderBtn.disabled = true;
+    placeOrderBtn.textContent = 'Placing Order…';
+
+    fetch('/api/dine-in-order.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        state.lastOrder = {
+          number: data.orderNumber,
+          table: data.table,
+          items: data.items,
+          total: data.total,
+          cart: state.cart.slice(),
+          notes: state.orderNotes
+        };
+        state.cart = [];
+        showScreen('confirmation');
+        renderConfirmation();
+      } else {
+        showOrderError(data.error || 'Something went wrong. Please try again.');
+        placeOrderBtn.disabled = false;
+      }
+    })
+    .catch(function () {
+      showOrderError('Could not reach the server. Please check your connection and try again.');
+      placeOrderBtn.disabled = false;
+    })
+    .finally(function () {
+      placeOrderBtn.dataset.sending = '';
+      placeOrderBtn.textContent = 'Place Order';
+    });
   });
+
+  // ========== SCREEN 4: ORDER CONFIRMATION (placeholder for Option 4) ==========
+
+  function renderConfirmation() {
+    var o = state.lastOrder;
+    if (!o) return;
+    var el = document.getElementById('screen-confirmation');
+    var html = '<div class="dinein-confirmation">';
+    html += '<div class="dinein-confirm-icon">&#10003;</div>';
+    html += '<h2>Order Placed!</h2>';
+    html += '<p class="dinein-confirm-number">Order #' + esc(o.number) + '</p>';
+    html += '<p>Your order has been sent to the kitchen.<br>Table ' + o.table + ' &middot; ' + o.items + ' item' + (o.items !== 1 ? 's' : '') + ' &middot; ' + money(o.total) + '</p>';
+    html += '<button class="dinein-btn dinein-btn--primary" id="dinein-new-order">Order More</button>';
+    html += '</div>';
+    el.innerHTML = html;
+
+    document.getElementById('dinein-new-order').addEventListener('click', function () {
+      showScreen('menu');
+      renderMenu();
+    });
+  }
 
   // ========== EXPOSE FOR OTHER OPTIONS ==========
 
