@@ -251,6 +251,32 @@
 .dinein-topbar-name { font-size: 0.9rem; color: var(--text-muted); }
 .dinein-topbar-logo { height: 32px; width: auto; }
 
+.dinein-topbar-waiter {
+  background: #8B2020;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, opacity 0.2s;
+}
+.dinein-topbar-waiter:active { opacity: 0.8; }
+.dinein-topbar-waiter.dinein-btn--waiter-called {
+  background: #1a6b35;
+}
+.dinein-topbar-waiter.dinein-btn--waiter-error {
+  background: #cc3333;
+}
+.dinein-topbar-waiter:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .dinein-back-btn {
   background: none;
   border: none;

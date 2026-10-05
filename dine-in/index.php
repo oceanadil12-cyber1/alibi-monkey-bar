@@ -85,7 +85,7 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
   <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/fonts/playfair-display-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/style.css?v=20261002">
-  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=8">
+  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=9">
 </head>
 <body>
 
@@ -138,7 +138,7 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
           <span class="dinein-topbar-table">Table <?= $table ?></span>
           <span class="dinein-topbar-name" id="dinein-greeting"></span>
         </div>
-        <img src="/images/logo.webp" alt="Alibi" class="dinein-topbar-logo" width="100" height="61">
+        <button type="button" class="dinein-topbar-waiter" id="dinein-menu-call-waiter">Call Waiter</button>
       </div>
       <div class="dinein-cats-wrap" id="dinein-cats-wrap">
         <button class="dinein-cats-arrow dinein-cats-arrow--left" id="dinein-cats-left" aria-label="Scroll left">&lsaquo;</button>
@@ -198,6 +198,6 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
 <?php if ($menuJson): ?>
   <script>window.__DINEIN_MENU = <?= $menuJson ?>;</script>
 <?php endif; ?>
-  <script src="/dine-in/assets/dine-in.js?v=8"></script>
+  <script src="/dine-in/assets/dine-in.js?v=9"></script>
 </body>
 </html>

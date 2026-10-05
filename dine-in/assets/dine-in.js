@@ -106,8 +106,9 @@
   var modalBody     = document.getElementById('dinein-modal-body');
   var modalFooter   = document.getElementById('dinein-modal-footer');
   var modalCloseBtn = document.getElementById('dinein-modal-close');
-  var callWaiterBtn = document.getElementById('dinein-call-waiter-btn');
-  var startBtn      = document.getElementById('dinein-start-btn');
+  var callWaiterBtn     = document.getElementById('dinein-call-waiter-btn');
+  var menuCallWaiterBtn = document.getElementById('dinein-menu-call-waiter');
+  var startBtn          = document.getElementById('dinein-start-btn');
 
   // ========== SCREEN 1: WELCOME ==========
 
@@ -170,6 +171,10 @@
   // "Call the Waiter" — sends a request to the admin panel
   var waiterInFlight = false;
 
+  function waiterLabel(btn) {
+    return btn === menuCallWaiterBtn ? 'Call Waiter' : 'Call the Waiter';
+  }
+
   function callWaiter(e) {
     var name = state.customerName || nameInput.value.trim();
     if (!name || validateName(name)) {
@@ -180,6 +185,7 @@
     if (!state.customerName) state.customerName = name;
 
     var btn = (e && e.currentTarget) || callWaiterBtn;
+    var label = waiterLabel(btn);
     waiterInFlight = true;
     btn.disabled = true;
     btn.textContent = 'Calling…';
@@ -200,7 +206,7 @@
         btn.textContent = data.already ? 'Already Called' : 'Waiter Called!';
         btn.classList.add('dinein-btn--waiter-called');
         setTimeout(function () {
-          btn.textContent = 'Call the Waiter';
+          btn.textContent = label;
           btn.classList.remove('dinein-btn--waiter-called');
           btn.disabled = false;
         }, 10000);
@@ -217,16 +223,18 @@
   }
 
   function showWaiterError(btn, msg) {
+    var label = waiterLabel(btn);
     btn.textContent = msg;
     btn.classList.add('dinein-btn--waiter-error');
     btn.disabled = false;
     setTimeout(function () {
-      btn.textContent = 'Call the Waiter';
+      btn.textContent = label;
       btn.classList.remove('dinein-btn--waiter-error');
     }, 4000);
   }
 
   callWaiterBtn.addEventListener('click', callWaiter);
+  if (menuCallWaiterBtn) menuCallWaiterBtn.addEventListener('click', callWaiter);
 
   // ========== SCREEN MANAGEMENT ==========
 
@@ -254,6 +262,11 @@
     callWaiterBtn.disabled = true;
     callWaiterBtn.textContent = 'Call the Waiter';
     callWaiterBtn.classList.remove('dinein-btn--waiter-called');
+    if (menuCallWaiterBtn) {
+      menuCallWaiterBtn.textContent = 'Call Waiter';
+      menuCallWaiterBtn.classList.remove('dinein-btn--waiter-called', 'dinein-btn--waiter-error');
+      menuCallWaiterBtn.disabled = false;
+    }
     clearIdleTimer();
     showScreen('welcome');
     nameInput.focus();
