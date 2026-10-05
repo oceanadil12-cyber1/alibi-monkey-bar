@@ -84,6 +84,31 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggle.checked = false; });
   }
 
+  // ----- Smooth page transitions -----
+  const mainEl = $('.main');
+  if (mainEl) {
+    mainEl.classList.add('entering');
+    mainEl.addEventListener('animationend', () => mainEl.classList.remove('entering'), { once: true });
+
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('a.nav-link, .side-brand');
+      if (!link || !link.href || link.target === '_blank' || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (link.classList.contains('on')) return;
+      e.preventDefault();
+      const href = link.href;
+
+      // Highlight the clicked nav link immediately.
+      $$('.nav-link.on').forEach((el) => el.classList.remove('on'));
+      if (link.classList.contains('nav-link')) link.classList.add('on');
+
+      // Close mobile menu if open.
+      if (toggle) toggle.checked = false;
+
+      mainEl.classList.add('leaving');
+      setTimeout(() => { window.location.href = href; }, 150);
+    });
+  }
+
   // ----- Info tooltip bubbles (fixed-position, escapes overflow:hidden cards) -----
   const bubble = document.createElement('div');
   bubble.className = 'itip-bubble';
