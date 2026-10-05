@@ -21,9 +21,56 @@ if ($table < 1 || $table > 999) {
 }
 
 require_once __DIR__ . '/../api/lib.php';
-$menu = [];
 require_once __DIR__ . '/../api/menu.php';
 $menuData = load_menu();
+
+$menuJson = null;
+if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) {
+    $cats = [];
+    $items = [];
+    foreach ($menuData['categories'] as $cat) {
+        $catItems = [];
+        foreach ($cat['itemIds'] as $id) {
+            if (!isset($menuData['items'][$id])) continue;
+            $it = $menuData['items'][$id];
+            if (!empty($it['soldOut']) || !empty($it['hidden'])) continue;
+            $catItems[] = $id;
+            if (!isset($items[$id])) {
+                $items[$id] = [
+                    'id'          => $it['id'],
+                    'name'        => $it['name'],
+                    'description' => $it['description'] ?? '',
+                    'image'       => $it['image'] ?? null,
+                    'soldOut'     => !empty($it['soldOut']),
+                    'variations'  => array_map(fn($v) => [
+                        'id'      => $v['id'],
+                        'name'    => $v['name'],
+                        'price'   => $v['price'],
+                        'soldOut' => !empty($v['soldOut']),
+                    ], $it['variations'] ?? []),
+                    'modifiers'   => array_map(fn($g) => [
+                        'id'      => $g['id'] ?? '',
+                        'name'    => $g['name'],
+                        'min'     => $g['min'],
+                        'max'     => $g['max'],
+                        'choices' => array_map(fn($c) => [
+                            'id'      => $c['id'],
+                            'name'    => $c['name'],
+                            'price'   => $c['price'],
+                            'default' => !empty($c['default']),
+                            'soldOut' => !empty($c['soldOut']),
+                        ], $g['choices'] ?? []),
+                    ], $it['modifiers'] ?? []),
+                ];
+            }
+        }
+        if ($catItems) {
+            $cats[] = ['id' => $cat['id'], 'name' => $cat['name'], 'itemIds' => $catItems];
+        }
+    }
+    $menuJson = json_encode(['categories' => $cats, 'items' => $items],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -38,7 +85,7 @@ $menuData = load_menu();
   <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/fonts/playfair-display-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/style.css?v=20261002">
-  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=1">
+  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=2">
 </head>
 <body>
 
@@ -79,14 +126,69 @@ $menuData = load_menu();
       </div>
     </div>
 
-    <!-- SCREEN: Menu (built in Option 2) -->
-    <div class="dinein-screen" id="screen-menu"></div>
+    <!-- SCREEN: Menu & Cart -->
+    <div class="dinein-screen" id="screen-menu">
+      <div class="dinein-topbar">
+        <div class="dinein-topbar-left">
+          <span class="dinein-topbar-table">Table <?= $table ?></span>
+          <span class="dinein-topbar-name" id="dinein-greeting"></span>
+        </div>
+        <img src="/images/logo.webp" alt="Alibi" class="dinein-topbar-logo" width="100" height="61">
+      </div>
+      <nav class="dinein-cats" id="dinein-cats"></nav>
+      <div class="dinein-menu-grid" id="dinein-menu-grid">
+        <p class="dinein-loading">Loading menu&hellip;</p>
+      </div>
+      <!-- Floating cart bar -->
+      <div class="dinein-cart-bar" id="dinein-cart-bar" hidden>
+        <button class="dinein-btn dinein-btn--primary dinein-cart-bar-btn" id="dinein-view-cart-btn">
+          <span id="dinein-cart-count">0 items</span> &middot;
+          <span id="dinein-cart-total">$0.00</span>
+          <span class="dinein-cart-bar-arrow">View Cart</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- SCREEN: Cart Review -->
+    <div class="dinein-screen" id="screen-cart">
+      <div class="dinein-topbar">
+        <button class="dinein-back-btn" id="dinein-back-to-menu">&larr; Menu</button>
+        <span class="dinein-topbar-table">Table <?= $table ?></span>
+      </div>
+      <div class="dinein-cart-review" id="dinein-cart-review">
+        <h2>Your Order</h2>
+        <div id="dinein-cart-items"></div>
+        <label class="dinein-field dinein-field--notes">
+          <span>Special Instructions / Kitchen Notes</span>
+          <textarea id="dinein-order-notes" rows="2" maxlength="500" placeholder="Allergies, cooking preferences, etc."></textarea>
+        </label>
+        <div class="dinein-cart-summary" id="dinein-cart-summary"></div>
+        <button class="dinein-btn dinein-btn--primary" id="dinein-place-order-btn" disabled>
+          Place Order
+        </button>
+        <p class="dinein-cart-empty" id="dinein-cart-empty-msg" hidden>
+          Your cart is empty. <a href="#" id="dinein-browse-menu">Browse the menu</a> to add items.
+        </p>
+      </div>
+    </div>
 
     <!-- SCREEN: Order Confirmation (built in Option 4) -->
     <div class="dinein-screen" id="screen-confirmation"></div>
 
   </div>
 
-  <script src="/dine-in/assets/dine-in.js?v=1"></script>
+  <!-- Item detail modal (inserted by JS) -->
+  <div class="dinein-modal-overlay" id="dinein-modal" hidden>
+    <div class="dinein-modal-panel" role="dialog" aria-modal="true">
+      <button class="dinein-modal-close" id="dinein-modal-close">&times;</button>
+      <div class="dinein-modal-scroll" id="dinein-modal-body"></div>
+      <div class="dinein-modal-footer" id="dinein-modal-footer"></div>
+    </div>
+  </div>
+
+<?php if ($menuJson): ?>
+  <script>window.__DINEIN_MENU = <?= $menuJson ?>;</script>
+<?php endif; ?>
+  <script src="/dine-in/assets/dine-in.js?v=3"></script>
 </body>
 </html>
