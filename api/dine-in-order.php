@@ -110,7 +110,7 @@ if (count($itemLines) === 0) fail('No valid items in the order.');
 $number = strtoupper(bin2hex(random_bytes(3)));
 
 require_once __DIR__ . '/db.php';
-save_row('orders', [
+$saved = save_row('orders', [
     'number'       => $number,
     'payment'      => 'dine-in',
     'order_type'   => 'dine-in',
@@ -123,6 +123,7 @@ save_row('orders', [
     'total'        => $subtotal,
     'ip'           => client_ip(),
 ]);
+if (!$saved) fail('Unable to save your order. Please try again.', 500);
 
 // --- log and notify ---
 define('KDS', true);

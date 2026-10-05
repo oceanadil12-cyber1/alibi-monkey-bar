@@ -85,7 +85,7 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
   <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/fonts/playfair-display-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/style.css?v=20261002">
-  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=5">
+  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=6">
 </head>
 <body>
 
@@ -194,6 +194,6 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
 <?php if ($menuJson): ?>
   <script>window.__DINEIN_MENU = <?= $menuJson ?>;</script>
 <?php endif; ?>
-  <script src="/dine-in/assets/dine-in.js?v=6"></script>
+  <script src="/dine-in/assets/dine-in.js?v=7"></script>
 </body>
 </html>

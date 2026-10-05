@@ -128,10 +128,17 @@
     else nameInput.classList.remove('dinein-field--invalid');
   }
 
+  var menuAvailable = !!(menu && menu.categories && menu.categories.length);
+
   function updateWelcomeButtons() {
     var valid = !validateName(nameInput.value);
-    startBtn.disabled = !valid;
     callWaiterBtn.disabled = !valid;
+    startBtn.disabled = !valid || !menuAvailable;
+    if (valid && !menuAvailable) {
+      startBtn.textContent = 'Menu Unavailable';
+    } else {
+      startBtn.textContent = 'Order by Yourself';
+    }
   }
 
   nameInput.addEventListener('input', function () {
@@ -161,12 +168,19 @@
   });
 
   // "Call the Waiter" — sends a request to the admin panel
+  var waiterInFlight = false;
+
   function callWaiter(e) {
     var name = state.customerName || nameInput.value.trim();
-    if (!name || validateName(name)) return;
+    if (!name || validateName(name)) {
+      setFieldError('Please enter your name first.');
+      return;
+    }
+    if (waiterInFlight) return;
     if (!state.customerName) state.customerName = name;
 
     var btn = (e && e.currentTarget) || callWaiterBtn;
+    waiterInFlight = true;
     btn.disabled = true;
     btn.textContent = 'Calling…';
 
@@ -175,10 +189,15 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ table: TABLE, name: state.customerName })
     })
-    .then(function (res) { return res.json(); })
+    .then(function (res) {
+      if (!res.ok && res.headers.get('content-type')?.indexOf('json') === -1) {
+        throw new Error('server');
+      }
+      return res.json();
+    })
     .then(function (data) {
       if (data.ok) {
-        btn.textContent = 'Waiter Called!';
+        btn.textContent = data.already ? 'Already Called' : 'Waiter Called!';
         btn.classList.add('dinein-btn--waiter-called');
         setTimeout(function () {
           btn.textContent = 'Call the Waiter';
@@ -186,14 +205,25 @@
           btn.disabled = false;
         }, 10000);
       } else {
-        btn.textContent = 'Call the Waiter';
-        btn.disabled = false;
+        showWaiterError(btn, data.error || 'Could not call the waiter. Try again.');
       }
     })
     .catch(function () {
-      btn.textContent = 'Call the Waiter';
-      btn.disabled = false;
+      showWaiterError(btn, 'Connection error. Please try again.');
+    })
+    .finally(function () {
+      waiterInFlight = false;
     });
+  }
+
+  function showWaiterError(btn, msg) {
+    btn.textContent = msg;
+    btn.classList.add('dinein-btn--waiter-error');
+    btn.disabled = false;
+    setTimeout(function () {
+      btn.textContent = 'Call the Waiter';
+      btn.classList.remove('dinein-btn--waiter-error');
+    }, 4000);
   }
 
   callWaiterBtn.addEventListener('click', callWaiter);
@@ -640,9 +670,13 @@
     orderErrorEl.hidden = !msg;
   }
 
+  var orderInFlight = false;
+
   placeOrderBtn.addEventListener('click', function () {
-    if (state.cart.length === 0) return;
-    if (placeOrderBtn.dataset.sending === '1') return;
+    if (state.cart.length === 0) { showOrderError('Your cart is empty.'); return; }
+    if (orderInFlight) return;
+    if (!state.customerName) { showOrderError('Session expired. Please start over.'); return; }
+    if (TABLE < 1) { showOrderError('Invalid table number.'); return; }
 
     state.orderNotes = orderNotesEl ? orderNotesEl.value.trim() : '';
     showOrderError('');
@@ -662,7 +696,7 @@
       notes: state.orderNotes
     };
 
-    placeOrderBtn.dataset.sending = '1';
+    orderInFlight = true;
     placeOrderBtn.disabled = true;
     placeOrderBtn.textContent = 'Placing Order…';
 
@@ -671,7 +705,12 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
-    .then(function (res) { return res.json(); })
+    .then(function (res) {
+      if (!res.ok && res.headers.get('content-type')?.indexOf('json') === -1) {
+        throw new Error('Server error (' + res.status + ')');
+      }
+      return res.json();
+    })
     .then(function (data) {
       if (data.ok) {
         state.lastOrder = {
@@ -687,15 +726,16 @@
         renderConfirmation();
       } else {
         showOrderError(data.error || 'Something went wrong. Please try again.');
-        placeOrderBtn.disabled = false;
       }
     })
-    .catch(function () {
-      showOrderError('Could not reach the server. Please check your connection and try again.');
-      placeOrderBtn.disabled = false;
+    .catch(function (err) {
+      var msg = 'Could not reach the server. Please check your connection and try again.';
+      if (err && err.message && err.message.indexOf('Server error') === 0) msg = err.message + '. Please try again.';
+      showOrderError(msg);
     })
     .finally(function () {
-      placeOrderBtn.dataset.sending = '';
+      orderInFlight = false;
+      placeOrderBtn.disabled = state.cart.length === 0;
       placeOrderBtn.textContent = 'Place Order';
     });
   });

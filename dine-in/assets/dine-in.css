@@ -180,6 +180,10 @@
   background: #27ae60 !important;
   opacity: 1 !important;
 }
+.dinein-btn--waiter-error {
+  background: #7f1d1d !important;
+  font-size: 0.85rem;
+}
 
 /* --- Welcome action buttons --- */
 .dinein-welcome-actions {
