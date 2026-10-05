@@ -22,7 +22,7 @@ function order_next(array $o): ?array
     switch ($o['status']) {
         case 'new':       return ['preparing', 'Start'];
         case 'preparing': return ['ready', 'Mark ready'];
-        case 'ready':     return ['completed', $o['type'] === 'delivery' ? 'Delivered' : 'Picked up'];
+        case 'ready':     return ['completed', $o['type'] === 'delivery' ? 'Delivered' : ($o['type'] === 'dine-in' ? 'Served' : 'Picked up')];
     }
     return null;
 }
@@ -192,6 +192,8 @@ function admin_orders_list(): void
     $sold = array_values(array_filter($all, fn($o) => $o['status'] !== 'cancelled'));
     $sales = array_sum(array_column($sold, 'total'));
     $deliveries = count(array_filter($sold, fn($o) => $o['type'] === 'delivery'));
+    $pickups = count(array_filter($sold, fn($o) => $o['type'] === 'pickup'));
+    $dineins = count(array_filter($sold, fn($o) => $o['type'] === 'dine-in'));
     $cancelled = count($all) - count($sold);
 
     $tabs = [];
@@ -227,10 +229,12 @@ function admin_orders_list(): void
             btn_link('Download spreadsheet', admin_url('orders', $filters + ['csv' => 1]), '', 'download'))
         . period_bar('orders', $period, $presets, array_diff_key($filters, ['days' => 1, 'from' => 1, 'to' => 1]))
         . '<div class="stats">'
-        . stat_tile('Orders', number_format(count($sold)), admin_url('orders', $filters), $cancelled ? h(plural($cancelled, 'cancelled order')) : '', 'bag')
+        . stat_tile('Total orders', number_format(count($sold)), admin_url('orders', $filters), $cancelled ? h(plural($cancelled, 'cancelled order')) : '', 'bag')
+        . stat_tile('Dine-in orders', number_format($dineins), admin_url('orders', $filters), $sold ? h(round($dineins * 100 / count($sold)) . '% of orders') : '', 'home')
+        . stat_tile('Pickup orders', number_format($pickups), admin_url('orders', $filters), $sold ? h(round($pickups * 100 / count($sold)) . '% of orders') : '', 'bag')
+        . stat_tile('Delivery orders', number_format($deliveries), admin_url('orders', $filters), $sold ? h(round($deliveries * 100 / count($sold)) . '% of orders') : '', 'truck')
         . stat_tile('Sales before tax', fmt_money($sales), admin_url('orders', $filters), '', 'dollar')
         . stat_tile('Average order', $sold ? fmt_money((int) round($sales / count($sold))) : '$0.00', admin_url('orders', $filters), '', 'chart')
-        . stat_tile('Delivery orders', number_format($deliveries), admin_url('orders', $filters), $sold ? h(round($deliveries * 100 / count($sold)) . '% of orders') : '', 'truck')
         . '</div>'
         . '<div class="toolbar">' . tabs_html($tabs) . '<span class="grow"></span>' . search_form('orders', array_diff_key($filters, ['q' => 1]), $q, 'Search name, phone, item…') . '</div>'
         . ($rows === ''
