@@ -47,6 +47,12 @@ if (($_GET['api'] ?? '') === 'counts') {
     send_json(['ok' => true] + admin_counts());
 }
 
+// Notification alerts for the topbar bell, asked every 30 seconds by admin.js.
+if (($_GET['api'] ?? '') === 'notifications') {
+    if (!admin_signed_in(false)) send_json(['ok' => false, 'signedOut' => true], 401);
+    send_json(['ok' => true, 'alerts' => admin_notifications()]);
+}
+
 // Dine-in order creation API (POST from the waiter interface).
 if (($_GET['api'] ?? '') === 'dine-in') {
     if (!admin_signed_in()) send_json(['ok' => false, 'error' => 'Not signed in.'], 401);

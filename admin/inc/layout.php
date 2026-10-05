@@ -91,7 +91,7 @@ function admin_render(string $title, string $bodyHtml, string $active = '', arra
 
     header('Content-Type: text/html; charset=utf-8');
     echo admin_head(($waiting ? "($waiting) " : '') . $title . ' · Alibi Admin')
-        . '<body data-counts-url="' . h(admin_url('', ['api' => 'counts'])) . '" data-title="' . h($title . ' · Alibi Admin') . '">'
+        . '<body data-counts-url="' . h(admin_url('', ['api' => 'counts'])) . '" data-notif-url="' . h(admin_url('', ['api' => 'notifications'])) . '" data-title="' . h($title . ' · Alibi Admin') . '">'
         . '<a class="skip" href="#content">Skip to content</a>'
         . '<input type="checkbox" id="navtoggle" class="navtoggle" tabindex="-1" aria-hidden="true">'
         . '<div class="shell">'
@@ -112,6 +112,15 @@ function admin_render(string $title, string $bodyHtml, string $active = '', arra
         .     '<label class="burger" for="navtoggle" tabindex="0" role="button" aria-label="Open menu" aria-controls="side">' . icon('menu', 22) . '</label>'
         .     '<div class="crumbs"><span>Alibi Admin</span><span class="sep">/</span><b>' . h(admin_section_label($active)) . '</b></div>'
         .     '<span class="grow"></span>'
+        .     '<div class="notif-wrap" id="notif-wrap">'
+        .       '<button class="notif-bell" id="notif-bell" type="button" aria-label="Notifications" aria-expanded="false" aria-controls="notif-panel">'
+        .         icon('bell', 18) . '<b class="notif-dot" id="notif-dot" hidden></b>'
+        .       '</button>'
+        .       '<div class="notif-panel" id="notif-panel" role="menu" hidden>'
+        .         '<div class="notif-head"><b>Notifications</b><button class="notif-close" id="notif-close" type="button" aria-label="Close">' . icon('x', 14) . '</button></div>'
+        .         '<div class="notif-body" id="notif-body"><p class="notif-empty">No alerts right now.</p></div>'
+        .       '</div>'
+        .     '</div>'
         .     '<a class="btn sm ghost" href="' . h(SITE_BASE) . '" target="_blank" rel="noopener">' . icon('external', 15) . '<span>View website</span></a>'
         .   '</header>'
         .   '<main class="content" id="content">' . flash_html() . $bodyHtml . '</main>'

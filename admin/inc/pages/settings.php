@@ -47,6 +47,11 @@ function save_store_settings(): void
         'pickupInstructions' => trim(mb_substr((string) ($_POST['pickupInstructions'] ?? ''), 0, 300)),
         'pickupHours'        => $readHours('pickup'),
         'deliveryHours'      => $readHours('delivery'),
+        'notificationsEnabled'    => !empty($_POST['notificationsEnabled']),
+        'alertOrderNotStarted'    => min(120, max(0, (int) ($_POST['alertOrderNotStarted'] ?? 5))),
+        'alertOrderLatePrep'      => min(120, max(0, (int) ($_POST['alertOrderLatePrep'] ?? 0))),
+        'alertOrderReadyIdle'     => min(120, max(0, (int) ($_POST['alertOrderReadyIdle'] ?? 5))),
+        'alertEventSoon'          => min(120, max(0, (int) ($_POST['alertEventSoon'] ?? 30))),
     ]);
 }
 
@@ -55,7 +60,7 @@ function admin_page_settings(): void
     if (is_post()) {
         require_csrf();
         save_store_settings();
-        admin_log('settings.save', 'hours, delivery and fees');
+        admin_log('settings.save', 'hours, delivery, fees and notifications');
         flash('Saved. The website follows the new settings straight away.');
         redirect(admin_url('settings'));
     }
@@ -91,6 +96,16 @@ function admin_page_settings(): void
             . '<label class="field wide"><span>Pickup instructions (optional)</span><input name="pickupInstructions" value="' . h($store['pickupInstructions'] ?? '') . '" maxlength="300"></label></div>')
         . card('Hours', '<div class="hours-wrap"><div><h3>Pickup</h3>' . $hoursTable('pickup', $store['pickupHours'] ?? []) . '</div>'
             . '<div><h3>Delivery</h3>' . $hoursTable('delivery', $store['deliveryHours'] ?? []) . '</div></div>')
+        . card('Notifications', '<p class="sub" style="margin:0 0 12px">Alert thresholds for the admin notification bell. Set to 0 to disable a specific alert.</p><div class="form-grid">'
+            . '<label class="check"><input type="checkbox" name="notificationsEnabled" value="1" ' . (!empty($store['notificationsEnabled']) ? 'checked' : '') . '> Notifications enabled</label>'
+            . '<label class="field sm"><span>Order not started</span>' . minutes_input('alertOrderNotStarted', (string) (int) ($store['alertOrderNotStarted'] ?? 5)) . '</label>'
+            . '<label class="field sm"><span>Order prep overtime</span>' . minutes_input('alertOrderLatePrep', (string) (int) ($store['alertOrderLatePrep'] ?? 0)) . '</label>'
+            . '<label class="field sm"><span>Order ready idle</span>' . minutes_input('alertOrderReadyIdle', (string) (int) ($store['alertOrderReadyIdle'] ?? 5)) . '</label>'
+            . '<label class="field sm"><span>Event starting soon</span>' . minutes_input('alertEventSoon', (string) (int) ($store['alertEventSoon'] ?? 30)) . '</label>'
+            . '</div><p class="hint">Order not started: alert when a new order hasn\'t been started after this many minutes.<br>'
+            . 'Order prep overtime: alert when prep exceeds the expected time (0 = use the item/store prep time).<br>'
+            . 'Order ready idle: alert when an order is marked ready but hasn\'t been completed.<br>'
+            . 'Event starting soon: alert before a scheduled event begins today.</p>')
         . '<div class="savebar"><span class="muted">Changes go live as soon as you save.</span>' . btn_submit('Save settings', 'primary', '', '', 'check') . '</div></form>';
     admin_render('Store settings', $body, 'settings');
 }

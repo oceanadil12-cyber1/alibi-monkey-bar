@@ -131,4 +131,110 @@
     timer = setInterval(() => { if (!document.hidden) tick(); }, 30000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
   }
+
+  // ----- Notification bell & dropdown -----
+  const notifUrl = document.body.dataset.notifUrl;
+  const bell = $('#notif-bell');
+  const panel = $('#notif-panel');
+  const dot = $('#notif-dot');
+  const body = $('#notif-body');
+  if (notifUrl && bell && panel && body) {
+    const typeLabels = {
+      'order-not-started': 'Order alert',
+      'order-late-prep': 'Kitchen alert',
+      'order-ready-idle-pickup': 'Pickup alert',
+      'order-ready-idle-delivery': 'Delivery alert',
+      'order-ready-idle-dinein': 'Dine-in alert',
+      'event-soon': 'Event',
+      'reservation-pending': 'Reservation',
+      'waiter-call': 'Waiter call',
+    };
+    const typeIcons = {
+      'order-not-started': 'clock',
+      'order-late-prep': 'alert',
+      'order-ready-idle-pickup': 'bag',
+      'order-ready-idle-delivery': 'truck',
+      'order-ready-idle-dinein': 'edit',
+      'event-soon': 'music',
+      'reservation-pending': 'calendar',
+      'waiter-call': 'bell',
+    };
+    const iconSvg = (name, size) => {
+      const paths = {
+        clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        alert: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+        bag: '<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+        truck: '<path d="M1 3h15v13H1zM16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+        edit: '<path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+        music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+        calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+        bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+      };
+      return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (paths[name] || '') + '</svg>';
+    };
+
+    let lastAlertKeys = new Set();
+    let notifTimer = null;
+
+    const esc = (s) => { const d = document.createElement('span'); d.textContent = s; return d.innerHTML; };
+
+    const renderAlerts = (alerts) => {
+      if (!alerts || !alerts.length) {
+        body.innerHTML = '<p class="notif-empty">No alerts right now.</p>';
+        dot.hidden = true;
+        bell.classList.remove('has-alerts');
+        lastAlertKeys.clear();
+        return;
+      }
+      dot.hidden = false;
+      bell.classList.add('has-alerts');
+
+      // Toast for new alerts.
+      const currentKeys = new Set(alerts.map((a) => a.type + ':' + a.message));
+      for (const a of alerts) {
+        const key = a.type + ':' + a.message;
+        if (!lastAlertKeys.has(key) && lastAlertKeys.size > 0) {
+          toast(a.message, a.href, 'View');
+        }
+      }
+      lastAlertKeys = currentKeys;
+
+      body.innerHTML = alerts.map((a) => {
+        const icon = typeIcons[a.type] || 'alert';
+        const label = typeLabels[a.type] || a.type;
+        return '<a class="notif-item" href="' + esc(a.href) + '">'
+          + '<span class="notif-icon tone-' + esc(a.tone) + '">' + iconSvg(icon, 16) + '</span>'
+          + '<span class="notif-msg">' + esc(a.message) + '<span class="notif-type">' + esc(label) + '</span></span>'
+          + '</a>';
+      }).join('');
+    };
+
+    const fetchNotifs = () => fetch(notifUrl, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then((r) => (r.status === 401 ? Promise.reject('out') : r.json()))
+      .then((d) => { if (d.ok) renderAlerts(d.alerts); })
+      .catch((err) => {
+        if (err === 'out' && notifTimer) clearInterval(notifTimer);
+      });
+
+    // Toggle panel.
+    bell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = panel.hidden;
+      panel.hidden = !open;
+      bell.setAttribute('aria-expanded', open);
+      if (open) fetchNotifs();
+    });
+    $('#notif-close').addEventListener('click', () => { panel.hidden = true; bell.setAttribute('aria-expanded', 'false'); });
+    document.addEventListener('click', (e) => {
+      if (!panel.hidden && !e.target.closest('#notif-wrap')) { panel.hidden = true; bell.setAttribute('aria-expanded', 'false'); }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.hidden) { panel.hidden = true; bell.setAttribute('aria-expanded', 'false'); }
+    });
+
+    // Poll alongside the badge counter.
+    fetchNotifs();
+    notifTimer = setInterval(() => { if (!document.hidden) fetchNotifs(); }, 30000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchNotifs(); });
+  }
 })();

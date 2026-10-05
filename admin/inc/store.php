@@ -282,6 +282,138 @@ function admin_counts(): array
     return ['orders' => $orders, 'reservations' => $reservations, 'messages' => $messages, 'waiter-assistance' => $wa];
 }
 
+// ---------- notification alerts ----------
+
+function admin_notifications(): array
+{
+    $store = admin_store();
+    if (empty($store['notificationsEnabled'])) return [];
+
+    $alerts = [];
+    $now = time();
+    $today = date('Y-m-d');
+    $alertNotStarted = (int) ($store['alertOrderNotStarted'] ?? 5);
+    $alertLatePrep   = (int) ($store['alertOrderLatePrep'] ?? 0);
+    $alertReadyIdle  = (int) ($store['alertOrderReadyIdle'] ?? 5);
+    $alertEventSoon  = (int) ($store['alertEventSoon'] ?? 30);
+
+    // Active orders (new, preparing, ready) from the last 24 hours.
+    $cutoff = date('Y-m-d H:i:s', $now - 86400);
+    $stmt = db()->prepare("SELECT * FROM orders WHERE status IN ('new','preparing','ready') AND created_at >= ? ORDER BY created_at ASC");
+    $stmt->execute([$cutoff]);
+    while ($r = $stmt->fetch()) {
+        $o = order_from_row($r);
+        $age = $now - $o['ts'];
+
+        // Order not started.
+        if ($o['status'] === 'new' && $alertNotStarted > 0 && $age >= $alertNotStarted * 60) {
+            $alerts[] = [
+                'type' => 'order-not-started',
+                'tone' => 'crit',
+                'message' => 'Order #' . $o['number'] . ' not started (' . floor($age / 60) . ' min)',
+                'href' => '?page=orders&id=' . $o['number'],
+                'ts' => $o['ts'],
+            ];
+        }
+
+        // Order prep overtime.
+        if ($o['status'] === 'preparing' && $o['kds_started']) {
+            $started = strtotime($o['kds_started']);
+            $expected = $o['kds_duration'] ?? ($store['prepMinutes'] ?? 25) * 60;
+            if ($alertLatePrep > 0) $expected = $alertLatePrep * 60;
+            $elapsed = $now - $started;
+            if ($elapsed > $expected) {
+                $alerts[] = [
+                    'type' => 'order-late-prep',
+                    'tone' => 'warn',
+                    'message' => 'Order #' . $o['number'] . ' prep overtime (' . floor($elapsed / 60) . ' min)',
+                    'href' => '?page=orders&id=' . $o['number'],
+                    'ts' => $started,
+                ];
+            }
+        }
+
+        // Order ready but idle.
+        if ($o['status'] === 'ready' && $alertReadyIdle > 0 && $o['kds_completed']) {
+            $completed = strtotime($o['kds_completed']);
+            $idle = $now - $completed;
+            if ($idle >= $alertReadyIdle * 60) {
+                $type = $o['type'] === 'delivery' ? 'order-ready-idle-delivery' : ($o['type'] === 'dine-in' ? 'order-ready-idle-dinein' : 'order-ready-idle-pickup');
+                $label = $o['type'] === 'delivery' ? 'not dispatched' : ($o['type'] === 'dine-in' ? 'not served' : 'not picked up');
+                $alerts[] = [
+                    'type' => $type,
+                    'tone' => 'warn',
+                    'message' => 'Order #' . $o['number'] . ' ready ' . floor($idle / 60) . ' min, ' . $label,
+                    'href' => '?page=orders&id=' . $o['number'],
+                    'ts' => $completed,
+                ];
+            }
+        }
+    }
+
+    // Upcoming events today.
+    if ($alertEventSoon > 0) {
+        try {
+            $stmt = db()->prepare("SELECT name, time_label FROM events WHERE event_date = ?");
+            $stmt->execute([$today]);
+            while ($ev = $stmt->fetch()) {
+                $t = trim((string) $ev['time_label']);
+                if (preg_match('/(\d{1,2}):(\d{2})\s*(AM|PM)?/i', $t, $m)) {
+                    $h = (int) $m[1];
+                    $min = (int) $m[2];
+                    $ampm = strtoupper($m[3] ?? '');
+                    if ($ampm === 'PM' && $h < 12) $h += 12;
+                    if ($ampm === 'AM' && $h === 12) $h = 0;
+                    $eventTs = strtotime($today . ' ' . sprintf('%02d:%02d:00', $h, $min));
+                    $diff = $eventTs - $now;
+                    if ($diff > 0 && $diff <= $alertEventSoon * 60) {
+                        $alerts[] = [
+                            'type' => 'event-soon',
+                            'tone' => 'info',
+                            'message' => $ev['name'] . ' starts in ' . ceil($diff / 60) . ' min',
+                            'href' => '?page=events',
+                            'ts' => $eventTs,
+                        ];
+                    }
+                }
+            }
+        } catch (Throwable $e) {}
+    }
+
+    // Pending reservations for today/tomorrow.
+    try {
+        $tomorrow = date('Y-m-d', strtotime('+1 day'));
+        $stmt = db()->prepare("SELECT * FROM reservations WHERE status = 'pending' AND reservation_date IN (?, ?) ORDER BY reservation_date, reservation_time");
+        $stmt->execute([$today, $tomorrow]);
+        while ($r = $stmt->fetch()) {
+            $alerts[] = [
+                'type' => 'reservation-pending',
+                'tone' => 'info',
+                'message' => 'Reservation from ' . $r['name'] . ' for ' . fmt_date($r['reservation_date']) . ' needs a response',
+                'href' => '?page=reservations&view=pending',
+                'ts' => (int) strtotime($r['received']),
+            ];
+        }
+    } catch (Throwable $e) {}
+
+    // Active waiter assistance calls.
+    try {
+        $rows = db()->query("SELECT id, created_at, table_number, customer_name FROM waiter_calls WHERE status = 'active' ORDER BY created_at ASC")->fetchAll();
+        foreach ($rows as $r) {
+            $age = $now - strtotime($r['created_at']);
+            $alerts[] = [
+                'type' => 'waiter-call',
+                'tone' => $age > 300 ? 'crit' : 'warn',
+                'message' => 'Table ' . $r['table_number'] . ' needs assistance' . ($r['customer_name'] ? ' (' . $r['customer_name'] . ')' : '') . ' — ' . floor($age / 60) . ' min ago',
+                'href' => '?page=waiter-assistance',
+                'ts' => (int) strtotime($r['created_at']),
+            ];
+        }
+    } catch (Throwable $e) {}
+
+    return $alerts;
+}
+
 // ---------- the business's own details ----------
 
 /** Name, address and phone as set in Store settings (with the usual fallbacks), for email templates and print-outs. */
