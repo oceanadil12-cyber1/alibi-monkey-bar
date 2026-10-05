@@ -633,7 +633,7 @@
 /* ========== CART REVIEW SCREEN ========== */
 .dinein-cart-review {
   padding: 20px 16px;
-  padding-bottom: 40px;
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
   max-width: 500px;
   margin: 0 auto;
 }
@@ -752,6 +752,7 @@
   justify-content: center;
   min-height: 80dvh;
   padding: 40px 20px;
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
   text-align: center;
 }
 .dinein-confirm-icon {
@@ -901,20 +902,8 @@
 body.dinein-modal-open { overflow: hidden; }
 
 /* ========== RESPONSIVE ========== */
-@media (min-width: 600px) {
-  .dinein-items-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .dinein-modal-panel {
-    border-radius: 20px;
-    margin-bottom: 20px;
-    max-height: 85dvh;
-  }
-  .dinein-modal-overlay {
-    align-items: center;
-  }
-}
 
+/* --- Small phone (≤ 480px) --- */
 @media (max-width: 480px) {
   .dinein-welcome {
     padding: 24px 16px;
@@ -932,5 +921,156 @@ body.dinein-modal-open { overflow: hidden; }
   }
   .dinein-table-number {
     font-size: 2rem;
+  }
+  /* Ensure touch targets meet 44px minimum */
+  .dinein-cart-line-qty button {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+}
+
+/* --- Tablet and up (≥ 600px) --- */
+@media (min-width: 600px) {
+  .dinein-items-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dinein-modal-panel {
+    border-radius: 20px;
+    margin-bottom: 20px;
+    max-height: 85dvh;
+  }
+  .dinein-modal-overlay {
+    align-items: center;
+  }
+  .dinein-cart-review {
+    max-width: 600px;
+  }
+  .dinein-confirm-details,
+  .dinein-session-history {
+    max-width: 460px;
+  }
+  .dinein-confirm-actions {
+    max-width: 340px;
+  }
+}
+
+/* --- Tablet portrait and wider (≥ 768px) --- */
+@media (min-width: 768px) {
+  .dinein-welcome-card {
+    max-width: 480px;
+    padding: 48px 40px;
+  }
+  .dinein-welcome-logo img {
+    width: 260px;
+  }
+  .dinein-cat-tab {
+    font-size: 0.88rem;
+    padding: 10px 20px;
+  }
+  .dinein-cat-title {
+    font-size: 1.5rem;
+  }
+  .dinein-item-card {
+    padding: 14px 16px;
+  }
+  .dinein-item-name {
+    font-size: 1rem;
+  }
+  .dinein-item-img {
+    width: 80px;
+    height: 80px;
+  }
+  .dinein-topbar {
+    padding: 12px 24px;
+  }
+  .dinein-cats {
+    padding: 10px 24px;
+  }
+  .dinein-menu-grid {
+    padding: 20px 24px;
+    padding-bottom: 100px;
+  }
+  .dinein-modal-panel {
+    max-width: 540px;
+  }
+}
+
+/* --- Large tablet / landscape (≥ 900px) --- */
+@media (min-width: 900px) {
+  .dinein-items-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .dinein-cart-review {
+    max-width: 680px;
+  }
+  .dinein-confirm-details,
+  .dinein-session-history {
+    max-width: 520px;
+  }
+}
+
+/* --- Landscape phone (short viewport) — last so it overrides tablet rules --- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .dinein-welcome {
+    min-height: auto;
+    padding: 16px 20px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+  }
+  .dinein-welcome-logo {
+    width: 100%;
+    text-align: center;
+  }
+  .dinein-welcome-logo img {
+    width: 140px;
+    margin-bottom: 0;
+  }
+  .dinein-welcome-card {
+    padding: 20px 24px;
+    max-width: 380px;
+  }
+  .dinein-welcome-card h1 {
+    font-size: 1.4rem;
+    margin-bottom: 4px;
+  }
+  .dinein-welcome-card > p {
+    margin-bottom: 16px;
+    font-size: 0.88rem;
+  }
+  .dinein-table-badge {
+    padding: 8px 20px;
+    margin-bottom: 12px;
+  }
+  .dinein-table-number {
+    font-size: 1.6rem;
+  }
+  .dinein-welcome-footer {
+    margin-top: 12px;
+  }
+  .dinein-welcome-actions {
+    margin-top: 12px;
+  }
+  .dinein-btn--primary,
+  .dinein-btn--waiter {
+    padding: 12px 20px;
+  }
+  .dinein-field {
+    margin-bottom: 12px;
+  }
+  .dinein-confirmation {
+    min-height: auto;
+    padding: 24px 20px;
+  }
+  .dinein-confirm-icon {
+    width: 52px;
+    height: 52px;
+    font-size: 1.6rem;
+    margin-bottom: 12px;
+  }
+  .dinein-confirmation h2 {
+    font-size: 1.4rem;
   }
 }
