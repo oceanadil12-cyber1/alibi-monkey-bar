@@ -1,0 +1,193 @@
+/* Customer-facing dine-in ordering — Option 1: Welcome Screen */
+
+/* --- Screens (only one visible at a time) --- */
+.dinein-screen {
+  display: none;
+  min-height: 100dvh;
+}
+.dinein-screen--active {
+  display: block;
+}
+
+/* --- Welcome Screen --- */
+.dinein-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.dinein-welcome-logo img {
+  width: 220px;
+  height: auto;
+  margin-bottom: 32px;
+}
+
+.dinein-welcome-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 32px;
+  max-width: 420px;
+  width: 100%;
+}
+
+.dinein-welcome-card h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  color: var(--white);
+  margin-bottom: 8px;
+}
+
+.dinein-welcome-card > p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+/* --- Table Badge --- */
+.dinein-table-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+  border-radius: 12px;
+  padding: 12px 28px;
+  margin-bottom: 20px;
+}
+
+.dinein-table-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.dinein-table-number {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: #000;
+  line-height: 1;
+}
+
+/* --- Form Field --- */
+.dinein-field {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.dinein-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.dinein-field input {
+  width: 100%;
+  padding: 14px 16px;
+  font-family: 'Inter', sans-serif;
+  font-size: 1.05rem;
+  color: var(--white);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.dinein-field input::placeholder {
+  color: #555;
+}
+
+.dinein-field input:focus {
+  border-color: var(--gold);
+}
+
+.dinein-field input.dinein-field--invalid {
+  border-color: #E40303;
+}
+
+.dinein-field-error {
+  display: block;
+  font-size: 0.8rem;
+  color: #E40303;
+  margin-top: 6px;
+  min-height: 1.2em;
+}
+
+/* --- Primary Button --- */
+.dinein-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dinein-btn:active {
+  transform: scale(0.97);
+}
+
+.dinein-btn--primary {
+  width: 100%;
+  padding: 16px 24px;
+  color: #000;
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+}
+
+.dinein-btn--primary:hover {
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+}
+
+.dinein-btn--primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --- Footer --- */
+.dinein-welcome-footer {
+  margin-top: 32px;
+  font-size: 0.78rem;
+  color: #555;
+}
+
+/* --- Mobile adjustments --- */
+@media (max-width: 480px) {
+  .dinein-welcome {
+    padding: 24px 16px;
+  }
+
+  .dinein-welcome-logo img {
+    width: 180px;
+    margin-bottom: 24px;
+  }
+
+  .dinein-welcome-card {
+    padding: 28px 20px;
+    border-radius: 12px;
+  }
+
+  .dinein-welcome-card h1 {
+    font-size: 1.65rem;
+  }
+
+  .dinein-table-number {
+    font-size: 2rem;
+  }
+}
