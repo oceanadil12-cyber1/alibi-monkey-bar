@@ -85,7 +85,7 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
   <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/fonts/playfair-display-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/style.css?v=20261002">
-  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=4">
+  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=5">
 </head>
 <body>
 
@@ -103,7 +103,7 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
             <span class="dinein-table-number"><?= $table ?></span>
           </div>
           <h1>Welcome!</h1>
-          <p>Enter your first name to start ordering from your table.</p>
+          <p>Enter your first name to get started.</p>
           <form id="dinein-name-form" autocomplete="off" novalidate>
             <div class="dinein-field">
               <label for="dinein-name">Your First Name</label>
@@ -115,9 +115,14 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
                      required>
               <span class="dinein-field-error" id="dinein-name-error"></span>
             </div>
-            <button type="submit" class="dinein-btn dinein-btn--primary" id="dinein-start-btn">
-              Start Ordering
-            </button>
+            <div class="dinein-welcome-actions" id="dinein-welcome-actions">
+              <button type="button" class="dinein-btn dinein-btn--waiter" id="dinein-call-waiter-btn" disabled>
+                Call the Waiter
+              </button>
+              <button type="submit" class="dinein-btn dinein-btn--primary" id="dinein-start-btn" disabled>
+                Order by Yourself
+              </button>
+            </div>
           </form>
         </div>
         <p class="dinein-welcome-footer">
@@ -189,6 +194,6 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
 <?php if ($menuJson): ?>
   <script>window.__DINEIN_MENU = <?= $menuJson ?>;</script>
 <?php endif; ?>
-  <script src="/dine-in/assets/dine-in.js?v=5"></script>
+  <script src="/dine-in/assets/dine-in.js?v=6"></script>
 </body>
 </html>

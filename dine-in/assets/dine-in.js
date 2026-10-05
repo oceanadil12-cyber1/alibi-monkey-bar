@@ -106,6 +106,8 @@
   var modalBody     = document.getElementById('dinein-modal-body');
   var modalFooter   = document.getElementById('dinein-modal-footer');
   var modalCloseBtn = document.getElementById('dinein-modal-close');
+  var callWaiterBtn = document.getElementById('dinein-call-waiter-btn');
+  var startBtn      = document.getElementById('dinein-start-btn');
 
   // ========== SCREEN 1: WELCOME ==========
 
@@ -126,6 +128,12 @@
     else nameInput.classList.remove('dinein-field--invalid');
   }
 
+  function updateWelcomeButtons() {
+    var valid = !validateName(nameInput.value);
+    startBtn.disabled = !valid;
+    callWaiterBtn.disabled = !valid;
+  }
+
   nameInput.addEventListener('input', function () {
     var raw = nameInput.value;
     var filtered = raw.replace(/[^A-Za-z ]/g, '');
@@ -133,6 +141,7 @@
     if (nameInput.classList.contains('dinein-field--invalid')) {
       if (!validateName(filtered)) setFieldError('');
     }
+    updateWelcomeButtons();
   });
 
   nameInput.addEventListener('blur', function () {
@@ -140,6 +149,7 @@
     if (err && nameInput.value.trim().length > 0) setFieldError(err);
   });
 
+  // "Order by Yourself" — goes to the menu
   nameForm.addEventListener('submit', function (e) {
     e.preventDefault();
     var err = validateName(nameInput.value);
@@ -149,6 +159,44 @@
     showScreen('menu');
     renderMenu();
   });
+
+  // "Call the Waiter" — sends a request to the admin panel
+  function callWaiter(e) {
+    var name = state.customerName || nameInput.value.trim();
+    if (!name || validateName(name)) return;
+    if (!state.customerName) state.customerName = name;
+
+    var btn = (e && e.currentTarget) || callWaiterBtn;
+    btn.disabled = true;
+    btn.textContent = 'Calling…';
+
+    fetch('/api/waiter-call.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table: TABLE, name: state.customerName })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        btn.textContent = 'Waiter Called!';
+        btn.classList.add('dinein-btn--waiter-called');
+        setTimeout(function () {
+          btn.textContent = 'Call the Waiter';
+          btn.classList.remove('dinein-btn--waiter-called');
+          btn.disabled = false;
+        }, 10000);
+      } else {
+        btn.textContent = 'Call the Waiter';
+        btn.disabled = false;
+      }
+    })
+    .catch(function () {
+      btn.textContent = 'Call the Waiter';
+      btn.disabled = false;
+    });
+  }
+
+  callWaiterBtn.addEventListener('click', callWaiter);
 
   // ========== SCREEN MANAGEMENT ==========
 
@@ -172,6 +220,10 @@
     state.orders = [];
     state.lastOrder = null;
     if (orderNotesEl) orderNotesEl.value = '';
+    startBtn.disabled = true;
+    callWaiterBtn.disabled = true;
+    callWaiterBtn.textContent = 'Call the Waiter';
+    callWaiterBtn.classList.remove('dinein-btn--waiter-called');
     clearIdleTimer();
     showScreen('welcome');
     nameInput.focus();
@@ -709,6 +761,7 @@
 
     html += '<div class="dinein-confirm-actions">';
     html += '<button class="dinein-btn dinein-btn--primary" id="dinein-new-order">Order More</button>';
+    html += '<button class="dinein-btn dinein-btn--waiter" id="dinein-confirm-call-waiter">Call the Waiter</button>';
     html += '<button class="dinein-btn dinein-btn--secondary" id="dinein-new-guest">New Guest / Done</button>';
     html += '</div>';
 
@@ -726,6 +779,8 @@
     document.getElementById('dinein-new-guest').addEventListener('click', function () {
       resetFlow();
     });
+
+    document.getElementById('dinein-confirm-call-waiter').addEventListener('click', callWaiter);
 
     // Start auto-reset countdown on confirmation screen
     startAutoReset();

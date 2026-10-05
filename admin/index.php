@@ -56,6 +56,12 @@ if (($_GET['api'] ?? '') === 'dine-in') {
     // dine_in_create() sends the JSON response and exits
 }
 
+// Waiter assistance API (list active, resolve).
+if (($_GET['api'] ?? '') === 'waiter') {
+    if (!admin_signed_in(false)) send_json(['ok' => false, 'signedOut' => true], 401);
+    require __DIR__ . '/inc/waiter-api.php';
+}
+
 if (!admin_signed_in()) admin_login($password); // shows the sign-in page, or redirects once the password is right
 
 if (is_post() && isset($_POST['logout'])) {

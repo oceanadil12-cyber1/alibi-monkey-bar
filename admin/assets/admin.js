@@ -106,7 +106,7 @@
   // ----- Live badges: ask every 30 seconds whether anything new came in -----
   const url = document.body.dataset.countsUrl;
   if (url) {
-    const kinds = { orders: ['New order received', '?page=orders&s=new'], reservations: ['New reservation request', '?page=reservations&view=pending'], messages: ['New message', '?page=messages&view=new'] };
+    const kinds = { orders: ['New order received', '?page=orders&s=new'], reservations: ['New reservation request', '?page=reservations&view=pending'], messages: ['New message', '?page=messages&view=new'], 'waiter-assistance': ['Waiter assistance requested', '?page=waiter-assistance'] };
     const baseTitle = document.body.dataset.title || document.title;
     const last = {};
     Object.keys(kinds).forEach((k) => { const b = $('[data-badge="' + k + '"]'); last[k] = b ? +b.textContent || 0 : 0; });

@@ -276,7 +276,10 @@ function admin_counts(): array
 
     $messages = (int) db()->query("SELECT COUNT(*) FROM contacts WHERE status = 'new'")->fetchColumn();
 
-    return ['orders' => $orders, 'reservations' => $reservations, 'messages' => $messages];
+    $wa = 0;
+    try { $wa = (int) db()->query("SELECT COUNT(*) FROM waiter_calls WHERE status = 'active'")->fetchColumn(); } catch (\Exception $e) {}
+
+    return ['orders' => $orders, 'reservations' => $reservations, 'messages' => $messages, 'waiter-assistance' => $wa];
 }
 
 // ---------- the business's own details ----------

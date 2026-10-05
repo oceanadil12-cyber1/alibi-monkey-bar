@@ -26,6 +26,6 @@ define('SITE_BASE', rtrim(dirname(rtrim(ADMIN_BASE, '/')), '/\\') . '/');
 
 /** Where each section lives: page name => file in admin/inc/pages/ (the whitelist for ?page=). */
 const ADMIN_PAGES = [
-    'dashboard', 'orders', 'dine-in', 'reservations', 'messages', 'subscribers',
+    'dashboard', 'orders', 'dine-in', 'waiter-assistance', 'reservations', 'messages', 'subscribers',
     'chats', 'insights', 'knowledge', 'events', 'performers', 'menu', 'happy-hour', 'settings', 'activity',
 ];

@@ -160,6 +160,35 @@
   transform: none;
 }
 
+/* --- Call the Waiter button --- */
+.dinein-btn--waiter {
+  width: 100%;
+  padding: 16px 24px;
+  color: #fff;
+  background: #c0392b;
+  border: none;
+}
+.dinein-btn--waiter:hover {
+  background: #e74c3c;
+}
+.dinein-btn--waiter:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+.dinein-btn--waiter-called {
+  background: #27ae60 !important;
+  opacity: 1 !important;
+}
+
+/* --- Welcome action buttons --- */
+.dinein-welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
 /* --- Footer --- */
 .dinein-welcome-footer {
   margin-top: 32px;

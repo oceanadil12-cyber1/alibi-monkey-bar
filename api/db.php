@@ -87,6 +87,10 @@ function db_sqlite_schema(PDO $pdo): void
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
         setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL,
         updated_at TEXT DEFAULT (datetime('now','localtime')))");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS waiter_calls (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT DEFAULT (datetime('now','localtime')),
+        table_number INTEGER NOT NULL, customer_name TEXT NOT NULL, status TEXT DEFAULT 'active',
+        resolved_at TEXT, ip TEXT DEFAULT '')");
 }
 
 /** Insert a row; returns the auto-increment id. */
