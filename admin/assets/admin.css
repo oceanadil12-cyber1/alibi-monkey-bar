@@ -413,7 +413,8 @@ a.pg:hover { text-decoration: none; border-color: #3d3d44; }
 .rows { margin: 0; padding: 0; list-style: none; }
 .rows li { border-bottom: 1px solid var(--line-soft); }
 .rows li:last-child { border-bottom: 0; }
-.rows li > a, .rows li > div { display: flex; align-items: center; gap: 12px; padding: 11px 6px; color: var(--text); border-radius: 8px; }
+.rows li > a, .rows li > div, .rows li > form { display: flex; align-items: center; gap: 12px; padding: 11px 6px; color: var(--text); border-radius: 8px; }
+.rows li > form > .btn { margin-left: auto; flex: none; }
 .rows li > a:hover { background: rgba(255, 255, 255, .03); text-decoration: none; }
 .rows li > a > .i:last-child { margin-left: auto; color: var(--muted); }
 .rows.act li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 6px; }

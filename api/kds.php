@@ -55,6 +55,12 @@ function kds_signed_in(): bool
 
 if (!kds_signed_in()) fail('Not signed in.', 401);
 
+try {
+    db();
+} catch (Throwable $e) {
+    fail('The database can\'t be reached right now. Orders are kept safe; try again in a moment.', 503);
+}
+
 // --- request handling ---
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail('Use POST.', 405);
 require_same_site();
@@ -121,11 +127,11 @@ function kds_orders(): array
             'note'         => $o['note'],
             'total'        => $o['total'],
             'ts'           => $o['ts'],
-            'time'         => $o['time'] ?? date('c', $o['ts']),
+            'time'         => date('c', $o['ts']),
             'status'       => $o['status'],
-            'prep_started' => $o['kds_started'] ?? null,
+            'prep_started' => db_iso($o['kds_started'] ?? null),
             'prep_duration'=> $o['kds_duration'] ?? kds_prep_seconds($o['type']),
-            'completed_at' => $o['kds_completed'] ?? null,
+            'completed_at' => db_iso($o['kds_completed'] ?? null),
         ];
     }
     usort($out, fn($a, $b) => $a['ts'] <=> $b['ts']);
@@ -166,7 +172,7 @@ if ($action === 'start') {
     $duration = kds_prep_seconds($o['type']);
     meta_set_status('order', $num, 'preparing');
     meta_set('order', $num, [
-        'kds_started'  => date('c'),
+        'kds_started'  => date('Y-m-d H:i:s'),
         'kds_duration' => $duration,
     ]);
     admin_log('kds.start', '#' . $num);
@@ -179,7 +185,7 @@ if ($action === 'complete') {
     if (!$o) fail('Order not found.');
 
     meta_set_status('order', $num, 'ready');
-    meta_set('order', $num, ['kds_completed' => date('c')]);
+    meta_set('order', $num, ['kds_completed' => date('Y-m-d H:i:s')]);
     admin_log('kds.complete', '#' . $num);
     send_json(['ok' => true]);
 }

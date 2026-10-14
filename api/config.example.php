@@ -12,7 +12,9 @@
  * payments on the restaurant's account.
  */
 return [
-    // ---------- MySQL database (create in cPanel → MySQL Databases) ----------
+    // ---------- MySQL database (MySQL 8.0.13+ or MariaDB 10.2+) ----------
+    // Create the database and user in cPanel → MySQL Databases, then import
+    // api/setup.sql in phpMyAdmin. On cPanel keep 'localhost'; on Windows use '127.0.0.1'.
     'db_host' => 'localhost',
     'db_name' => '',          // e.g. 'username_alibi'
     'db_user' => '',          // e.g. 'username_alibi'
@@ -37,7 +39,7 @@ return [
     'menu_cache_mins' => 15,
 
     // Where contact messages and reservation requests are emailed.
-    // (Everything is also saved in api/data/*.csv on the server.)
+    // (Everything is also saved in the MySQL database.)
     'notify_email'   => '',
 
     // Sender address for those emails — use an address on the website's own
@@ -99,9 +101,8 @@ return [
     // A safety net against spam running up the AI bill.
     'chat_daily_limit'  => 500,
 
-    // Save every chat (question, answer, dishes ordered, token counts) in
-    // api/data/chats/ (private), one file per day, with an anonymous
-    // conversation id: no names, emails or IP addresses.
+    // Save every chat (question, answer, dishes ordered, token counts, and the
+    // email/name the guest gave) in the database, for Admin → Conversations.
     'chat_log'          => true,
 
     // Days to keep chat history; older days are deleted automatically.

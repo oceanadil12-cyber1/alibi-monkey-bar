@@ -41,7 +41,7 @@ function admin_page_reservations(): void
 function admin_reservations_post(): void
 {
     require_csrf();
-    $id = preg_match('/^[a-f0-9]{12}$/', (string) ($_POST['id'] ?? '')) ? (string) $_POST['id'] : '';
+    $id = ctype_digit((string) ($_POST['id'] ?? '')) ? (string) $_POST['id'] : '';
     $r = $id !== '' ? admin_reservation($id) : null;
     if (!$r) {
         flash('That reservation wasn\'t found.', 'err');

@@ -60,7 +60,22 @@ Pick the option that fits what you need.
 
 The launcher uses PHP from XAMPP (`C:\xampp\php\php.exe`) or from your `PATH`,
 so everything works. If it can't find PHP, it falls back to Node.js
-(option C).
+(option C). It also starts the local MySQL database (below) when it's installed.
+
+### The database (MySQL)
+
+Orders, reservations, messages, newsletter sign-ups, chats, the activity log and
+the admin's settings are kept in **MySQL 8** (MariaDB 10.2+ also works). On the
+office PC, MySQL 8.4 lives in `D:\Adil\MySQL` and both launchers start it. On a
+new computer:
+
+1. Install MySQL 8 and create a database and a user for it.
+2. Create the tables: `mysql -u USER -p DBNAME < api/setup.sql`.
+3. Fill in `db_host` (`127.0.0.1` on Windows), `db_name`, `db_user` and `db_pass`
+   in `api/config.php`.
+
+If the database can't be reached, guest orders and messages are kept in
+`api/data/unsaved/` and the admin dashboard offers to move them in once it's back.
 
 ### B. PHP built-in server (full site)
 
@@ -81,8 +96,8 @@ Then open <http://localhost:3456>.
 - **Chat assistant** needs an AI provider configured in `api/config.php`.
 - **Admin panel** needs `admin_password` set in `api/config.php`. Open
   <http://localhost:3456/admin/> and sign in.
-- **Forms** save submissions to `api/data/*.csv`. Email notifications need a
-  mail server, so they normally only arrive on the live host.
+- **Forms** save submissions to the MySQL database (see above). Email
+  notifications need a mail server, so they normally only arrive on the live host.
 
 ### C. Static server with Node.js (design preview)
 
@@ -215,8 +230,8 @@ built from the site's own pages, not from the AI's text.
 - Same-site JSON only, 30 messages per visitor per 10 minutes.
 - `chat_daily_limit` caps total messages per day for the whole site (default
   500), preventing spam from running up the bill.
-- Chat history is logged to `api/data/chats/` as JSONL files, one per day.
-  Logs older than 120 days (`chat_log_days`) are auto-deleted.
+- Chat history is saved in the database (`chat_sessions` and `chat_messages`)
+  for Admin → Conversations and Insights.
 
 ---
 
@@ -286,14 +301,16 @@ alibi-monkey-bar/
 │   ├── chat-claude.php    Claude (Anthropic API) provider for the chat
 │   ├── chat-order.php     add_to_order tool: match dishes to live menu, build cart
 │   ├── chat-cards.php     Show/package cards and follow-up suggestions
-│   ├── chat-log.php       Chat logging to JSONL files
+│   ├── chat-log.php       Chat logging to the database
 │   ├── chat-insights.php  Analytics: topic/food/show/time breakdowns from logs
 │   ├── chats.php          Old chat-history address; forwards to admin/
 │   ├── happy-hour.php     Happy Hour data read/write
 │   ├── contact.php        POST — contact and reservation forms
-│   ├── subscribe.php      POST — newsletter sign-up (CSV + Square Customers)
+│   ├── subscribe.php      POST — newsletter sign-up (database + Square Customers)
+│   ├── db.php             MySQL connection and query helpers
+│   ├── setup.sql          Creates the database tables (run once per database)
 │   ├── cache/             Auto-created: menu cache, rate-limit counters
-│   └── data/              Auto-created: form CSVs, chat logs
+│   └── data/              Auto-created: sign-in sessions, admin working files, unsaved/ backup
 ├── docs/                  Developer documentation
 │   ├── ARCHITECTURE.md    How the site is built
 │   ├── CONTENT-GUIDE.md   How to change events, dancers, photos, text, hours, menu
@@ -313,7 +330,7 @@ alibi-monkey-bar/
 | Layer | Technology |
 | --- | --- |
 | **Front end** | HTML5, one CSS file, vanilla JavaScript (ES2017+). No build tools or npm packages. |
-| **Back end** | PHP 7.4+ with `curl` and `mbstring`. No database: data comes from Square, and submissions are saved to CSV/JSONL files. |
+| **Back end** | PHP 7.4+ with `curl`, `mbstring` and `pdo_mysql`. MySQL 8 (or MariaDB 10.2+) holds orders, reservations, messages, chats and settings; the menu comes from `data/menu.json` or Square. |
 | **Ordering** | Square (menu feed, orders, payments, customer directory). Card details go straight into Square's hosted field and never touch this server. |
 | **AI Chat** | Groq, Gemini, Mistral (free), Ollama (local), or Claude (paid). Tool-use for food ordering. |
 | **Widgets** | Elfsight (Google reviews and Instagram feed). |
@@ -323,8 +340,8 @@ alibi-monkey-bar/
 
 ## Security
 
-- `api/.htaccess` blocks `config.php`, `lib.php`, `cache/` and `data/` from
-  the web.
+- `api/.htaccess` blocks `config.php`, `lib.php`, `db.php`, `cache/` and `data/`
+  from the web, and the root `.htaccess` blocks `setup.sql`.
 - The root `.htaccess` blocks `.md` files, dot-files and the `.git` folder,
   disables directory listings and sets security headers.
 - The endpoints only accept same-site JSON POSTs and are rate-limited.
@@ -341,7 +358,7 @@ alibi-monkey-bar/
   neutralise formulas.
 - Chat conversations need no account: guests give an email (and optionally a
   name) before chatting, and their IP address, device and browser are saved with
-  the chat. Chats are deleted automatically after 120 days.
+  the chat. Chats stay in the database until they are deleted.
 
 ---
 
@@ -352,6 +369,8 @@ All configuration lives in `api/config.php` (not committed to git). Copy
 
 | Key | Purpose | Required |
 | --- | --- | --- |
+| `db_host`, `db_port` | MySQL server (`localhost` on cPanel, `127.0.0.1` on Windows; port 3306) | Yes |
+| `db_name`, `db_user`, `db_pass` | The MySQL database and the user the site connects as | Yes |
 | `environment` | `sandbox` (test) or `production` (real money) | For payments |
 | `application_id` | Square Application ID | For payments |
 | `access_token` | Square access token (secret) | For payments |
@@ -359,7 +378,7 @@ All configuration lives in `api/config.php` (not committed to git). Copy
 | `menu_cache_mins` | Menu cache duration in minutes (default 15) | No |
 | `notify_email` | Where contact/reservation emails are sent | For email |
 | `from_email` | Sender address (use the site's domain) | For email |
-| `data_dir` | Where CSVs/logs are saved (default `api/data/`) | No |
+| `data_dir` | Sign-in sessions, admin working files and the database-down backup (default `api/data/`) | No |
 | `chat_provider` | AI provider: `groq`, `gemini`, `mistral`, `ollama`, `claude` | For chat |
 | `chat_fallback` | Array of fallback providers tried in order | No |
 | `groq_api_key` | Groq API key | For Groq chat |

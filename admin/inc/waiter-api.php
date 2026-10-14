@@ -13,6 +13,8 @@ $action = $_GET['do'] ?? 'list';
 
 if ($action === 'list') {
     $rows = db()->query("SELECT id, created_at, table_number, customer_name FROM waiter_calls WHERE status = 'active' ORDER BY created_at ASC")->fetchAll();
+    foreach ($rows as &$r) $r['created_at'] = db_iso($r['created_at']);
+    unset($r);
     send_json(['ok' => true, 'calls' => $rows]);
 }
 
@@ -23,8 +25,8 @@ if ($action === 'resolve') {
     $id = (int) ($req['id'] ?? 0);
     if ($id < 1) fail('Invalid request ID.');
 
-    $stmt = db()->prepare("UPDATE waiter_calls SET status = 'resolved', resolved_at = datetime('now','localtime') WHERE id = ? AND status = 'active'");
-    $stmt->execute([$id]);
+    $stmt = db()->prepare("UPDATE waiter_calls SET status = 'resolved', resolved_at = ? WHERE id = ? AND status = 'active'");
+    $stmt->execute([date('Y-m-d H:i:s'), $id]);
 
     if ($stmt->rowCount() === 0) fail('Request not found or already resolved.');
 

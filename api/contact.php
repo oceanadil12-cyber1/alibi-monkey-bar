@@ -3,7 +3,7 @@
  * POST api/contact.php  (JSON)  — contact messages and reservation requests.
  *
  * { "type": "contact"|"reservation", "name", "email", "phone", ... }
- * Saves every submission to api/data/{contact|reservations}.csv and emails
+ * Saves every submission to the contacts or reservations table and emails
  * config notify_email when it is set.
  */
 require_once __DIR__ . '/lib.php';

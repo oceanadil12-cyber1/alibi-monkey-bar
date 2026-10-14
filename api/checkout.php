@@ -281,9 +281,9 @@ if ($action === 'place') {
         if (trim((string) ($a['instructions'] ?? '')) !== '') $addr .= ' (' . trim(mb_substr((string) $a['instructions'], 0, 500)) . ')';
     }
 
-    // Save the order to the database.
+    // Save the order to the database (or its backup file if the database is down).
     require_once __DIR__ . '/db.php';
-    save_row('orders', [
+    $saved = save_row('orders', [
         'number'       => $number,
         'payment'      => 'cash on delivery',
         'order_type'   => $fulfillment['type'],
@@ -299,7 +299,7 @@ if ($action === 'place') {
     ]);
 
     // Email the restaurant (if notify_email is configured).
-    notify("New website order #$number (CASH ON DELIVERY)", [
+    $mailed = notify("New website order #$number (CASH ON DELIVERY)", [
         'Order'    => "#$number",
         'Placed'   => date('l, M j, Y g:i A'),
         'Type'     => strtoupper($fulfillment['type']),
@@ -312,6 +312,9 @@ if ($action === 'place') {
         'Delivery' => $fee ? '$' . number_format($fee / 100, 2) : 'n/a',
         'To collect (cash)' => '$' . number_format($total / 100, 2) . ' + sales tax',
     ], $customer['email']);
+
+    // Never tell a guest the order went through when the restaurant can't see it.
+    if (!$saved && !$mailed) fail('Sorry, we could not place your order right now. Please call us at (954) 565-2526.', 500);
 
     send_json([
         'ok'          => true,

@@ -24,8 +24,9 @@ The project delivers three integrated systems:
 4. **Kitchen Display System (KDS)** — a real-time order display for kitchen staff
 
 **Tech stack:** Plain HTML, CSS, vanilla JavaScript (no build step, no framework).
-PHP 7.4+ backend with no database — data comes from Square and is stored in flat
-files (JSON, JSONL, CSV).
+PHP 7.4+ backend with a MySQL 8 database (MariaDB 10.2+ also works) for orders,
+reservations, messages, newsletter sign-ups, chats, the activity log and settings.
+Menu data and page content stay in files (JSON, Markdown, HTML).
 
 ---
 
@@ -152,7 +153,7 @@ Replies include:
 - Same-site JSON only
 - 30 messages per visitor per 10 minutes
 - `chat_daily_limit` caps total messages per day site-wide (default 500)
-- Chat history logged to `api/data/chats/` as JSONL (auto-deleted after 120 days)
+- Chat history saved in the database (`chat_sessions`, `chat_messages`)
 
 ---
 
@@ -283,22 +284,26 @@ A waiter-facing ordering interface within the Admin Panel:
 | `api/kds.php` | POST | KDS order management and settings |
 | `api/chats.php` | — | Legacy redirect to Admin Panel |
 
-### 8.2 Data Storage (No Database)
+### 8.2 Data Storage (MySQL + files)
+
+Tables are created by `api/setup.sql`; the connection lives in `api/db.php`
+(login in `api/config.php`, `db_*`). Times are stored in New York time.
 
 | Data | Format | Location |
 | --- | --- | --- |
-| Orders | JSONL (one file per day) | `api/data/orders/` |
-| Chat logs | JSONL (one file per day) | `api/data/chats/` |
-| Contact form submissions | CSV | `api/data/contacts.csv` |
-| Reservation requests | CSV | `api/data/reservations.csv` |
-| Newsletter subscribers | CSV | `api/data/newsletter.csv` |
-| Admin metadata (statuses, notes) | JSON | `api/data/admin-meta.json` |
+| Orders (online + dine-in), with status, notes and KDS times | MySQL | `orders` table |
+| Chat logs | MySQL | `chat_sessions` + `chat_messages` tables |
+| Contact form submissions | MySQL | `contacts` table |
+| Reservation requests | MySQL | `reservations` table |
+| Newsletter subscribers | MySQL | `subscribers` table |
+| "Call a waiter" requests | MySQL | `waiter_calls` table |
+| Admin activity log | MySQL | `admin_activity` table |
+| KDS settings, Happy Hour, menu overrides, store settings | MySQL (JSON values) | `settings` table |
+| Guest records kept while the database is down | JSONL | `api/data/unsaved/` (moved in from the admin dashboard) |
 | Events | JSON | `api/data/events.json` |
-| KDS settings | JSON | `api/data/kds-settings.json` |
 | Menu cache | JSON | `api/cache/menu.json` |
 | Rate-limit counters | JSON | `api/cache/rate/` |
 | Geo cache | JSON | `api/cache/geo/` |
-| Menu overrides | PHP | `api/menu-overrides.php` |
 | Chatbot knowledge | Markdown | `data/chatbot-knowledge.md` |
 
 ### 8.3 Shared Libraries
@@ -426,7 +431,7 @@ alibi-monkey-bar/
 
 - **Host:** any PHP 7.4+ web host (cPanel, shared hosting, VPS)
 - **Requirements:** PHP with `curl` and `mbstring` extensions, Apache with `.htaccess` support
-- **No database required** — all data in flat files
+- **MySQL database** (MySQL 8.0.13+ or MariaDB 10.2+): create it in cPanel and import `api/setup.sql`
 - **No build step** — upload files as-is
 - **HTTPS required** for payment and security headers
 - **Full guide:** `docs/DEPLOYMENT.md`

@@ -99,9 +99,9 @@ php api/menu.php --snapshot
 
 Contact, reservation and newsletter forms are `<form data-endpoint="api/…">`
 elements, sent by `main.js`. Submissions are emailed to `notify_email` in
-`api/config.php` and saved in `api/data/*.csv` on the server. Read and answer them
+`api/config.php` and saved in the site's MySQL database. Read and answer them
 in **Admin → Reservations, Messages and Subscribers** (each can be downloaded as
-a spreadsheet), or download the CSVs from the host's file manager.
+a spreadsheet).
 
 ## Chat assistant
 

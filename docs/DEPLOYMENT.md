@@ -1,8 +1,9 @@
 # Deployment
 
-The site is built for a standard **Apache / cPanel host with PHP 7.4+**, which
-is how most shared hosting is set up. The `.htaccess` files handle security,
-caching, clean URLs and the 404 page.
+The site is built for a standard **Apache / cPanel host with PHP 7.4+ and a MySQL
+database** (MySQL 8.0.13+ or MariaDB 10.2+), which is how most shared hosting,
+including a hosting.com reseller account, is set up. The `.htaccess` files handle
+security, caching, clean URLs and the 404 page.
 
 ## What to upload
 
@@ -24,19 +25,33 @@ Must upload: all `*.html`, `css/`, `js/`, `images/`, `fonts/`, `data/`, `api/`,
 ## First-time setup
 
 1. **Upload** the files as above (cPanel File Manager → Upload, or FTP/SFTP).
-2. **Create `api/config.php`** on the server by copying `config.example.php`,
-   then fill in the Square keys, `notify_email` and `from_email`. The full
+2. **Create the database.** On a hosting.com reseller account, first create the
+   site's own cPanel account in WHM, then log in to that cPanel:
+   1. *MySQL Databases* → create a database (cPanel names it like `cpuser_alibi`).
+   2. On the same page, create a user with a long generated password, then
+      *Add User to Database* with **All Privileges**.
+   3. *phpMyAdmin* → click the new database → *Import* → choose `api/setup.sql`
+      from your computer → *Import*. You should see 10 tables.
+   4. On phpMyAdmin's home page, check *Server version* is MySQL 8.0.13+ or
+      MariaDB 10.2+.
+3. **Create `api/config.php`** on the server by copying `config.example.php`,
+   then fill in `db_name`, `db_user` and `db_pass` from step 2 (keep `db_host` as
+   `localhost`), plus the Square keys, `notify_email` and `from_email`. The full
    walkthrough is in [ORDERING-SETUP.md](../ORDERING-SETUP.md).
-3. **Test the ordering** with `sandbox` keys and the test card, then switch to
+4. **Test the ordering** with `sandbox` keys and the test card, then switch to
    `production`.
-4. **Enable HTTPS.** Once the SSL certificate is active (usually free with
+5. **Enable HTTPS.** Once the SSL certificate is active (usually free with
    AutoSSL or Let's Encrypt in cPanel), uncomment the five HTTPS lines in the
    root `.htaccess`.
-5. **robots.txt**: once the site is live, add the `Sitemap:` line with the real
+6. **robots.txt**: once the site is live, add the `Sitemap:` line with the real
    domain if you create a sitemap.
-6. **Apple Pay / Google Pay** (optional): register the domain in the Square
+7. **Apple Pay / Google Pay** (optional): register the domain in the Square
    Developer Dashboard.
-7. **Chat assistant**: see below.
+8. **Chat assistant**: see below.
+
+**Backups:** cPanel → *Backup* → *Download a MySQL Database Backup* (or phpMyAdmin →
+*Export*) saves every order, reservation, message and chat. Take one before each
+update and now and then.
 
 ## Chat assistant on the live site
 
@@ -73,7 +88,7 @@ day (default 500), so spam can't run up the bill.
 Set a long `admin_password` (12+ characters) in the server's `api/config.php`,
 then open `https://DOMAIN/admin/`. Keep the password private: the panel shows every
 order, message and conversation, and can change the menu and the website. Turn on
-HTTPS first (step 4 above) so the password isn't sent in the clear. The panel is
+HTTPS first (step 5 above) so the password isn't sent in the clear. The panel is
 never indexed and needs no other setup; see [ADMIN.md](ADMIN.md).
 
 Set `notify_email` and `from_email` too, so new orders and messages are emailed
@@ -91,18 +106,21 @@ are on ordinary cPanel hosting). **Never upload your own copy of `events.html` o
 3. Commit to git: `git add -A && git commit -m "Describe the change" && git push`
 4. Upload **only the changed files** to the server, overwriting the old ones.
 
-**Never overwrite on the server:** `api/config.php` (live keys), `api/data/`
-(customer submissions, orders and what the admin panel saves), `api/cache/`, and
-`events.html` and `images/events/` (the team publishes events there from the panel).
+**Never overwrite on the server:** `api/config.php` (live keys and the database
+login), the live database (never import a local copy over it), `api/data/` (sign-ins
+and what the admin panel saves), `api/cache/`, and `events.html` and
+`images/events/` (the team publishes events there from the panel). Re-importing
+`api/setup.sql` is safe: it only adds tables that are missing.
 
 ## Checklist after deploying
 
 - [ ] Home page loads over `https://` with no browser warnings
+- [ ] Admin → Dashboard → *Setup checks* shows **Database connected** with the MySQL/MariaDB version
 - [ ] Menu page shows the menu and the cart works
 - [ ] A test order (sandbox) goes through and shows in the Square dashboard
 - [ ] Contact form sends and the email arrives at `notify_email`
 - [ ] `https://DOMAIN/api/config.php` is **blocked** (403), not downloadable
-- [ ] `https://DOMAIN/api/data/` is **blocked** (403)
+- [ ] `https://DOMAIN/api/data/` and `https://DOMAIN/api/setup.sql` are **blocked** (403)
 - [ ] `https://DOMAIN/admin/` shows the sign-in page, and `https://DOMAIN/admin/inc/store.php` is **blocked** (403)
 - [ ] Signing in to the admin works, and a test event can be published and appears on the Events page
 - [ ] The "Ask us" chat answers a question, and `https://DOMAIN/api/vendor/` and

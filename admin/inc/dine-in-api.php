@@ -48,7 +48,7 @@ if (count($itemLines) === 0) fail('No valid items in the order.');
 $number = strtoupper(bin2hex(random_bytes(3)));
 
 require_once __DIR__ . '/../../api/db.php';
-save_row('orders', [
+$saved = save_row('orders', [
     'number'       => $number,
     'payment'      => 'dine-in',
     'order_type'   => 'dine-in',
@@ -61,6 +61,7 @@ save_row('orders', [
     'total'        => $subtotal,
     'ip'           => client_ip(),
 ]);
+if (!$saved) fail('The order could not be saved. Please try again, or write it down for the kitchen.', 500);
 
 admin_log('order.dine-in', '#' . $number . ' table ' . $table . ' (' . count($itemLines) . ' items)');
 

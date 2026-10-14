@@ -71,6 +71,7 @@ function meta_set(string $kind, string $id, array $fields): void
             if ($data) db_update('orders', $data, ['number' => $id]);
         } elseif ($kind === 'reservation') {
             $data = [];
+            if (array_key_exists('status', $fields)) $data['status'] = (string) $fields['status'];
             if (array_key_exists('note', $fields)) $data['note'] = (string) $fields['note'];
             if ($data) db_update('reservations', $data, ['id' => (int) $id]);
         } elseif ($kind === 'message') {
@@ -256,6 +257,47 @@ function message_delete(int $id): bool
     $stmt = db()->prepare("DELETE FROM contacts WHERE id = ?");
     $stmt->execute([$id]);
     return $stmt->rowCount() > 0;
+}
+
+// ---------- guest records kept while the database was down ----------
+
+/** How many guest records are waiting in api/data/unsaved/ (see unsaved_keep in api/lib.php). */
+function unsaved_count(): int
+{
+    $n = 0;
+    foreach (glob(data_dir() . '/unsaved/*.jsonl') ?: [] as $file) {
+        $n += count(file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []);
+    }
+    return $n;
+}
+
+/** Move the waiting records into the database; returns [moved, still waiting]. */
+function unsaved_move(): array
+{
+    $moved = $left = 0;
+    foreach (glob(data_dir() . '/unsaved/*.jsonl') ?: [] as $file) {
+        $table = basename($file, '.jsonl');
+        if (!isset(UNSAVED_TABLES[$table])) continue;
+        // Work on a renamed copy, so a guest saving right now appends to a fresh file instead of being overwritten.
+        $work = $file . '.moving-' . bin2hex(random_bytes(3));
+        if (!@rename($file, $work)) continue;
+        $keep = [];
+        foreach (file($work, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $row = json_decode($line, true);
+            if (!is_array($row)) continue;
+            try {
+                db_insert($table, $row);
+                $moved++;
+            } catch (Throwable $e) {
+                if ($e instanceof PDOException && $e->getCode() === '23000') { $moved++; continue; } // already in (same order number or email)
+                $keep[] = $line; // database gone again, or a row it won't take: keep it for next time
+                $left++;
+            }
+        }
+        if ($keep) file_put_contents($file, implode("\n", $keep) . "\n", FILE_APPEND | LOCK_EX);
+        @unlink($work);
+    }
+    return [$moved, $left];
 }
 
 // ---------- what needs attention ----------
@@ -471,6 +513,9 @@ const ADMIN_ACTIONS = [
     'kds.complete'       => ['KDS order completed', 'good'],
     'kds.recall'         => ['KDS order recalled', 'warn'],
     'kds.settings'       => ['KDS settings saved', 'gold'],
+    'waiter.call'        => ['Waiter called', 'gold'],
+    'waiter.resolve'     => ['Waiter call resolved', 'muted'],
+    'db.unsaved'         => ['Backed-up records moved into the database', 'good'],
 ];
 
 function admin_action_label(string $code): array

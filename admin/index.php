@@ -41,6 +41,18 @@ if ($password === '') {
 
 admin_session_start();
 
+// Everything below reads the database; say so plainly when it can't be reached.
+try {
+    db();
+} catch (Throwable $e) {
+    if (isset($_GET['api'])) send_json(['ok' => false, 'error' => 'The database can\'t be reached right now.'], 503);
+    admin_render_bare('Database unavailable',
+        '<div class="login"><div class="login-logo"><img src="' . h(SITE_BASE) . 'images/logo.webp" alt="Georgie\'s Alibi Monkey Bar" height="56"></div>'
+        . '<h1>The database can\'t be reached</h1>'
+        . '<p class="muted">New orders, reservations and messages are kept in a backup file meanwhile, so nothing is lost. '
+        . 'Check that MySQL is running and the <code>db_*</code> settings in <code>api/config.php</code> are right, then reload this page.</p></div>');
+}
+
 // Sidebar badges (new orders, reservations, messages), asked for every 30 seconds by admin.js.
 if (($_GET['api'] ?? '') === 'counts') {
     if (!admin_signed_in(false)) send_json(['ok' => false, 'signedOut' => true], 401);

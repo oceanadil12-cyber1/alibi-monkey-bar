@@ -12,6 +12,13 @@ if not defined PHP (
   where php >nul 2>nul && set "PHP=php"
 )
 
+rem Orders, messages and chats are kept in MySQL: start the local one (if installed
+rem and not already running) in its own minimized window, so it outlives this one.
+set "MYSQLD=D:\Adil\MySQL\mysql-8.4.11-winx64\bin\mysqld.exe"
+if exist "%MYSQLD%" (
+  netstat -an | find "127.0.0.1:3306" | find "LISTENING" >nul || start "MySQL" /min "%MYSQLD%" --defaults-file="D:\Adil\MySQL\my.ini"
+)
+
 echo.
 echo  Alibi Monkey Bar website: http://localhost:%PORT%
 echo  Keep this window open while you use the site. Close it to stop.

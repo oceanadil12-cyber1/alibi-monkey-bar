@@ -1,5 +1,5 @@
 # Keep credentials, cache and helper files private (Apache / cPanel hosts).
-<FilesMatch "^(config(\.example)?\.php|lib\.php|chat-claude\.php|chat-order\.php|chat-log\.php|chat-cards\.php|chat-insights\.php)$">
+<FilesMatch "^(config(\.example)?\.php|lib\.php|db\.php|chat-claude\.php|chat-order\.php|chat-log\.php|chat-cards\.php|chat-insights\.php)$">
     Require all denied
 </FilesMatch>
 RedirectMatch 403 ^.*/api/cache/.*$

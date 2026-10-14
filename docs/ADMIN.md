@@ -118,27 +118,32 @@ the markup the page already uses, and touches nothing else on the page.
 
 ## Where everything is saved
 
-Everything the panel saves is in `api/data/` (private, never committed to git),
-except the files a publish or an edit writes into the website itself.
+Guest records and the team's changes to them live in the **MySQL database**
+(tables from `api/setup.sql`, login in `api/config.php`). Working files are in
+`api/data/` (private, never committed to git), and a publish or an edit writes
+into the website itself.
 
 | What | Where |
 | --- | --- |
-| Orders | `api/data/orders/DAY.jsonl` (written by checkout) |
-| Reservations, contact messages, newsletter | `api/data/reservations.csv`, `contact.csv`, `newsletter.csv` |
-| Chats | `api/data/chats/DAY.jsonl` (deleted after `chat_log_days`, 120 by default) |
-| Statuses, notes, follow-up flags | `api/data/admin-meta.json` |
-| Activity log | `api/data/admin-activity.jsonl` |
+| Orders, with their status, notes and kitchen times | `orders` table |
+| Reservations, contact messages, newsletter | `reservations`, `contacts`, `subscribers` tables |
+| Chats, with follow-up flags and notes | `chat_sessions` and `chat_messages` tables |
+| "Call a waiter" requests | `waiter_calls` table |
+| Activity log | `admin_activity` table |
+| Guest records saved while the database was down | `api/data/unsaved/` (the dashboard offers **Move into database**) |
 | Events working copy | `api/data/events.json` |
 | Earlier copies of the Events page | `api/data/events-backups/` |
 | Earlier chat knowledge | `api/data/knowledge-history/` |
-| Menu overrides, store settings, Happy Hour | `api/data/menu-overrides.json`, `store-settings.json`, `happy-hour.json` |
+| Menu overrides, store settings, Happy Hour, KDS settings | `settings` table |
 | Sign-in sessions | `api/data/sessions/` |
 | Chat knowledge | `data/chatbot-knowledge.md` |
 | The public Events page and its posters | `events.html` and `images/events/` |
 
 When you upload a new version of the site to the host, **don't overwrite
 `api/data/`, `events.html` or `images/events/`** with the copies on your
-computer: the live ones hold the team's changes.
+computer, and never import your own database over the live one: the live ones
+hold the team's changes. The dashboard's **Setup checks** show whether the
+database is connected.
 
 ## Security
 

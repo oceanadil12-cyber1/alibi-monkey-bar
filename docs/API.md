@@ -73,11 +73,13 @@ Prices are never read from the browser.
   POS like any online order) and charges the card. The `idempotencyKey` means a
   double-click or retry can't charge twice.
 - **place** (cash on delivery, the default until a payment processor is chosen):
-  runs the same checks, then saves the order to `api/data/orders/DAY.jsonl`,
-  emails `notify_email` and returns a six-character order number. Nothing is
-  charged. The admin panel's **Orders** section reads these files and keeps each
-  order's status and notes beside them. It takes at most 12 orders per 15 minutes
-  from one visitor.
+  runs the same checks, then saves the order to the `orders` table, emails
+  `notify_email` and returns a six-character order number. Nothing is charged.
+  If the database is down the order goes to `api/data/unsaved/orders.jsonl`
+  instead; if neither that nor the email works, it returns 500 with a "please
+  call us" message rather than a fake confirmation. The admin panel's **Orders**
+  section and the KDS read the same table. It takes at most 12 orders per 15
+  minutes from one visitor.
 
 Server-side checks, which never trust the browser:
 
@@ -103,8 +105,9 @@ Handles contact messages and reservation requests.
 ```
 
 - Reservations need a valid phone number, a date from today onward, a time and a party size.
-- Each submission is saved to `contact.csv` or `reservations.csv` and emailed to `notify_email`.
-  The admin panel's Messages and Reservations sections read these files.
+- Each submission is saved to the `contacts` or `reservations` table (or, if the
+  database is down, to `api/data/unsaved/`) and emailed to `notify_email`.
+  The admin panel's Messages and Reservations sections read these tables.
 - It succeeds if either the save or the email works. If both fail, it returns
   500 with a "please call us" message.
 
@@ -113,7 +116,7 @@ Handles contact messages and reservation requests.
 Handles newsletter sign-ups: `{ "email": "...", "page": "..." }`. The `page`
 field records which page the visitor signed up from.
 
-- Saves the address to `newsletter.csv`.
+- Saves the address to the `subscribers` table (an address already there is kept once).
 - When Square is configured, also adds the person to the **Square Customer
   Directory**, so the restaurant can email them with Square Marketing.
 
@@ -162,12 +165,11 @@ The "Ask us" chat assistant, used by `js/chat.js`.
   "Talk to a person" is handled in the browser and doesn't call the AI.
 - Protections: same-site JSON only, 30 messages per visitor per 10 minutes, and
   `chat_daily_limit` messages per day for the whole site (then 503).
-- When `chat_log` is on, every exchange is saved (`chat-log.php`) to
-  `data_dir()/chats/YYYY-MM-DD.jsonl`, one JSON line each. A line holds the
-  time, a conversation id (`cid`, made per browser tab by `chat.js`), the
-  guest's email and optional name, their IP address, device and browser, the
-  question, the reply, the dishes added, the AI used, token counts and seconds.
-  Days older than `chat_log_days` (120) are deleted automatically.
+- When `chat_log` is on, every exchange is saved (`chat-log.php`) to the
+  database: one `chat_sessions` row per conversation id (`cid`, made per browser
+  tab by `chat.js`) with the guest's email and optional name, their IP address,
+  device and browser, and one `chat_messages` row per question with the reply,
+  the dishes added, the shows shown, the AI used, token counts and seconds.
 
 - Errors return 502 with a "please call us" message. On `localhost` the reply
   also includes `detail` with the real cause.

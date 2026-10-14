@@ -39,8 +39,8 @@ Keep `config.php` private — never email it or put it in a public repository.
 - Set `'notify_email'` in `config.php` to the address that should receive contact
   messages and reservation requests, and `'from_email'` to an address on the
   website's domain (e.g. `website@alibiwiltonmanors.com`).
-- Every submission is also saved on the server in `api/data/contact.csv`,
-  `reservations.csv` and `newsletter.csv` (blocked from public access).
+- Every submission is also saved in the site's MySQL database and shows in the
+  admin panel (Reservations, Messages, Subscribers).
 - With Square credentials set, newsletter sign-ups are also added to the Square
   Customer Directory, so they can be emailed with Square Marketing.
 - The forms need PHP, so on a plain static preview (e.g. Netlify Drop) they show

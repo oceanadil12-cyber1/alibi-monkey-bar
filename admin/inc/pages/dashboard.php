@@ -39,6 +39,16 @@ function check_row(string $state, string $label, string $detailHtml = '', string
 
 function admin_page_dashboard(): void
 {
+    if (is_post()) {
+        require_csrf();
+        if (($_POST['action'] ?? '') === 'move-unsaved') {
+            [$moved, $left] = unsaved_move();
+            admin_log('db.unsaved', $moved . ' moved' . ($left ? ', ' . $left . ' still waiting' : ''));
+            flash($left ? 'Moved ' . plural($moved, 'record') . ' into the database; ' . $left . ' could not be moved yet.' : 'Moved ' . plural($moved, 'record') . ' into the database.', $left ? 'err' : 'ok');
+        }
+        redirect(admin_url('dashboard'));
+    }
+
     $today = date('Y-m-d');
     $cfg = config();
 
@@ -126,6 +136,8 @@ function admin_page_dashboard(): void
 
     // ---- setup checks ----
     $dataOk = is_dir(data_dir()) ? is_writable(data_dir()) : @mkdir(data_dir(), 0750, true);
+    try { $dbVersion = (string) db()->query('SELECT VERSION()')->fetchColumn(); } catch (Throwable $e) { $dbVersion = ''; }
+    $unsaved = unsaved_count();
     $provider = (string) $cfg['chat_provider'];
     $keyName = $provider . '_api_key';
     $providerReady = $provider === 'ollama' || !empty($cfg[$keyName === 'claude_api_key' ? 'anthropic_api_key' : $keyName]);
@@ -135,7 +147,8 @@ function admin_page_dashboard(): void
     $local = in_array($host, ['localhost', '127.0.0.1', '[::1]'], true) || substr($host, -6) === '.local' || substr($host, -5) === '.test';
     $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
     $checks = '<ul class="rows">'
-        . check_row($dataOk ? 'ok' : 'warn', $dataOk ? 'Records are being saved' : 'Can\'t save records', $dataOk ? 'Orders, messages and settings are stored safely' : 'The folder api/data/ must be writable by the website')
+        . check_row($unsaved ? 'warn' : 'ok', 'Database connected', h((stripos($dbVersion, 'mariadb') !== false ? 'MariaDB ' : 'MySQL ') . preg_replace('/-.*$/', '', $dbVersion)) . ($unsaved ? ' · ' . plural($unsaved, 'record') . ' still in the backup file' : ' · orders, messages and settings are stored here'))
+        . check_row($dataOk ? 'ok' : 'warn', $dataOk ? 'Backup folder is writable' : 'Can\'t write the backup folder', $dataOk ? 'Sign-ins, and guest records if the database is ever down' : 'The folder api/data/ must be writable by the website')
         . check_row(trim((string) $cfg['notify_email']) !== '' ? 'ok' : 'warn', trim((string) $cfg['notify_email']) !== '' ? 'Email alerts are on' : 'Email alerts are off',
             trim((string) $cfg['notify_email']) !== '' ? 'New orders and messages are also emailed to you' : 'Orders and messages only show here. Set <code>notify_email</code> in api/config.php to get them by email too.')
         . check_row($providerReady ? 'ok' : 'warn', 'Chat assistant: ' . $provider . ($cfg['chat_fallback'] ? ' + backup' : ''),
@@ -148,6 +161,12 @@ function admin_page_dashboard(): void
 
     // ---- needs attention ----
     $need = '';
+    if ($unsaved) {
+        $need .= '<li><form method="post">' . csrf_field()
+            . '<span class="ar-ico">' . icon('alert', 16) . '</span><span class="ar-main"><b>' . plural($unsaved, 'guest record') . ' kept in the backup file</b>'
+            . '<small>Saved while the database was down. Move them in so they show up in the admin.</small></span>'
+            . '<button class="btn sm primary" type="submit" name="action" value="move-unsaved">Move into database</button></form></li>';
+    }
     foreach (array_slice($newOrders, 0, 5) as $o) {
         $need .= attention_row('bag', 'New order #' . h($o['number']) . ' &middot; ' . h($o['name']), h(ucfirst($o['type']) . ' · ' . fmt_money($o['total']) . ' · ' . fmt_ago($o['ts'])), admin_url('orders', ['id' => $o['number']]));
     }

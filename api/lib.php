@@ -300,7 +300,14 @@ function clean_field($value, int $max = 200): string
     return mb_substr($value, 0, $max);
 }
 
-/** Save a row to the database. $table is the DB table name, $row is col => value. */
+// Guest records worth keeping when the database is down, with the column that holds when they arrived.
+const UNSAVED_TABLES = ['orders' => 'created_at', 'contacts' => 'received', 'reservations' => 'received', 'subscribers' => 'signed_up'];
+
+/**
+ * Save a row to the database. $table is the DB table name, $row is col => value.
+ * If the database can't be reached, a guest record is kept in the backup file instead
+ * (see unsaved_keep), so it is never lost. Returns false only when neither worked.
+ */
 function save_row(string $table, array $row): bool
 {
     try {
@@ -309,8 +316,24 @@ function save_row(string $table, array $row): bool
         return true;
     } catch (Throwable $e) {
         error_log("save_row($table): " . $e->getMessage());
-        return false;
+        return unsaved_keep($table, $row);
     }
+}
+
+/**
+ * Keep a guest record the database didn't take in api/data/unsaved/<table>.jsonl. The
+ * admin dashboard warns about these and moves them into the database once it's back.
+ */
+function unsaved_keep(string $table, array $row): bool
+{
+    if (!isset(UNSAVED_TABLES[$table])) return false;
+    $row[UNSAVED_TABLES[$table]] = $row[UNSAVED_TABLES[$table]] ?? date('Y-m-d H:i:s');
+    $dir = data_dir() . '/unsaved';
+    if (!is_dir($dir)) @mkdir($dir, 0750, true);
+    $line = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+    $ok = @file_put_contents("$dir/$table.jsonl", $line, FILE_APPEND | LOCK_EX) !== false;
+    if (!$ok) error_log("unsaved_keep($table): could not write the backup file");
+    return $ok;
 }
 
 /** Email the restaurant (config notify_email). Returns false if not configured or mail fails. */

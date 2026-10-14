@@ -2,12 +2,11 @@
 /**
  * Chat history for the chat assistant.
  *
- * One JSON line per question and answer, one file per day, in
- * data_dir()/chats/ (api/data/chats/ by default; private). Each line carries a
- * conversation id from the visitor's browser tab, so a whole chat can be
- * followed, the email (required) and name (optional) the guest gave before their
- * first message, and the visitor's IP, device and browser. Files older than
- * config 'chat_log_days' (120) are deleted automatically.
+ * Saved in the database: one chat_sessions row per conversation id (from the
+ * visitor's browser tab, so a whole chat can be followed) with the email
+ * (required) and name (optional) the guest gave before their first message and
+ * the visitor's IP, device and browser, and one chat_messages row per question
+ * and answer.
  *
  * Written by chat.php, read by the admin's Conversations and Insights pages (admin/).
  */

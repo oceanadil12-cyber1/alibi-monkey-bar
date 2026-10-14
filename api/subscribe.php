@@ -2,7 +2,7 @@
 /**
  * POST api/subscribe.php  (JSON { "email": "..." })  — newsletter sign-up.
  *
- * Saves the address to api/data/newsletter.csv and, once Square credentials
+ * Saves the address to the subscribers table and, once Square credentials
  * are in config.php, adds the person to the restaurant's Square Customer
  * Directory so they can be reached with Square Marketing email campaigns.
  */
@@ -15,15 +15,12 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) fail('Please enter a valid email
 $page = clean_field($in['page'] ?? '', 60);
 try {
     require_once __DIR__ . '/db.php';
-    $sql = db_is_sqlite()
-        ? "INSERT INTO subscribers (email, page) VALUES (?, ?) ON CONFLICT(email) DO UPDATE SET page = page"
-        : "INSERT INTO subscribers (email, page) VALUES (?, ?) ON DUPLICATE KEY UPDATE page = page";
-    $stmt = db()->prepare($sql);
+    $stmt = db()->prepare("INSERT INTO subscribers (email, page) VALUES (?, ?) ON DUPLICATE KEY UPDATE page = page");
     $stmt->execute([$email, $page]);
     $saved = true;
 } catch (Throwable $e) {
     error_log('subscribe: ' . $e->getMessage());
-    $saved = false;
+    $saved = unsaved_keep('subscribers', ['email' => $email, 'page' => $page]);
 }
 
 $inSquare = false;

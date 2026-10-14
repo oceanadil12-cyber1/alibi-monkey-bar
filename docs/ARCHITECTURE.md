@@ -10,12 +10,12 @@ Browser ──► static pages (HTML/CSS/JS/images)          served as plain fil
    ├──► api/menu.php ──► Square Online store feed      live menu (cached 15 min)
    │         └─ fallback: data/menu.json
    ├──► api/checkout.php ──► Square Orders + Payments API
-   ├──► api/contact.php ──► api/data/*.csv + email
-   ├──► api/subscribe.php ──► api/data/newsletter.csv + Square Customers
+   ├──► api/contact.php ──► MySQL (contacts, reservations) + email
+   ├──► api/subscribe.php ──► MySQL (subscribers) + Square Customers
    ├──► api/chat.php ──► Ollama (local testing) or Claude API (live)
    │         └─ facts: data/chatbot-knowledge.md + events.html + menu.html + Square menu
    │
-   ├──► admin/ (the team's panel, password) ──► api/data/*, events.html, images/events/
+   ├──► admin/ (the team's panel, password) ──► MySQL, api/data/*, events.html, images/events/
    │
    ├──► Square Web Payments SDK (card field, loaded on the menu page)
    └──► Elfsight widgets (Google reviews, Instagram feed)
@@ -78,14 +78,20 @@ so the page doesn't jump while images load.
 
 ## Back end (`api/`)
 
-PHP with no framework and no database. See [API.md](API.md) for each endpoint.
+PHP with no framework, and a MySQL 8 database (MariaDB 10.2+ also works). See
+[API.md](API.md) for each endpoint.
 
 - `lib.php` holds the shared helpers: config loading, Square requests, JSON
-  responses, same-site checks, rate limiting, CSV saving, email and caching.
+  responses, same-site checks, rate limiting, saving records (`save_row`, with a
+  backup file when the database is down), email and caching.
+- `db.php` opens the MySQL connection (PDO, utf8mb4, session time zone set to
+  New York so stored times match the site) and has small insert/update/settings
+  helpers. `setup.sql` creates the tables; it is safe to run again.
 - `config.php` (private, not in git) holds the Square credentials and email settings.
 - `cache/` is created automatically for the menu cache and rate-limit counters.
-- `data/` is created automatically for the form submission CSVs, the orders and
-  chat logs, and what the admin panel saves.
+- `data/` is created automatically for sign-in sessions, the admin's working
+  files (events, performers, backups) and `unsaved/`, where guest records wait
+  if the database can't be reached.
 
 ## Admin panel (`admin/`)
 
@@ -93,8 +99,8 @@ The team's control panel, at `/admin/`: one PHP entry point (`admin/index.php`),
 one file per section in `admin/inc/pages/`, and shared code in `admin/inc/`. It
 reuses the `api/` libraries, so it edits exactly what the website reads (menu
 overrides, store settings, Happy Hour) and reads exactly what the website writes
-(orders, form submissions, chats). The guests' records are never edited; the
-team's statuses and notes go in a side file. The **Events** section is the one
+(orders, form submissions, chats). The guests' own words are never edited; the
+team's statuses and notes are saved in their own columns of the same rows. The **Events** section is the one
 place that writes into the site itself: it regenerates the lineup in `events.html`
 between two comment markers (the day tabs, the home slider and the chat assistant
 all read that markup) and saves poster pictures in `images/events/`. The panel

@@ -1,5 +1,8 @@
 -- Alibi Monkey Bar — MySQL database setup
--- Run once in phpMyAdmin (Namecheap cPanel) or via: mysql -u USER -p DBNAME < setup.sql
+-- Run once in phpMyAdmin (cPanel → phpMyAdmin → your database → Import) or via:
+--   mysql -u USER -p DBNAME < setup.sql
+-- Needs MySQL 8.0.13+ or MariaDB 10.2+ (TEXT defaults are written as DEFAULT ('')).
+-- Safe to re-run: every table is CREATE TABLE IF NOT EXISTS.
 
 SET NAMES utf8mb4;
 SET CHARACTER SET utf8mb4;
@@ -14,7 +17,7 @@ CREATE TABLE IF NOT EXISTS contacts (
     subject     VARCHAR(40)  NOT NULL DEFAULT 'general',
     message     TEXT         NOT NULL,
     status      ENUM('new','read','replied','archived') NOT NULL DEFAULT 'new',
-    note        TEXT         NOT NULL DEFAULT '',
+    note        TEXT         NOT NULL DEFAULT (''),
     ip          VARCHAR(45)  NOT NULL DEFAULT '',
     INDEX idx_received (received),
     INDEX idx_status   (status)
@@ -41,9 +44,9 @@ CREATE TABLE IF NOT EXISTS reservations (
     reservation_time VARCHAR(10) NOT NULL,
     guests          VARCHAR(10)  NOT NULL,
     area            VARCHAR(40)  NOT NULL DEFAULT '',
-    notes           TEXT         NOT NULL DEFAULT '',
+    notes           TEXT         NOT NULL DEFAULT (''),
     status          ENUM('pending','confirmed','declined','cancelled') NOT NULL DEFAULT 'pending',
-    note            TEXT         NOT NULL DEFAULT '',
+    note            TEXT         NOT NULL DEFAULT (''),
     ip              VARCHAR(45)  NOT NULL DEFAULT '',
     INDEX idx_received (received),
     INDEX idx_date     (reservation_date),
@@ -61,14 +64,14 @@ CREATE TABLE IF NOT EXISTS orders (
     name            VARCHAR(80)  NOT NULL DEFAULT '',
     phone           VARCHAR(30)  NOT NULL DEFAULT '',
     email           VARCHAR(120) NOT NULL DEFAULT '',
-    address         TEXT         NOT NULL DEFAULT '',
-    order_notes     TEXT         NOT NULL DEFAULT '',
+    address         TEXT         NOT NULL DEFAULT (''),
+    order_notes     TEXT         NOT NULL DEFAULT (''),
     items           JSON         NOT NULL,
     subtotal        INT          NOT NULL DEFAULT 0,
     delivery_fee    INT          NOT NULL DEFAULT 0,
     total           INT          NOT NULL DEFAULT 0,
     status          ENUM('new','preparing','ready','completed','cancelled') NOT NULL DEFAULT 'new',
-    note            TEXT         NOT NULL DEFAULT '',
+    note            TEXT         NOT NULL DEFAULT (''),
     status_history  JSON         DEFAULT NULL,
     kds_started     DATETIME     DEFAULT NULL,
     kds_duration    INT          DEFAULT NULL,
@@ -93,7 +96,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     device      VARCHAR(20)  NOT NULL DEFAULT '',
     browser     VARCHAR(30)  NOT NULL DEFAULT '',
     flagged     TINYINT(1)   NOT NULL DEFAULT 0,
-    note        TEXT         NOT NULL DEFAULT '',
+    note        TEXT         NOT NULL DEFAULT (''),
     UNIQUE KEY uq_cid      (cid),
     INDEX idx_started      (started_at),
     INDEX idx_email        (email)
@@ -128,7 +131,7 @@ CREATE TABLE IF NOT EXISTS events (
     time_label  VARCHAR(30)  NOT NULL DEFAULT '',
     name        VARCHAR(120) NOT NULL,
     host        VARCHAR(120) NOT NULL DEFAULT '',
-    description TEXT         NOT NULL DEFAULT '',
+    description TEXT         NOT NULL DEFAULT (''),
     tags        JSON         DEFAULT NULL,
     image       VARCHAR(255) NOT NULL DEFAULT '',
     INDEX idx_day (day_name)
@@ -150,4 +153,17 @@ CREATE TABLE IF NOT EXISTS settings (
     setting_key VARCHAR(60)  NOT NULL PRIMARY KEY,
     setting_value MEDIUMTEXT NOT NULL,
     updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- "Call a waiter" requests from the dine-in page
+CREATE TABLE IF NOT EXISTS waiter_calls (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    table_number  SMALLINT UNSIGNED NOT NULL,
+    customer_name VARCHAR(40)  NOT NULL,
+    status        VARCHAR(20)  NOT NULL DEFAULT 'active',
+    resolved_at   DATETIME     DEFAULT NULL,
+    ip            VARCHAR(45)  NOT NULL DEFAULT '',
+    INDEX idx_status_table (status, table_number),
+    INDEX idx_created      (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
