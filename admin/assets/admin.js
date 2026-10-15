@@ -59,6 +59,21 @@
     });
   });
 
+  // ----- Tables turn into stacked cards on phones and tablets (.tbl.stack in admin.css) -----
+  // Each cell gets its column's title, shown as the label on its line of the card.
+  $$('table.tbl:not(.items):not(.hours)').forEach((table) => {
+    const heads = $$('thead th', table).map((th) => th.textContent.trim());
+    if (!heads.length) return;
+    $$('tbody tr', table).forEach((tr) => {
+      if (tr.classList.contains('cat')) return; // category heading rows span the table
+      let col = 0;
+      Array.from(tr.children).forEach((td) => { td.dataset.label = heads[col] || ''; col += td.colSpan || 1; });
+    });
+    table.classList.add('stack');
+    const wrap = table.closest('.table');
+    if (wrap) wrap.classList.add('stack');
+  });
+
   // ----- Character counter under a text box -----
   $$('textarea[data-counter]').forEach((ta) => {
     const out = $(ta.dataset.counter);

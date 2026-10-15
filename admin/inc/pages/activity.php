@@ -10,7 +10,7 @@ function admin_page_activity(): void
         $ts = (int) strtotime((string) $a['time']);
         $rows .= '<tr><td class="nowrap">' . h(fmt_when($ts)) . '<div class="cell-sub">' . h(fmt_ago($ts)) . '</div></td>'
             . '<td>' . badge($label, $tone) . '</td>'
-            . '<td>' . h($a['detail']) . '</td>'
+            . '<td class="q">' . h($a['detail']) . '</td>'
             . '<td class="nowrap muted">' . h($a['ip']) . '</td></tr>';
     }
     $body = page_head('Activity log', 'Sign-ins and changes made in this admin, newest first (the latest 200).')

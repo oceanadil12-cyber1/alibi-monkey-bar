@@ -131,7 +131,8 @@ h3 .itip { vertical-align: -1px; }
 .notif-count-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--crit); color: #fff; font-size: 10px; font-weight: 700; position: absolute; top: 2px; right: 2px; }
 
 @media (max-width: 600px) {
-  .notif-panel { width: calc(100vw - 24px); right: -60px; }
+  /* Pinned under the top bar with a 12px margin each side, whatever the phone's width. */
+  .notif-panel { position: fixed; top: 66px; left: 12px; right: 12px; width: auto; max-height: calc(100vh - 80px); }
 }
 .scrim { display: none; }
 .content { max-width: 1240px; margin: 0 auto; padding: 26px 24px 90px; }
@@ -259,7 +260,7 @@ details.card[open] > summary { border-bottom: 1px solid var(--line-soft); }
 .tbl tbody tr:last-child td, .tbl tfoot tr:last-child td { border-bottom: 0; }
 .tbl tbody tr:hover { background: rgba(255, 255, 255, .025); }
 .tbl .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tbl td.q { max-width: 340px; color: var(--text-2); }
+.tbl td.q { max-width: 340px; color: var(--text-2); overflow-wrap: anywhere; }
 .tbl td.act { text-align: right; white-space: nowrap; }
 .tbl.hours, .tbl.items { min-width: 0; }
 .row-link { color: var(--text); font-weight: 500; }
@@ -278,6 +279,27 @@ tr.is-off { opacity: .55; }
 .items .qty { width: 44px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .items tfoot .sum td { padding-top: 8px; padding-bottom: 8px; color: var(--text-2); border-bottom: 0; }
 .items tfoot .grand td { padding-top: 12px; border-top: 1px solid var(--line); color: var(--text); font-weight: 700; }
+
+/* Phones and tablets: each row becomes a card, each cell a "LABEL ... value" line
+   (admin.js copies the column titles into data-label). No sideways scrolling. */
+@media (max-width: 1200px) {
+  .table.stack { overflow: visible; border: 0; border-radius: 0; background: transparent; }
+  .tbl.stack { min-width: 0; }
+  .tbl.stack thead { display: none; }
+  .tbl.stack, .tbl.stack tbody, .tbl.stack tr, .tbl.stack td { display: block; width: 100%; }
+  .tbl.stack tr { margin-bottom: 10px; padding: 6px 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+  .tbl.stack tr[hidden] { display: none; }
+  .tbl.stack tbody tr:hover { background: var(--card); }
+  .tbl.stack td { position: relative; min-height: 34px; max-width: none; padding: 8px 14px 8px calc(38% + 18px); border: 0; text-align: right; overflow-wrap: anywhere; }
+  .tbl.stack td::before { content: attr(data-label); position: absolute; left: 14px; top: 10px; width: 38%; font-size: 11px; font-weight: 700; letter-spacing: 1px; line-height: 1.35; text-transform: uppercase; color: var(--muted); text-align: left; }
+  .tbl.stack td:not([data-label]), .tbl.stack td[data-label=""] { padding-left: 14px; }
+  .tbl.stack td:not([data-label])::before, .tbl.stack td[data-label=""]::before { content: none; }
+  .tbl.stack .gcell, .tbl.stack .fprices { justify-content: flex-end; text-align: left; }
+  .tbl.stack tr.cat { margin: 16px 0 8px; padding: 0; border: 0; background: transparent; }
+  .tbl.stack tr.cat td { display: block; padding: 0 2px; background: transparent; text-align: left; }
+  .tbl.stack tr.unread td:first-child, .tbl.stack tr.order-new td:first-child { box-shadow: none; }
+  .tbl.stack tr.unread, .tbl.stack tr.order-new { box-shadow: inset 3px 0 0 var(--info); }
+}
 
 /* ---------- badges, chips, tabs, search ---------- */
 .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border: 1px solid transparent; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
@@ -443,9 +465,23 @@ tr.cat td { padding: 9px 16px; background: var(--card-2); color: var(--gold-ligh
 .fgrp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
 .fgrp-head strong { color: var(--gold-light); font-size: 14.5px; }
 .hours-wrap { display: flex; flex-wrap: wrap; gap: 22px; }
-.hours-wrap > div { flex: 1 1 300px; min-width: 0; }
+.hours-wrap > div { flex: 1 1 380px; min-width: 0; }
 .hours-wrap h3 { margin: 0 0 8px; }
-.hours input[type=time] { padding: 6px 9px; }
+.hours input[type=time] { width: 100%; min-width: 0; padding: 6px 8px; }
+.tbl.hours th, .tbl.hours td { padding: 8px; }
+.tbl.hours th:first-child, .tbl.hours td:first-child { padding-left: 2px; white-space: nowrap; }
+/* Phones: each day is a small block, "Opens" and "Closes" side by side under the day name. */
+@media (max-width: 560px) {
+  .tbl.hours thead { display: none; }
+  .tbl.hours, .tbl.hours tbody { display: block; }
+  .tbl.hours tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 8px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .tbl.hours tbody tr:last-child { border-bottom: 0; }
+  .tbl.hours td { display: block; padding: 0; border: 0; }
+  .tbl.hours td:first-child { grid-column: 1 / -1; padding: 0; font-weight: 600; }
+  .tbl.hours td:nth-child(2)::before, .tbl.hours td:nth-child(3)::before { display: block; margin-bottom: 3px; font-size: 11px; color: var(--muted); }
+  .tbl.hours td:nth-child(2)::before { content: "Opens"; }
+  .tbl.hours td:nth-child(3)::before { content: "Closes"; }
+}
 
 /* ---------- events ---------- */
 .weekgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; align-items: start; }
