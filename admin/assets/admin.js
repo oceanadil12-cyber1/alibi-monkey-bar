@@ -114,8 +114,10 @@
   bubble.className = 'itip-bubble';
   document.body.appendChild(bubble);
   let bubbleTarget = null;
+  // Capture-phase pointer events also fire for the document itself, which has no closest().
+  const itipOf = (target) => (target instanceof Element ? target.closest('.itip') : null);
   document.addEventListener('pointerenter', (e) => {
-    const el = e.target.closest('.itip');
+    const el = itipOf(e.target);
     if (!el || !el.dataset.info) return;
     bubbleTarget = el;
     bubble.textContent = el.dataset.info;
@@ -135,7 +137,7 @@
     bubble.style.setProperty('--arrow', arrowLeft + 'px');
   }, true);
   document.addEventListener('pointerleave', (e) => {
-    if (e.target.closest('.itip') === bubbleTarget) { bubble.classList.remove('on'); bubbleTarget = null; }
+    if (bubbleTarget && itipOf(e.target) === bubbleTarget) { bubble.classList.remove('on'); bubbleTarget = null; }
   }, true);
 
   // ----- Toasts -----

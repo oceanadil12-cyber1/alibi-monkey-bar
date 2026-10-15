@@ -136,7 +136,8 @@ function admin_page_dashboard(): void
 
     // ---- setup checks ----
     $dataOk = is_dir(data_dir()) ? is_writable(data_dir()) : @mkdir(data_dir(), 0750, true);
-    try { $dbVersion = (string) db()->query('SELECT VERSION()')->fetchColumn(); } catch (Throwable $e) { $dbVersion = ''; }
+    $dbVersion = (string) db()->query('SELECT VERSION()')->fetchColumn();
+    $missingTables = array_values(array_diff(db_expected_tables(), db()->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN)));
     $unsaved = unsaved_count();
     $provider = (string) $cfg['chat_provider'];
     $keyName = $provider . '_api_key';
@@ -147,13 +148,14 @@ function admin_page_dashboard(): void
     $local = in_array($host, ['localhost', '127.0.0.1', '[::1]'], true) || substr($host, -6) === '.local' || substr($host, -5) === '.test';
     $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
     $checks = '<ul class="rows">'
+        . ($missingTables ? check_row('warn', 'Database tables missing', 'Import <code>api/setup.sql</code> in phpMyAdmin (missing: ' . h(implode(', ', $missingTables)) . ')') : '')
         . check_row($unsaved ? 'warn' : 'ok', 'Database connected', h((stripos($dbVersion, 'mariadb') !== false ? 'MariaDB ' : 'MySQL ') . preg_replace('/-.*$/', '', $dbVersion)) . ($unsaved ? ' · ' . plural($unsaved, 'record') . ' still in the backup file' : ' · orders, messages and settings are stored here'))
         . check_row($dataOk ? 'ok' : 'warn', $dataOk ? 'Backup folder is writable' : 'Can\'t write the backup folder', $dataOk ? 'Sign-ins, and guest records if the database is ever down' : 'The folder api/data/ must be writable by the website')
         . check_row(trim((string) $cfg['notify_email']) !== '' ? 'ok' : 'warn', trim((string) $cfg['notify_email']) !== '' ? 'Email alerts are on' : 'Email alerts are off',
             trim((string) $cfg['notify_email']) !== '' ? 'New orders and messages are also emailed to you' : 'Orders and messages only show here. Set <code>notify_email</code> in api/config.php to get them by email too.')
         . check_row($providerReady ? 'ok' : 'warn', 'Chat assistant: ' . $provider . ($cfg['chat_fallback'] ? ' + backup' : ''),
             $providerReady ? ($limit > 0 ? h(number_format($used) . ' of ' . number_format($limit) . ' messages used today') : 'No daily limit') : 'No API key set for this provider')
-        . check_row($cfg['chat_log'] ? 'ok' : 'warn', $cfg['chat_log'] ? 'Chats are recorded' : 'Chat recording is off', $cfg['chat_log'] ? 'Kept for ' . (int) $cfg['chat_log_days'] . ' days' : 'Conversations and Insights stay empty')
+        . check_row($cfg['chat_log'] ? 'ok' : 'warn', $cfg['chat_log'] ? 'Chats are recorded' : 'Chat recording is off', $cfg['chat_log'] ? 'Saved in the database for Conversations and Insights' : 'Conversations and Insights stay empty')
         . check_row($https || $local ? 'ok' : 'warn', $https ? 'Secure connection (HTTPS)' : ($local ? 'Running on this computer' : 'Not using HTTPS'),
             $https || $local ? '' : 'Turn on HTTPS so the admin password isn\'t sent in the clear')
         . check_row(strlen(admin_password()) >= 12 ? 'ok' : 'warn', strlen(admin_password()) >= 12 ? 'Strong admin password' : 'Short admin password', strlen(admin_password()) >= 12 ? '' : 'Use at least 12 characters')

@@ -7,8 +7,14 @@ security, caching, clean URLs and the 404 page.
 
 ## What to upload
 
-Upload the **contents** of this repository to the web root (usually
-`public_html/`), **except**:
+**Easiest:** double-click `Make Upload Package.bat`. It builds the folder
+`Alibi Website - For Developer` next to the repository with exactly the files for
+the server (as a folder and as `alibi-website-upload.zip`) plus the step-by-step
+guide `HOW-TO-GO-LIVE.md` (the same text as [GO-LIVE.md](GO-LIVE.md)). Hand that
+folder to whoever puts the site live. Nothing secret is in it.
+
+Uploading by hand instead: upload the **contents** of this repository to the web
+root (usually `public_html/`), **except**:
 
 | Don't upload | Why |
 | --- | --- |
@@ -30,8 +36,9 @@ Must upload: all `*.html`, `css/`, `js/`, `images/`, `fonts/`, `data/`, `api/`,
    1. *MySQL Databases* → create a database (cPanel names it like `cpuser_alibi`).
    2. On the same page, create a user with a long generated password, then
       *Add User to Database* with **All Privileges**.
-   3. *phpMyAdmin* → click the new database → *Import* → choose `api/setup.sql`
-      from your computer → *Import*. You should see 10 tables.
+   3. Nothing to import: the site creates its 10 tables on the first visit once
+      `config.php` has the database login (step 3). If the user has no CREATE
+      rights, *phpMyAdmin* → the database → *Import* → `api/setup.sql` does the same.
    4. On phpMyAdmin's home page, check *Server version* is MySQL 8.0.13+ or
       MariaDB 10.2+.
 3. **Create `api/config.php`** on the server by copying `config.example.php`,

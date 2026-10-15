@@ -416,7 +416,7 @@
                             "id": "YD2UKVPUTTDTT3IDJ2YWKZYD",
                             "name": "Rare",
                             "price": 0,
-                            "default": true,
+                            "default": false,
                             "soldOut": false
                         },
                         {
@@ -598,7 +598,7 @@
                             "id": "YD2UKVPUTTDTT3IDJ2YWKZYD",
                             "name": "Rare",
                             "price": 0,
-                            "default": true,
+                            "default": false,
                             "soldOut": false
                         },
                         {
@@ -2411,7 +2411,7 @@
                             "id": "YD2UKVPUTTDTT3IDJ2YWKZYD",
                             "name": "Rare",
                             "price": 0,
-                            "default": true,
+                            "default": false,
                             "soldOut": false
                         },
                         {
@@ -2797,7 +2797,7 @@
                             "id": "YD2UKVPUTTDTT3IDJ2YWKZYD",
                             "name": "Rare",
                             "price": 0,
-                            "default": true,
+                            "default": false,
                             "soldOut": false
                         },
                         {
@@ -3177,7 +3177,7 @@
                             "id": "YD2UKVPUTTDTT3IDJ2YWKZYD",
                             "name": "Rare",
                             "price": 0,
-                            "default": true,
+                            "default": false,
                             "soldOut": false
                         },
                         {
@@ -3528,7 +3528,7 @@
                             "id": "YD2UKVPUTTDTT3IDJ2YWKZYD",
                             "name": "Rare",
                             "price": 0,
-                            "default": true,
+                            "default": false,
                             "soldOut": false
                         },
                         {
@@ -3886,7 +3886,7 @@
                             "id": "YD2UKVPUTTDTT3IDJ2YWKZYD",
                             "name": "Rare",
                             "price": 0,
-                            "default": true,
+                            "default": false,
                             "soldOut": false
                         },
                         {
@@ -4244,7 +4244,7 @@
                             "id": "YD2UKVPUTTDTT3IDJ2YWKZYD",
                             "name": "Rare",
                             "price": 0,
-                            "default": true,
+                            "default": false,
                             "soldOut": false
                         },
                         {

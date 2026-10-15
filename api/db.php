@@ -41,7 +41,38 @@ function db(): PDO
         throw new RuntimeException('Could not connect to the database.');
     }
 
+    db_ensure_schema($pdo);
     return $pdo;
+}
+
+/** The table names setup.sql creates. */
+function db_expected_tables(): array
+{
+    preg_match_all('/CREATE TABLE IF NOT EXISTS\s+`?(\w+)`?/i', (string) @file_get_contents(__DIR__ . '/setup.sql'), $m);
+    return $m[1];
+}
+
+/**
+ * Create any missing tables from setup.sql, so a fresh install only needs the db_*
+ * settings filled in (importing setup.sql in phpMyAdmin also works). Runs once per
+ * version of setup.sql: a marker file in data_dir() remembers it.
+ */
+function db_ensure_schema(PDO $pdo): void
+{
+    $file = __DIR__ . '/setup.sql';
+    if (!is_file($file)) return;
+    $marker = data_dir() . '/.schema-' . substr((string) md5_file($file), 0, 12);
+    if (is_file($marker)) return;
+    try {
+        $sql = preg_replace('/^\s*--.*$/m', '', (string) file_get_contents($file));
+        foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) $pdo->exec($statement);
+    } catch (PDOException $e) {
+        // Usually a user without the CREATE privilege; setup.sql can still be imported by hand.
+        error_log('db_ensure_schema: ' . $e->getMessage());
+        return;
+    }
+    if (!is_dir(data_dir())) @mkdir(data_dir(), 0750, true);
+    @file_put_contents($marker, date('c') . "\n");
 }
 
 /** A DATETIME from the database as ISO 8601 with the offset (what browsers parse reliably); null stays null. */

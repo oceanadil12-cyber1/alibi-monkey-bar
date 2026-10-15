@@ -427,6 +427,9 @@ body {
     .kds-stat { padding: 4px 10px; min-width: 56px; }
     .kds-stat-num { font-size: 1.2rem; }
     .kds-grid { grid-template-columns: 1fr; padding: 8px; gap: 8px; }
+    /* On a phone the filters and buttons wrap instead of pushing Sign out off screen. */
+    .kds-actions { flex-wrap: wrap; flex-shrink: 1; min-width: 0; }
+    .kds-actions select { flex: 1 1 120px; min-width: 0; }
 }
 
 /* large kitchen screen (1920+) */

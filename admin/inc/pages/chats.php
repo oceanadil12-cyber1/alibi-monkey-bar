@@ -1,8 +1,8 @@
 <?php
 /**
  * Conversations: everything guests asked the website's chat assistant, and what it
- * answered. Chats are saved by api/chat.php (api/chat-log.php) and deleted after
- * config 'chat_log_days'; the team's flag and note are kept in the side file.
+ * answered. Chats are saved by api/chat.php (api/chat-log.php); this page looks back
+ * over config 'chat_log_days' (at least 120). The team's flag and note are saved on the chat_sessions row.
  * Guests' messages are untrusted text and are always escaped.
  */
 if (!defined('ADMIN')) { http_response_code(403); exit('Forbidden'); }
@@ -91,7 +91,7 @@ function admin_chat_detail(string $rawCid): void
     $c = $all[$cid] ?? null;
     if (!$c) {
         admin_render('Conversation', '<p class="back"><a href="' . h($listUrl) . '">' . icon('left', 15) . ' Conversations</a></p>'
-            . empty_state('Conversation not found', 'Chats are kept for ' . (int) config()['chat_log_days'] . ' days, then deleted.', 'chat'), 'chats');
+            . empty_state('Conversation not found', 'It may have been deleted, or be older than ' . max(120, (int) config()['chat_log_days']) . ' days.', 'chat'), 'chats');
     }
     $when = fn($iso) => fmt_when((string) $iso);
     $ordered = array_merge(...array_map(fn($t) => $t['ordered'] ?? [], $c['turns']));
@@ -241,7 +241,7 @@ function admin_chats_list(): void
             . ($note !== '' ? '<div class="cell-sub">' . icon('edit', 12) . ' ' . h(snip($note, 60)) . '</div>' : '') . '</td></tr>';
     }
 
-    $body = page_head('Conversations', 'Guests give an email (and optionally a name) before chatting; their IP address, device and browser are recorded too. Kept for ' . (int) config()['chat_log_days'] . ' days, then deleted automatically.',
+    $body = page_head('Conversations', 'Guests give an email (and optionally a name) before chatting; their IP address, device and browser are recorded too. Chats are kept in the database.',
             btn_link('Download spreadsheet', admin_url('chats', $filters + ['csv' => 1]), '', 'download'))
         . period_bar('chats', $period, $presets, array_diff_key($filters, ['days' => 1, 'from' => 1, 'to' => 1]))
         . '<div class="stats">'

@@ -125,12 +125,11 @@
         return { qty: parseInt(m[1], 10), label: rest, mods, note };
     }
 
+    // Always restaurant time, even on a tablet whose clock zone is set wrong.
+    const restaurantTime = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' });
     function formatTime(iso) {
         const d = new Date(iso);
-        let h = d.getHours(), m = d.getMinutes();
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        return h + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+        return isNaN(d) ? '' : restaurantTime.format(d);
     }
 
     function cardStatus(order) {

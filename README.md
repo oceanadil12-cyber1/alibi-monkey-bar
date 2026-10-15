@@ -315,11 +315,13 @@ alibi-monkey-bar/
 │   ├── ARCHITECTURE.md    How the site is built
 │   ├── CONTENT-GUIDE.md   How to change events, dancers, photos, text, hours, menu
 │   ├── API.md             PHP endpoint reference
-│   └── DEPLOYMENT.md      How to publish and update the live site
+│   ├── DEPLOYMENT.md      How to publish and update the live site
+│   └── GO-LIVE.md         One-page go-live guide for hosting.com (goes in the upload package)
 ├── .htaccess              Apache: security, caching, clean URLs, 404 page
 ├── robots.txt
 ├── ORDERING-SETUP.md      Square ordering setup guide for the owner
-├── Start Website.bat      Windows one-click launcher
+├── Start Website.bat      Windows one-click launcher (also starts the local MySQL)
+├── Make Upload Package.bat  Builds the hand-off folder for the web developer (docs/GO-LIVE.md)
 └── Save to GitHub.bat     Windows one-click git commit and push
 ```
 
