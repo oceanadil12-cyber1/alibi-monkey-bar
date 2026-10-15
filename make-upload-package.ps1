@@ -49,10 +49,12 @@ try {
 
 Copy-Item -LiteralPath (Join-Path $repo 'docs\GO-LIVE.md') -Destination (Join-Path $out 'HOW-TO-GO-LIVE.md') -Force
 $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm'
+$unsaved = ''
+if ($dirty) { $unsaved = ' + changes not yet saved to GitHub' }
 @(
     "Alibi Monkey Bar website - upload package",
     "Built:   $stamp",
-    "Version: $version (commit $commit)" + $(if ($dirty) { ' + changes not yet saved to GitHub' } else { '' }),
+    "Version: $version (commit $commit)$unsaved",
     "Files:   $($files.Count)",
     "",
     "Upload the CONTENTS of public_html (or alibi-website-upload.zip) into the",
