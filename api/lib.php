@@ -18,8 +18,16 @@ function config(): array
 {
     static $cfg = null;
     if ($cfg === null) {
+        // Three layers, first one wins: config.php (this server: the database details
+        // the admin's first-run screen saves), site-settings.php (the owner's settings,
+        // shipped in the upload package), then the defaults below. A blank value in
+        // config.php counts as not set, so a copy of config.example.php can't blank
+        // out the owner's settings.
         $file = __DIR__ . '/config.php';
-        $cfg = is_file($file) ? require $file : [];
+        $cfg = is_file($file) ? (array) require $file : [];
+        $cfg = array_filter($cfg, function ($v) { return $v !== ''; });
+        $site = __DIR__ . '/site-settings.php';
+        if (is_file($site)) $cfg += (array) require $site;
         $cfg += [
             'db_host'         => 'localhost',
             'db_name'         => '',
@@ -209,6 +217,42 @@ function square_error_message(array $body): string
 function data_dir(): string
 {
     return rtrim((string) (config()['data_dir'] ?? ''), '/\\') ?: __DIR__ . '/data';
+}
+
+/**
+ * The website's address path, ending in "/": "/" at a domain's root, or e.g.
+ * "/alibi/" when the files sit in a folder. Worked out from the running script,
+ * so pages built in PHP link correctly wherever the site is uploaded.
+ */
+function site_base(): string
+{
+    static $base = null;
+    if ($base !== null) return $base;
+    $base = '/';
+    $root = str_replace('\\', '/', (string) realpath(dirname(__DIR__)));
+    $file = str_replace('\\', '/', (string) realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')));
+    $name = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+    if ($root !== '' && $file !== '' && strpos($file, $root . '/') === 0) {
+        $rel = substr($file, strlen($root)); // e.g. "/dine-in/index.php"
+        if (substr($name, -strlen($rel)) === $rel) $base = rtrim(substr($name, 0, -strlen($rel)), '/') . '/';
+    }
+    return $base;
+}
+
+/** Send the branded "page not found" page with a 404 status, its links pointed at this site's folder. Ends the request. */
+function send_not_found(): void
+{
+    http_response_code(404);
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    $html = (string) @file_get_contents(dirname(__DIR__) . '/404.html');
+    $base = site_base();
+    // 404.html links from the domain root ("/menu.html"); in a folder they need its prefix.
+    if ($base !== '/') {
+        $html = preg_replace_callback('#\b(href|src)="/(?!/)#', function ($m) use ($base) { return $m[1] . '="' . $base; }, $html);
+    }
+    echo $html;
+    exit;
 }
 
 /**

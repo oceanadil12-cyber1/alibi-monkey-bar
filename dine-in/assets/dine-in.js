@@ -11,6 +11,8 @@
   if (!app) return;
 
   var TABLE = parseInt(app.dataset.table, 10);
+  // The site's folder ("/" at the domain root), so requests work wherever the site is uploaded.
+  var BASE = window.__DINEIN_BASE || '/';
 
   // ---------- helpers ----------
   function esc(s) {
@@ -190,7 +192,7 @@
     btn.disabled = true;
     btn.textContent = 'Calling…';
 
-    fetch('/api/waiter-call.php', {
+    fetch(BASE + 'api/waiter-call.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ table: TABLE, name: state.customerName })
@@ -741,7 +743,7 @@
     placeOrderBtn.disabled = true;
     placeOrderBtn.textContent = 'Placing Order…';
 
-    fetch('/api/dine-in-order.php', {
+    fetch(BASE + 'api/dine-in-order.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

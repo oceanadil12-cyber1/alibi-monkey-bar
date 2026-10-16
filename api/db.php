@@ -2,11 +2,18 @@
 /**
  * MySQL database connection (PDO).
  *
- * Uses the 'db_*' credentials in config.php. On cPanel hosting (hosting.com),
- * create the database and user in cPanel → MySQL Databases, import setup.sql
- * in phpMyAdmin, then fill in the values (see docs/DEPLOYMENT.md).
+ * Uses the 'db_*' settings in api/config.php. On a new server the admin panel's
+ * first-run screen (/admin/) tests the details, creates the tables and saves
+ * them there, so nobody has to edit files (see docs/DEPLOYMENT.md).
  */
 require_once __DIR__ . '/lib.php';
+
+/** True once the database name and user are saved (whether or not the server answers). */
+function db_configured(): bool
+{
+    $c = config();
+    return ($c['db_name'] ?? '') !== '' && ($c['db_user'] ?? '') !== '';
+}
 
 function db(): PDO
 {
@@ -14,27 +21,13 @@ function db(): PDO
     if ($pdo !== null) return $pdo;
 
     $c = config();
-    $host = $c['db_host'] ?? 'localhost';
-    $name = $c['db_name'] ?? '';
-    $user = $c['db_user'] ?? '';
-    $pass = $c['db_pass'] ?? '';
-    $port = $c['db_port'] ?? 3306;
-
-    if ($name === '' || $user === '') {
-        throw new RuntimeException('The database is not set up: fill in db_name, db_user and db_pass in api/config.php.');
+    if (!db_configured()) {
+        throw new RuntimeException('The database is not set up yet: open /admin/ to connect it.');
     }
 
-    // The session time zone follows PHP's (America/New_York, set in lib.php), so
-    // DEFAULT CURRENT_TIMESTAMP and NOW() match date() whatever the server's clock zone is.
-    $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
     try {
-        $pdo = new PDO($dsn, $user, $pass, [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-            PDO::ATTR_TIMEOUT            => 5, // seconds to wait for a connection, so a stuck server can't hang every page
-            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, time_zone = '" . date('P') . "'",
-        ]);
+        $pdo = db_connect((string) ($c['db_host'] ?? 'localhost'), (int) ($c['db_port'] ?? 3306),
+            (string) $c['db_name'], (string) $c['db_user'], (string) ($c['db_pass'] ?? ''));
     } catch (PDOException $e) {
         // Rethrown without the PDO constructor in the trace, so the password can never show in an error page.
         error_log('db connect: ' . $e->getMessage());
@@ -45,6 +38,55 @@ function db(): PDO
     return $pdo;
 }
 
+/**
+ * Open a connection (throws PDOException). The session time zone follows PHP's
+ * (America/New_York, set in lib.php), so DEFAULT CURRENT_TIMESTAMP and NOW()
+ * match date() whatever the server's clock zone is.
+ */
+function db_connect(string $host, int $port, string $name, string $user, string $pass): PDO
+{
+    $dsn = 'mysql:host=' . ($host !== '' ? $host : 'localhost') . ';port=' . ($port ?: 3306) . ";dbname=$name;charset=utf8mb4";
+    return new PDO($dsn, $user, $pass, [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false,
+        PDO::ATTR_TIMEOUT            => 5, // seconds to wait for a connection, so a stuck server can't hang every page
+        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, time_zone = '" . date('P') . "'",
+    ]);
+}
+
+/**
+ * Save this server's database details in api/config.php (written to a temporary
+ * file first, then swapped in). Only the db_* settings (and data_dir, if set) are
+ * kept: everything else comes from site-settings.php. Any earlier config.php is
+ * kept beside it as a dot-file, which .htaccess never serves. False if the folder
+ * isn't writable.
+ */
+function db_save_config(array $db): bool
+{
+    $file = __DIR__ . '/config.php';
+    $keep = ['db_host' => 'localhost', 'db_name' => '', 'db_user' => '', 'db_pass' => '', 'db_port' => 3306];
+    $values = array_intersect_key($db + $keep, $keep);
+    $values['db_port'] = (int) $values['db_port'] ?: 3306;
+    $dataDir = (string) (config()['data_dir'] ?? '');
+    if ($dataDir !== '') $values['data_dir'] = $dataDir;
+
+    $php = "<?php\n"
+        . "/**\n"
+        . " * This server's database details, saved by the admin panel's first-run screen on " . date('Y-m-d H:i') . ".\n"
+        . " * The owner's settings (admin password, emails, chat keys) are in site-settings.php.\n"
+        . " * A value set here wins over site-settings.php. Never share or upload this file.\n"
+        . " */\n"
+        . 'return ' . var_export($values, true) . ";\n";
+
+    $tmp = __DIR__ . '/.config-' . bin2hex(random_bytes(6)) . '.php';
+    if (@file_put_contents($tmp, $php, LOCK_EX) !== strlen($php)) { @unlink($tmp); return false; }
+    if (is_file($file)) @copy($file, __DIR__ . '/.config-before-' . date('Ymd-His') . '.php');
+    if (!@rename($tmp, $file)) { @unlink($tmp); return false; }
+    if (function_exists('opcache_invalidate')) @opcache_invalidate($file, true);
+    return true;
+}
+
 /** The table names setup.sql creates. */
 function db_expected_tables(): array
 {
@@ -52,17 +94,23 @@ function db_expected_tables(): array
     return $m[1];
 }
 
+/** The setup.sql tables this database doesn't have. */
+function db_missing_tables(PDO $pdo): array
+{
+    return array_values(array_diff(db_expected_tables(), $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN)));
+}
+
 /**
  * Create any missing tables from setup.sql, so a fresh install only needs the db_*
  * settings filled in (importing setup.sql in phpMyAdmin also works). Runs once per
  * version of setup.sql: a marker file in data_dir() remembers it.
  */
-function db_ensure_schema(PDO $pdo): void
+function db_ensure_schema(PDO $pdo, bool $force = false): void
 {
     $file = __DIR__ . '/setup.sql';
     if (!is_file($file)) return;
     $marker = data_dir() . '/.schema-' . substr((string) md5_file($file), 0, 12);
-    if (is_file($marker)) return;
+    if (!$force && is_file($marker)) return;
     try {
         $sql = preg_replace('/^\s*--.*$/m', '', (string) file_get_contents($file));
         foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) $pdo->exec($statement);

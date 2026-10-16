@@ -1,6 +1,11 @@
 # ---- Secrets: never commit ----
 # Square access token + email settings (copy config.example.php to create it)
 api/config.php
+# The owner's launch settings (admin password, emails, chat keys): built into the upload
+# package by make-upload-package.ps1 from this computer's config.php, never committed
+api/site-settings.php
+# Earlier config.php copies kept by the admin's first-run screen, and its temporary file
+api/.config-*.php
 
 # ---- Server-generated ----
 # Menu cache and rate-limit files

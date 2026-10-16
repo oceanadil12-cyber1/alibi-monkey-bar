@@ -58,6 +58,7 @@ if (!kds_signed_in()) fail('Not signed in.', 401);
 try {
     db();
 } catch (Throwable $e) {
+    if (!db_configured()) fail('The website isn\'t connected to its database yet. Sign in to the admin panel once to connect it.', 503);
     fail('The database can\'t be reached right now. Orders are kept safe; try again in a moment.', 503);
 }
 

@@ -3,7 +3,9 @@
 
 Options -Indexes
 DirectoryIndex index.html
-# Branded "page not found" page (assumes the site sits at the domain root).
+# Branded "page not found" page. Missing addresses are sent to 404.php by the
+# rewrite rules below, which works in any folder; this line covers the rest when
+# the site sits at the domain root.
 ErrorDocument 404 /404.html
 
 # ---------- Private files ----------
@@ -11,8 +13,6 @@ ErrorDocument 404 /404.html
 <FilesMatch "(\.(md|log|bak|sql|ini|sh|zip|bat)|^\..*)$">
     Require all denied
 </FilesMatch>
-# Git repository data and developer docs, in case they get uploaded by mistake.
-RedirectMatch 404 ^/(\.git|docs)(/|$)
 
 # ---------- HTTPS ----------
 # Turn this on once the site's SSL certificate is active (most hosts include
@@ -26,19 +26,32 @@ RedirectMatch 404 ^/(\.git|docs)(/|$)
 
 # ---------- Clean URLs ----------
 # /events loads events.html (links on the site use .html, so this is a bonus).
+# Every rule here works whether the site is at the domain root or in a folder.
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    # The site's own address prefix ("/" at the root, "/folder/" in a folder) → %{ENV:BASE}
+    RewriteCond $0#%{REQUEST_URI} ^([^#]*)#(.*)\1$
+    RewriteRule ^.*$ - [E=BASE:%2]
+
     # The home page has one address: /index.html (typed or from an old link) → /
     RewriteCond %{THE_REQUEST} \s/+(.*/)?index\.html[\s?] [NC]
-    RewriteRule ^(.*/)?index\.html$ /$1 [R=301,L]
+    RewriteRule ^(.*/)?index\.html$ %{ENV:BASE}$1 [R=301,L]
 
     # Dine-in: /dine-in/table/{number} → dine-in/index.php
     RewriteRule ^dine-in/table/([0-9]+)/?$ dine-in/index.php?table=$1 [L,QSA]
+
+    # Git data and developer docs, in case they get uploaded by mistake: not found.
+    RewriteRule ^(\.git|docs)(/|$) 404.php [L]
 
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME}.html -f
     RewriteRule ^(.+?)/?$ $1.html [L]
+
+    # Any other address that doesn't exist: the branded 404 page.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ 404.php [L]
 </IfModule>
 
 # ---------- File types ----------

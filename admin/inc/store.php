@@ -478,6 +478,7 @@ const ADMIN_ACTIONS = [
     'login'              => ['Signed in', 'muted'],
     'login.failed'       => ['Wrong password', 'crit'],
     'logout'             => ['Signed out', 'muted'],
+    'setup.database'     => ['Database connected', 'gold'],
     'order.status'       => ['Order status changed', 'gold'],
     'order.note'         => ['Order note saved', 'muted'],
     'reservation.status' => ['Reservation updated', 'gold'],

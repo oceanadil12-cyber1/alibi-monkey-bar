@@ -580,6 +580,10 @@ body.bare { display: grid; place-items: center; padding: 24px; }
 .login h1 { font-size: 22px; text-align: center; }
 .login > .muted { text-align: center; }
 .login .flash { margin: 0; }
+/* First-run database screen (admin/inc/setup.php) */
+.setup-more summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.setup-more[open] { display: flex; flex-direction: column; gap: 12px; }
+.setup-more[open] summary { margin-bottom: 2px; }
 
 /* ---------- tooltip and toasts ---------- */
 .tip { position: fixed; z-index: 100; max-width: 260px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: #27272c; color: var(--text); font-size: 12.5px; line-height: 1.35; pointer-events: none; box-shadow: 0 6px 20px rgba(0, 0, 0, .5); }

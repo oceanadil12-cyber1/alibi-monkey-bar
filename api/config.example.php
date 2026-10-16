@@ -1,11 +1,14 @@
 <?php
 /**
- * Private settings for the Alibi Monkey Bar website.
+ * Private settings for the Alibi Monkey Bar website: the reference list.
  *
- * To go live:
- *   1. Copy this file to config.php (same folder: api/config.php).
- *   2. Fill in section 1 below. Everything else already has launch values.
- *   3. Open https://YOUR-DOMAIN/admin/ and check Dashboard → Setup checks.
+ * On your own computer: copy this file to config.php (same folder) and fill it in.
+ *
+ * On the live server you normally don't need it. The upload package (Make Upload
+ * Package.bat) carries your settings in api/site-settings.php, and the admin
+ * panel's first-run screen (/admin/) saves the database details in config.php.
+ * A setting in the server's config.php wins over site-settings.php; blank values
+ * are ignored. See docs/DEPLOYMENT.md.
  *
  * Never share config.php or commit it anywhere: it holds the database
  * password, the admin password and the chat API keys.

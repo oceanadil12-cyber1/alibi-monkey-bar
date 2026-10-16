@@ -6,6 +6,8 @@
  * entire flow (welcome → menu → cart → confirmation → reset).
  */
 
+require_once __DIR__ . '/../api/lib.php';
+
 // Apache rewrites /dine-in/table/{N} → ?table=N. For PHP's built-in dev
 // server (no .htaccess), fall back to parsing REQUEST_URI directly.
 $table = (int) ($_GET['table'] ?? 0);
@@ -14,13 +16,11 @@ if ($table < 1 && isset($_SERVER['REQUEST_URI'])) {
         $table = (int) $m[1];
     }
 }
-if ($table < 1 || $table > 999) {
-    http_response_code(404);
-    readfile(__DIR__ . '/../404.html');
-    exit;
-}
+if ($table < 1 || $table > 999) send_not_found();
 
-require_once __DIR__ . '/../api/lib.php';
+// Links start from the site's own folder, so the page works at the domain root or in a folder.
+$base = htmlspecialchars(site_base(), ENT_QUOTES);
+
 require_once __DIR__ . '/../api/menu.php';
 $menuData = load_menu();
 
@@ -80,12 +80,12 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
   <title>Dine-In — Table <?= $table ?> | Alibi Monkey Bar</title>
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#0A0A0A">
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32.png">
-  <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
-  <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/playfair-display-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/css/style.css?v=20261002">
-  <link rel="stylesheet" href="/dine-in/assets/dine-in.css?v=9">
+  <link rel="icon" type="image/png" sizes="32x32" href="<?= $base ?>images/favicon-32.png">
+  <link rel="apple-touch-icon" href="<?= $base ?>images/apple-touch-icon.png">
+  <link rel="preload" href="<?= $base ?>fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="<?= $base ?>fonts/playfair-display-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="<?= $base ?>css/style.css?v=20261002">
+  <link rel="stylesheet" href="<?= $base ?>dine-in/assets/dine-in.css?v=10">
 </head>
 <body>
 
@@ -95,7 +95,7 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
     <div class="dinein-screen dinein-screen--active" id="screen-welcome">
       <div class="dinein-welcome">
         <div class="dinein-welcome-logo">
-          <img src="/images/logo.webp" alt="Georgie's Alibi Monkey Bar" width="280" height="171">
+          <img src="<?= $base ?>images/logo.webp" alt="Georgie's Alibi Monkey Bar" width="280" height="171">
         </div>
         <div class="dinein-welcome-card">
           <div class="dinein-table-badge">
@@ -195,9 +195,10 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
     </div>
   </div>
 
+  <script>window.__DINEIN_BASE = <?= json_encode(site_base(), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;</script>
 <?php if ($menuJson): ?>
   <script>window.__DINEIN_MENU = <?= $menuJson ?>;</script>
 <?php endif; ?>
-  <script src="/dine-in/assets/dine-in.js?v=9"></script>
+  <script src="<?= $base ?>dine-in/assets/dine-in.js?v=10"></script>
 </body>
 </html>
