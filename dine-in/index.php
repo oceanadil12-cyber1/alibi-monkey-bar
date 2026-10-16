@@ -84,7 +84,7 @@ if ($menuData && !empty($menuData['categories']) && !empty($menuData['items'])) 
   <link rel="apple-touch-icon" href="<?= $base ?>images/apple-touch-icon.png">
   <link rel="preload" href="<?= $base ?>fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="<?= $base ?>fonts/playfair-display-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="<?= $base ?>css/style.css?v=20261016c">
+  <link rel="stylesheet" href="<?= $base ?>css/style.css?v=20261016d">
   <link rel="stylesheet" href="<?= $base ?>dine-in/assets/dine-in.css?v=10">
 </head>
 <body>

@@ -22,14 +22,16 @@ function chat_log_cid($raw): string
     return is_string($raw) && preg_match('/^[A-Za-z0-9-]{6,40}$/', $raw) ? $raw : 'unknown';
 }
 
-/** The email (required, validated) and name (optional) the guest gave, cleaned. */
+/** The email (validated), name and phone (when Admin → Chat settings asks for it) the guest gave, cleaned. */
 function chat_contact($in): array
 {
     $email = clean_field(is_array($in) ? ($in['email'] ?? '') : '', 120);
     $name  = clean_field(is_array($in) ? ($in['name'] ?? '') : '', 80);
+    $phone = clean_field(is_array($in) ? ($in['phone'] ?? '') : '', 30);
     return [
         'name'  => $name,
         'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '',
+        'phone' => strlen(preg_replace('/\D/', '', $phone)) >= 7 && preg_match('/^[0-9 ()+.\-]+$/', $phone) ? $phone : '',
     ];
 }
 
@@ -80,6 +82,7 @@ function log_chat(string $cid, string $question, string $reply, array $usage, fl
         require_once __DIR__ . '/db.php';
         $name  = (string) ($contact['name'] ?? '');
         $email = (string) ($contact['email'] ?? '');
+        $phone = (string) ($contact['phone'] ?? '');
         $ip    = (string) ($meta['ip'] ?? '');
         $device = (string) ($meta['device'] ?? '');
         $browser = (string) ($meta['browser'] ?? '');
@@ -93,6 +96,7 @@ function log_chat(string $cid, string $question, string $reply, array $usage, fl
             $updates = ['ended_at' => date('Y-m-d H:i:s')];
             if ($name !== '')   $updates['name'] = $name;
             if ($email !== '')  $updates['email'] = $email;
+            if ($phone !== '')  $updates['phone'] = $phone;
             if ($ip !== '')     $updates['ip'] = $ip;
             if ($device !== '') $updates['device'] = $device;
             if ($browser !== '') $updates['browser'] = $browser;
@@ -102,6 +106,7 @@ function log_chat(string $cid, string $question, string $reply, array $usage, fl
                 'cid'     => $cid,
                 'name'    => $name,
                 'email'   => $email,
+                'phone'   => $phone,
                 'ip'      => $ip,
                 'device'  => $device,
                 'browser' => $browser,
@@ -160,7 +165,7 @@ function chat_log_conversations(int $days, ?string $from = null, ?string $to = n
     try {
         require_once __DIR__ . '/db.php';
         $stmt = db()->prepare(
-            "SELECT s.cid, s.name, s.email, s.ip, s.device, s.browser, s.flagged, s.note AS session_note,
+            "SELECT s.cid, s.name, s.email, s.phone, s.ip, s.device, s.browser, s.flagged, s.note AS session_note,
                     m.sent_at AS time, m.question, m.reply, m.ordered, m.shows,
                     m.provider, m.model, m.input_tokens, m.cache_read, m.output_tokens, m.seconds
              FROM chat_sessions s
@@ -175,7 +180,7 @@ function chat_log_conversations(int $days, ?string $from = null, ?string $to = n
             if (!isset($convos[$cid])) {
                 $convos[$cid] = [
                     'cid' => $cid, 'start' => $row['time'], 'end' => $row['time'],
-                    'name' => $row['name'], 'email' => $row['email'], 'ip' => $row['ip'],
+                    'name' => $row['name'], 'email' => $row['email'], 'phone' => (string) ($row['phone'] ?? ''), 'ip' => $row['ip'],
                     'device' => $row['device'], 'browser' => $row['browser'],
                     'flagged' => (bool) $row['flagged'], 'note' => $row['session_note'],
                     'turns' => [],

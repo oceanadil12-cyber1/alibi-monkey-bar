@@ -8,30 +8,50 @@
  * packages, food added to the order) and follow-up suggestions; "Talk to a
  * person" shows the team's phone and hours without asking the AI.
  * The conversation is kept for the browser tab (sessionStorage), so it carries
- * on when the guest follows a link to another page. */
-(function () {
+ * on when the guest follows a link to another page.
+ *
+ * Its wording, button, contact form and opening are set in Admin → Chat settings
+ * (api/chat-settings.php), which is read before anything is shown. */
+(async function () {
   const script = document.currentScript;
   const SITE = new URL('../', script.src);               // site root, wherever this page lives
   const ENDPOINT = new URL('api/chat.php', SITE).href;
-  const LOGO = new URL('images/apple-touch-icon.png', SITE).href;
   const STORE = 'alibi-chat-v1';
   const MAX_KEEP = 30;                                   // messages remembered per tab
-  const PHONE = '(954) 565-2526';
-  const PHONE_TEL = 'tel:+19545652526';
-  const GREETING = "I'm the Alibi's virtual assistant. I can help you order food, check tonight's shows, find Happy Hour deals, book a table or plan a private event.";
+
+  // Admin → Chat settings. If they can't be read, these defaults are what the chat always did.
+  const CFG = Object.assign({
+    enabled: true, position: 'right', button: 'Ask us', autoOpen: 'smart', autoDelay: 3,
+    bubble: 'Hi! Need a table or food? Ask me.', title: 'Ask the Alibi', status: 'Online now · virtual assistant',
+    welcome: "I'm the Alibi's virtual assistant. I can help you order food, check tonight's shows, find Happy Hour deals, book a table or plan a private event.",
+    logo: '', gate: 'email', gatePhone: 'off',
+    gateText: "Before we start, what's your email? We'll use it to follow up if you'd like. Your name is optional.",
+    suggestions: ['Show me the menu', "What's on tonight?", 'What are the Happy Hour deals?', 'How do I book a table?'],
+    phone: '(954) 565-2526', hours: 'Open every day, 11 AM to 2 AM', notice: '', privacyUrl: '',
+  }, await fetch(new URL('api/chat-settings.php', SITE).href).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+  if (!CFG.enabled) return; // switched off in the admin: no button, no chat
+
+  const LOGO = new URL(CFG.logo || 'images/apple-touch-icon.png', SITE).href;
+  const PHONE = CFG.phone;
+  const PHONE_DIGITS = PHONE.replace(/\D/g, '');
+  const PHONE_TEL = 'tel:' + (PHONE_DIGITS.length === 10 ? '+1' + PHONE_DIGITS : (PHONE.trim().startsWith('+') ? '+' : '') + PHONE_DIGITS);
+  const GREETING = CFG.welcome;
   const HUMAN_RE = /\b(talk|speak|chat)\s+(to|with)\s+(a\s+|an\s+|the\s+|someone|somebody)?(human|person|real person|staff|manager|team|someone|somebody)\b|\breal person\b/i;
-  const HUMAN_MSG = "Of course! Our team is happy to help. Call us any day from 11 AM to 2 AM, or send a message and we'll get back to you.";
+  const HUMAN_MSG = 'Of course! Our team is happy to help. Call us at ' + PHONE
+    + (CFG.hours ? ' (' + CFG.hours.charAt(0).toLowerCase() + CFG.hours.slice(1) + ')' : '')
+    + ", or send a message and we'll get back to you.";
   const MENU_RE = /\b(show|see|browse|view|open)\s+(me\s+)?(the\s+|your\s+|full\s+|complete\s+|entire\s+)?(food\s+)?menu\b|\b(full|complete|entire)\s+menu\b|\bbrowse\s+(the\s+)?(food|menu)\b/i;
-  // Guests give an email (required) and name (optional) before the first message,
-  // so the team can follow up. Kept for the browser tab and sent with each message.
+  // Before the first message the guest gives an email (required, or optional with a
+  // Skip button, or not asked at all: Admin → Chat settings), a name (optional) and,
+  // if set, a phone number. Kept for the browser tab and sent with each message.
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  const GATE_INTRO = "Before we start, what's your email? We'll use it to follow up if you'd like. Your name is optional.";
-  const SUGGESTIONS = [
-    { icon: '\u{1F4CB}', label: 'See our menu', text: 'Show me the menu' },
-    { icon: '\u{1F3AD}', label: "Tonight's shows", text: "What's on tonight?" },
-    { icon: '\u{1F379}', label: 'Happy Hour', text: 'What are the Happy Hour deals?' },
-    { icon: '\u{1F4C5}', label: 'Book a table', text: 'How do I book a table?' },
-  ];
+  const GATE = CFG.gate;           // 'email' | 'optional' | 'off'
+  const GATE_PHONE = CFG.gatePhone; // 'off' | 'optional' | 'required'
+  const GATE_INTRO = CFG.gateText;
+  const CHIP_ICONS = { 'Show me the menu': '\u{1F4CB}', "What's on tonight?": '\u{1F3AD}', 'What are the Happy Hour deals?': '\u{1F379}', 'How do I book a table?': '\u{1F4C5}' };
+  const SUGGESTIONS = (CFG.suggestions || []).map((text) => ({ icon: CHIP_ICONS[text] || '\u{1F4AC}', label: text, text: text }));
+  // Settings are typed by the team, so anything placed into markup is escaped.
+  const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const ICONS = {
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20.5l1.5-4.9A8 8 0 1 1 21 12z"/></svg>',
@@ -66,10 +86,13 @@
   launcher.setAttribute('aria-controls', 'chat-panel');
   launcher.setAttribute('aria-expanded', 'false');
   launcher.setAttribute('aria-label', 'Chat with the Alibi assistant');
-  launcher.innerHTML = ICONS.chat + '<span>Ask us</span>';
+  launcher.innerHTML = ICONS.chat + '<span>' + escHtml(CFG.button) + '</span>';
+  const LEFT = CFG.position === 'left';
+  if (LEFT) launcher.classList.add('is-left');
+  launcher.hidden = CFG.position === 'hidden'; // no floating button: the chat opens by itself or from [data-ask] buttons
 
   const panel = document.createElement('section');
-  panel.className = 'chat-panel' + (embedded ? ' is-embedded' : '');
+  panel.className = 'chat-panel' + (embedded ? ' is-embedded' : '') + (LEFT ? ' is-left' : '');
   panel.id = 'chat-panel';
   panel.hidden = !embedded;
   panel.setAttribute('role', embedded ? 'region' : 'dialog');
@@ -78,7 +101,7 @@
     '<div class="chat-pride" aria-hidden="true"></div>' +
     '<div class="chat-head">' +
       '<span class="chat-avatar-wrap"><img class="chat-avatar" src="' + LOGO + '" alt="" width="42" height="42"><i class="chat-online" aria-hidden="true"></i></span>' +
-      '<div class="chat-title"><strong>Ask the Alibi</strong><span>Online now &middot; virtual assistant</span></div>' +
+      '<div class="chat-title"><strong>' + escHtml(CFG.title) + '</strong>' + (CFG.status ? '<span>' + escHtml(CFG.status) + '</span>' : '') + '</div>' +
       '<button type="button" class="chat-icon-btn" data-human aria-label="Talk to a person" title="Talk to a person">' + ICONS.person + '</button>' +
       '<button type="button" class="chat-icon-btn" data-restart aria-label="Start a new chat" title="New chat">' + ICONS.restart + '</button>' +
       (embedded ? '' : '<button type="button" class="chat-icon-btn" data-close aria-label="Close chat" title="Close">' + ICONS.close + '</button>') +
@@ -87,16 +110,21 @@
       '<div class="chat-welcome">' +
         '<img class="chat-welcome-logo" src="' + LOGO + '" alt="" width="64" height="64">' +
         '<h3>Hey there! \u{1F44B}</h3>' +
-        '<p>' + GREETING + '</p>' +
+        '<p>' + escHtml(GREETING) + '</p>' +
         '<div class="chat-chips"></div>' +
         '<form class="chat-gate" novalidate hidden>' +
-          '<p class="chat-gate-intro">' + GATE_INTRO + '</p>' +
+          '<p class="chat-gate-intro">' + escHtml(GATE_INTRO) + '</p>' +
           '<label class="chat-gate-field"><span>Name <em>(optional)</em></span>' +
             '<input type="text" name="name" autocomplete="name" maxlength="80" placeholder="Your name"></label>' +
-          '<label class="chat-gate-field"><span>Email</span>' +
-            '<input type="email" name="email" inputmode="email" autocomplete="email" required maxlength="120" placeholder="you@example.com"></label>' +
+          '<label class="chat-gate-field"><span>Email' + (GATE === 'optional' ? ' <em>(optional)</em>' : '') + '</span>' +
+            '<input type="email" name="email" inputmode="email" autocomplete="email"' + (GATE === 'email' ? ' required' : '') + ' maxlength="120" placeholder="you@example.com"></label>' +
+          (GATE_PHONE !== 'off'
+            ? '<label class="chat-gate-field"><span>Phone' + (GATE_PHONE === 'optional' ? ' <em>(optional)</em>' : '') + '</span>' +
+                '<input type="tel" name="phone" inputmode="tel" autocomplete="tel"' + (GATE_PHONE === 'required' ? ' required' : '') + ' maxlength="30" placeholder="(954) 555-0100"></label>'
+            : '') +
           '<p class="chat-gate-error" role="alert" hidden></p>' +
           '<button type="submit" class="chat-gate-btn">Start chatting</button>' +
+          (GATE === 'optional' ? '<button type="button" class="chat-gate-skip" data-skip>Skip</button>' : '') +
         '</form>' +
       '</div>' +
       '<div class="chat-log" role="log" aria-live="polite"></div>' +
@@ -107,7 +135,12 @@
         '<button type="submit" class="chat-send" aria-label="Send" disabled>' + ICONS.send + '</button>' +
       '</div>' +
     '</form>' +
-    '<p class="chat-foot">To book or for anything urgent, call <a href="' + PHONE_TEL + '">' + PHONE + '</a>.' +
+    '<p class="chat-foot">' +
+      (CFG.notice || CFG.privacyUrl
+        ? '<span class="chat-notice">' + escHtml(CFG.notice) +
+            (CFG.privacyUrl ? (CFG.notice ? ' ' : '') + '<a href="' + escHtml(CFG.privacyUrl) + '" target="_blank" rel="noopener">Privacy policy</a>' : '') + '</span>'
+        : '') +
+      'To book or for anything urgent, call <a href="' + escHtml(PHONE_TEL) + '">' + escHtml(PHONE) + '</a>.' +
       '<span class="chat-credit">Chat built by <a href="https://seoberg.com" target="_blank" rel="noopener">SEOBERG</a></span></p>';
 
   document.body.append(launcher);
@@ -121,6 +154,7 @@
   const gate = panel.querySelector('.chat-gate');
   const gateName = gate.querySelector('input[name="name"]');
   const gateEmail = gate.querySelector('input[name="email"]');
+  const gatePhone = gate.querySelector('input[name="phone"]'); // null unless asked for in the admin
   const gateError = gate.querySelector('.chat-gate-error');
   let busy = false;
   let pendingQuestion = null; // a question asked before the email was given
@@ -215,8 +249,15 @@
 
   // ---------- contact gate ----------
 
+  const phoneOk = (p) => String(p || '').replace(/\D/g, '').length >= 10;
+
+  // Has the guest done what the contact form asks (Admin → Chat settings)?
   function contactOk() {
-    return !!(state.contact && EMAIL_RE.test(state.contact.email || ''));
+    if (GATE === 'off') return true;
+    const c = state.contact;
+    if (!c) return false;
+    if (GATE === 'optional') return true; // filled in or skipped
+    return EMAIL_RE.test(c.email || '') && (GATE_PHONE !== 'required' || phoneOk(c.phone));
   }
 
   // Show the email gate until the guest gives one, hiding the chips and the
@@ -230,6 +271,7 @@
     if (gated && state.contact) { // keep what they typed if they come back
       if (!gateName.value) gateName.value = state.contact.name || '';
       if (!gateEmail.value) gateEmail.value = state.contact.email || '';
+      if (gatePhone && !gatePhone.value) gatePhone.value = state.contact.phone || '';
     }
   }
 
@@ -245,21 +287,34 @@
     e.preventDefault();
     const name = gateName.value.trim().slice(0, 80);
     const email = gateEmail.value.trim().slice(0, 120);
-    if (!EMAIL_RE.test(email)) {
-      gateError.textContent = 'Please enter a valid email so we can follow up.';
+    const phone = gatePhone ? gatePhone.value.trim().slice(0, 30) : '';
+    const problem = (GATE === 'email' || email !== '') && !EMAIL_RE.test(email)
+      ? [gateEmail, GATE === 'email' ? 'Please enter a valid email so we can follow up.' : 'Please check your email, or leave it blank.']
+      : (GATE_PHONE === 'required' || phone !== '') && !phoneOk(phone)
+        ? [gatePhone, GATE_PHONE === 'required' ? 'Please enter your phone number so we can call you back.' : 'Please check your phone number, or leave it blank.']
+        : null;
+    if (problem) {
+      gateError.textContent = problem[1];
       gateError.hidden = false;
-      gateEmail.focus();
+      problem[0].focus();
       return;
     }
     gateError.hidden = true;
-    state.contact = { name: name, email: email };
+    startChat({ name: name, email: email, phone: phone });
+  });
+
+  const skipBtn = gate.querySelector('[data-skip]');
+  if (skipBtn) skipBtn.addEventListener('click', () => { gateError.hidden = true; startChat({ name: '', email: '', phone: '', skipped: true }); });
+
+  function startChat(contact) {
+    state.contact = contact;
     save();
     applyGate();
     const q = pendingQuestion;
     pendingQuestion = null;
     if (q) send(q);
     else input.focus({ preventScroll: true });
-  });
+  }
 
   // ---------- cards ----------
 
@@ -309,7 +364,8 @@
   // "Talk to a person": the team's phone and hours, no AI involved.
   function humanCard(animate) {
     const c = card('chat-human', animate);
-    c.append(el('strong', 'chat-card-title', '\u{1F44B} Talk to our team'), el('p', '', 'Open every day, 11 AM to 2 AM'));
+    c.append(el('strong', 'chat-card-title', '\u{1F44B} Talk to our team'));
+    if (CFG.hours) c.append(el('p', '', CFG.hours));
     const actions = el('div', 'chat-card-actions');
     actions.append(
       el('a', 'chat-card-btn', 'Call ' + PHONE, { href: PHONE_TEL }),
@@ -563,6 +619,7 @@
           cid: state.cid,
           name: state.contact ? state.contact.name : '',
           email: state.contact ? state.contact.email : '',
+          phone: state.contact ? state.contact.phone || '' : '',
         }),
       });
       data = await res.json().catch(() => null);
@@ -670,29 +727,33 @@
 
   // ---------- opens by itself, once per visit ----------
 
-  // 3 seconds after the first page has fully loaded, the chat opens without a click.
-  // On a phone the panel would cover the whole screen (and Google ranks pages with
-  // screen-covering pop-ups lower on mobile), so phones get a small greeting bubble
-  // beside the button instead. Once shown, it never comes back in this browser tab,
-  // so a guest who closes the chat isn't asked again on every page.
-  const AUTO_DELAY = 3000;
+  // A few seconds (Admin → Chat settings) after the first page has fully loaded, the
+  // chat opens without a click. In the recommended "smart" mode phones get a small
+  // greeting bubble beside the button instead, because there the panel would cover
+  // the whole screen (and Google ranks pages with screen-covering pop-ups lower on
+  // mobile). Once shown, it never comes back in this browser tab, so a guest who
+  // closes the chat isn't asked again on every page.
+  const AUTO_DELAY = Math.max(0, Number(CFG.autoDelay) || 0) * 1000;
   const PHONE_SCREEN = '(max-width: 480px)'; // where the panel goes full-screen (css/style.css)
 
   function autoOpen() {
     if (state.auto || !panel.hidden || document.querySelector('.mobile-nav.open')) return;
     state.auto = true;
     save();
-    if (matchMedia(PHONE_SCREEN).matches) showTeaser();
+    const bubbleOnly = CFG.autoOpen === 'bubble' || (CFG.autoOpen === 'smart' && matchMedia(PHONE_SCREEN).matches);
+    if (bubbleOnly) showTeaser();
     else setOpen(true, false); // no focus: the page stays where the guest is
   }
 
   function showTeaser() {
-    const teaser = el('div', 'chat-teaser');
-    teaser.innerHTML = '<button type="button" class="chat-teaser-msg">Hi! Need a table or food? Ask me.</button>' +
+    const teaser = el('div', 'chat-teaser' + (LEFT ? ' is-left' : ''));
+    teaser.innerHTML = '<button type="button" class="chat-teaser-msg">' + escHtml(CFG.bubble) + '</button>' +
       '<button type="button" class="chat-teaser-x" aria-label="Dismiss">' + ICONS.close + '</button>';
     document.body.append(teaser);
-    // Sit just above the button, wherever the page's own bars have moved it.
-    const place = () => { teaser.style.bottom = Math.max(16, innerHeight - launcher.getBoundingClientRect().top + 10) + 'px'; };
+    // Sit just above the button, wherever the page's own bars have moved it (or near the bottom with no button).
+    const place = () => {
+      teaser.style.bottom = (launcher.hidden ? 24 : Math.max(16, innerHeight - launcher.getBoundingClientRect().top + 10)) + 'px';
+    };
     place();
     addEventListener('resize', place);
     const remove = () => { teaser.remove(); removeEventListener('resize', place); };
@@ -701,7 +762,7 @@
     launcher.addEventListener('click', remove, { once: true });
   }
 
-  if (!embedded && !state.auto && !state.open) {
+  if (!embedded && CFG.autoOpen !== 'off' && !state.auto && !state.open) {
     const later = () => setTimeout(autoOpen, AUTO_DELAY);
     if (document.readyState === 'complete') later(); else addEventListener('load', later, { once: true });
   }

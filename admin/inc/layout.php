@@ -22,6 +22,7 @@ const ADMIN_NAV = [
         ['chats', 'Conversations', 'chat'],
         ['insights', 'Insights', 'chart'],
         ['knowledge', 'Knowledge', 'book'],
+        ['chat-settings', 'Chat settings', 'sliders'],
     ]],
     ['Website', [
         ['events', 'Events', 'music'],

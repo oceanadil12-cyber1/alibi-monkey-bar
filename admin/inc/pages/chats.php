@@ -41,7 +41,7 @@ function chat_filters(array $src): array
 /** Everything one guest said and was told, lower case, for searching. */
 function chat_haystack(array $c): string
 {
-    $s = ($c['name'] ?? '') . ' ' . ($c['email'] ?? '');
+    $s = ($c['name'] ?? '') . ' ' . ($c['email'] ?? '') . ' ' . ($c['phone'] ?? '');
     foreach ($c['turns'] as $t) $s .= ' ' . ($t['question'] ?? '') . ' ' . ($t['reply'] ?? '');
     return mb_strtolower($s);
 }
@@ -97,13 +97,14 @@ function admin_chat_detail(string $rawCid): void
     $ordered = array_merge(...array_map(fn($t) => $t['ordered'] ?? [], $c['turns']));
     $email = (string) ($c['email'] ?? '');
     $name = (string) ($c['name'] ?? '');
+    $phone = (string) ($c['phone'] ?? '');
     $ip = (string) ($c['ip'] ?? '');
     $device = (string) ($c['device'] ?? '');
     $browser = (string) ($c['browser'] ?? '');
     $dist = $ip !== '' ? geo_distance($ip) : null;
     $meta = meta_get('chat', $cid);
 
-    $who = trim(($name !== '' ? h($name) : '') . ($name !== '' && $email !== '' ? ' &middot; ' : '') . ($email !== '' ? mail_link($email) : ''));
+    $who = implode(' &middot; ', array_filter([$name !== '' ? h($name) : '', $email !== '' ? mail_link($email) : '', $phone !== '' ? tel_link($phone) : '']));
     $chips = [];
     if ($device !== '' || $browser !== '') $chips[] = '<span class="chip">' . h($device) . ($device !== '' && $browser !== '' ? ' &middot; ' : '') . h($browser) . '</span>';
     if ($ip !== '') $chips[] = '<span class="chip">IP ' . h($ip) . '</span>';
@@ -177,12 +178,12 @@ function admin_chats_list(): void
             $d = !empty($c['ip']) ? geo_distance($c['ip']) : null;
             $rz = reservation_intent($c);
             foreach ($c['turns'] as $t) {
-                $rows[] = [$c['cid'], $c['name'] ?? '', $c['email'] ?? '', $c['ip'] ?? '', $c['device'] ?? '', $c['browser'] ?? '', $d ? round($d['miles']) : '', $d ? $d['place'] : '',
+                $rows[] = [$c['cid'], $c['name'] ?? '', $c['email'] ?? '', $c['phone'] ?? '', $c['ip'] ?? '', $c['device'] ?? '', $c['browser'] ?? '', $d ? round($d['miles']) : '', $d ? $d['place'] : '',
                     $rz ? 'yes' : '', ($rz && $rz['party']) ? $rz['party'] : '', $t['time'], $t['question'], $t['reply'], implode('; ', $t['ordered'] ?? []),
                     trim(($t['provider'] ?? '') . ' ' . ($t['model'] ?? '')), $t['input_tokens'] ?? 0, $t['output_tokens'] ?? 0, $t['seconds'] ?? 0];
             }
         }
-        csv_download('alibi-chats', ['conversation', 'name', 'email', 'ip', 'device', 'browser', 'distance (mi)', 'location', 'reservation asked', 'reservation party', 'time', 'guest asked', 'assistant replied', 'added to order', 'AI', 'input tokens', 'output tokens', 'seconds'], $rows);
+        csv_download('alibi-chats', ['conversation', 'name', 'email', 'phone', 'ip', 'device', 'browser', 'distance (mi)', 'location', 'reservation asked', 'reservation party', 'time', 'guest asked', 'assistant replied', 'added to order', 'AI', 'input tokens', 'output tokens', 'seconds'], $rows);
     }
 
     // Numbers for the whole period, before any filter.

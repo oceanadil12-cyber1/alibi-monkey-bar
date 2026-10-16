@@ -115,6 +115,7 @@ function db_ensure_schema(PDO $pdo, bool $force = false): void
     try {
         $sql = preg_replace('/^\s*--.*$/m', '', (string) file_get_contents($file));
         foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) $pdo->exec($statement);
+        db_add_missing_columns($pdo);
     } catch (PDOException $e) {
         // Usually a user without the CREATE privilege; setup.sql can still be imported by hand.
         error_log('db_ensure_schema: ' . $e->getMessage());
@@ -122,6 +123,25 @@ function db_ensure_schema(PDO $pdo, bool $force = false): void
     }
     if (!is_dir(data_dir())) @mkdir(data_dir(), 0750, true);
     @file_put_contents($marker, date('c') . "\n");
+}
+
+/**
+ * Columns added after a table was first created. CREATE TABLE IF NOT EXISTS leaves an
+ * existing table as it is, so a database made by an older version gets them here.
+ * (No ADD COLUMN IF NOT EXISTS: MySQL 8 doesn't have it.)
+ */
+function db_add_missing_columns(PDO $pdo): void
+{
+    $later = [
+        'chat_sessions' => ['phone' => "VARCHAR(30) NOT NULL DEFAULT '' AFTER email"], // Admin → Chat settings can ask for it
+    ];
+    $has = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+    foreach ($later as $table => $columns) {
+        foreach ($columns as $column => $definition) {
+            $has->execute([$table, $column]);
+            if ((int) $has->fetchColumn() === 0) $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+        }
+    }
 }
 
 /** A DATETIME from the database as ISO 8601 with the offset (what browsers parse reliably); null stays null. */

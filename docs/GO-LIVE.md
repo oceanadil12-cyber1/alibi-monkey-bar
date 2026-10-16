@@ -58,7 +58,7 @@ These belong to the hosting account, not the website, and are usually already ri
 ## Later updates: never overwrite these on the server
 
 `api/config.php` (the database details), `api/data/`, `events.html`,
-`performers.html`, `images/events/`, `images/performers/` and
+`performers.html`, `images/events/`, `images/performers/`, `images/chat/` and
 `data/chatbot-knowledge.md`. The team changes them from the admin panel. Back up
 the database regularly: cPanel → *Backup* → *Download a MySQL Database Backup*.
 

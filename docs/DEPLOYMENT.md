@@ -141,7 +141,7 @@ are on ordinary cPanel hosting). **Never upload your own copy of `events.html` o
 
 **Never overwrite on the server:** `api/config.php` (live keys and the database
 login), the live database (never import a local copy over it), `api/data/` (sign-ins
-and what the admin panel saves), `api/cache/`, `events.html`, `performers.html`, `images/events/`, `images/performers/` and
+and what the admin panel saves), `api/cache/`, `events.html`, `performers.html`, `images/events/`, `images/performers/`, `images/chat/` and
 `data/chatbot-knowledge.md` (the team changes them from the panel). A new package's
 `api/site-settings.php` may replace the old one: it carries your current local settings. Re-importing
 `api/setup.sql` is safe: it only adds tables that are missing.

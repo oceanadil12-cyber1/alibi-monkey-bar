@@ -504,6 +504,7 @@ const ADMIN_ACTIONS = [
     'performer.import'   => ['Performers loaded from the page', 'muted'],
     'performer.restore'  => ['Performers page restored', 'gold'],
     'happy.save'         => ['Happy Hour saved', 'gold'],
+    'chat.settings'      => ['Chat settings saved', 'gold'],
     'settings.save'      => ['Store settings saved', 'gold'],
     'knowledge.save'     => ['Chat knowledge saved', 'gold'],
     'knowledge.restore'  => ['Chat knowledge restored', 'gold'],

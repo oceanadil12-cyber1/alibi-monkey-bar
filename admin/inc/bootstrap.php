@@ -13,6 +13,7 @@ require_once __DIR__ . '/../../api/chat-log.php';        // chat_log_conversatio
 require_once __DIR__ . '/../../api/menu.php';            // load_menu_base(), load_menu()
 require_once __DIR__ . '/../../api/menu-overrides.php';  // read/write local menu overrides + store settings
 require_once __DIR__ . '/../../api/happy-hour.php';      // happy_hour_data(), write_happy_hour()
+require_once __DIR__ . '/../../api/chat-settings.php';   // chat_settings(), chat_settings_save()
 
 require_once __DIR__ . '/store.php';
 require_once __DIR__ . '/ui.php';
@@ -27,5 +28,5 @@ define('SITE_BASE', rtrim(dirname(rtrim(ADMIN_BASE, '/')), '/\\') . '/');
 /** Where each section lives: page name => file in admin/inc/pages/ (the whitelist for ?page=). */
 const ADMIN_PAGES = [
     'dashboard', 'orders', 'dine-in', 'waiter-assistance', 'reservations', 'messages', 'subscribers',
-    'chats', 'insights', 'knowledge', 'events', 'performers', 'menu', 'happy-hour', 'settings', 'activity',
+    'chats', 'insights', 'knowledge', 'chat-settings', 'events', 'performers', 'menu', 'happy-hour', 'settings', 'activity',
 ];

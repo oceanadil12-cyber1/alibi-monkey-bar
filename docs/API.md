@@ -124,6 +124,14 @@ field records which page the visitor signed up from.
 - When Square is configured, also adds the person to the **Square Customer
   Directory**, so the restaurant can email them with Square Marketing.
 
+## `GET api/chat-settings.php`
+
+How the chat looks and behaves, as JSON (title, button, position, opening by
+itself, the contact form, suggested questions, team phone and hours, notice).
+Set in Admin → Chat settings, stored in the `settings` table, read by `js/chat.js`
+before it shows anything. Browsers may keep it for 60 seconds. Without a database
+it returns the defaults, which are what the chat always did.
+
 ## `POST api/chat.php`
 
 The "Ask us" chat assistant, used by `js/chat.js`.

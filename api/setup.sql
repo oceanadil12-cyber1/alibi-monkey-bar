@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     ended_at    DATETIME     DEFAULT NULL,
     name        VARCHAR(80)  NOT NULL DEFAULT '',
     email       VARCHAR(120) NOT NULL DEFAULT '',
+    phone       VARCHAR(30)  NOT NULL DEFAULT '',
     ip          VARCHAR(45)  NOT NULL DEFAULT '',
     device      VARCHAR(20)  NOT NULL DEFAULT '',
     browser     VARCHAR(30)  NOT NULL DEFAULT '',

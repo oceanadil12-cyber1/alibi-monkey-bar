@@ -39,6 +39,7 @@ The old address `api/chats.php` still works: it forwards to the new panel.
 | **Conversations** | Every chat guests had with the assistant. Returning guests and reservation requests are flagged. Flag a chat for follow-up and add a note. |
 | **Insights** | *Chat assistant:* what guests ask about, which foods and shows interest them, when they chat, private-party demand, and the questions the assistant couldn't answer. *Orders:* sales, average order, busiest days and times, best sellers. |
 | **Knowledge** | Edit what the chat assistant knows about the bar (`data/chatbot-knowledge.md`). Each save keeps the previous text, so a mistake is one click to undo. The page also lists recent questions the assistant couldn't answer. |
+| **Chat settings** | How the chat looks and behaves on the website: switch it on or off, the floating button (right, left or hidden) and its text, whether it opens by itself (on computers, with a greeting bubble on phones), the title, welcome message and logo, the name/email/phone form before a chat (required, optional or off), up to six suggested questions, the team phone and hours, and the notice and privacy link under the chat box. A live preview shows the result as you type; the website shows it within a minute of saving. "Chat built by SEOBERG" always shows. |
 | **Events** | The weekly lineup and one-night specials. See [below](#events-adding-and-publishing). |
 | **Menu & food** | Turn items on and off, change prices, make an item pickup-only or delivery-only, add a delivery surcharge or longer prep time, edit descriptions and options, and add your own dishes. Changes are live as soon as you save. |
 | **Happy Hour** | The Happy Hour menu, its start and end times, and the scrolling ticker. |
@@ -134,7 +135,8 @@ into the website itself.
 | Events working copy | `api/data/events.json` |
 | Earlier copies of the Events page | `api/data/events-backups/` |
 | Earlier chat knowledge | `api/data/knowledge-history/` |
-| Menu overrides, store settings, Happy Hour, KDS settings | `settings` table |
+| Menu overrides, store settings, Happy Hour, KDS settings, chat settings | `settings` table |
+| The chat logo, if one was uploaded | `images/chat/` |
 | Sign-in sessions | `api/data/sessions/` |
 | Chat knowledge | `data/chatbot-knowledge.md` |
 | The public Events page and its posters | `events.html` and `images/events/` |
