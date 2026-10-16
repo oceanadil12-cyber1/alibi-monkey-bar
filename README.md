@@ -435,6 +435,11 @@ where the pages link to it, so visitors get the new version (see
 
 | Version | Date | Highlights |
 | --- | --- | --- |
+| **v5.2** | 2026-10-16 | Upload-and-go hand-off (any folder, database connected from the admin, one-click on cPanel), full QA fixes (online ordering restored, guest order email, busy-bar table limits), chat opens by itself, SEOBERG credits, Admin → Chat settings |
+| **v5.1** | 2026-10-14 | MySQL database, hosting.com upload package, QA fixes, phone and tablet admin layout |
+| **v5.0** | 2026-10-05 | Admin notifications, dine-in guest name, data protection |
+| **v4.0** | 2026-10-02 | MySQL database, migration and admin overhaul |
+| **v3.0** | 2026-10-01 | AI chatbot, admin panel and KDS (kitchen display) |
 | **v2.0** | 2026-09-29 | AI Chat & Admin Panel [Web App] — delivery-only fulfillment rule, comprehensive project documentation |
 | **v1.0** | 2026-09-26 | First official version: all pages, Square ordering, AI chat, admin panel |
 
