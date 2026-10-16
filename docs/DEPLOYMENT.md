@@ -45,26 +45,32 @@ the same settings in `api/config.php`).
 `config()` in `api/lib.php` reads, first one wins:
 
 1. `api/config.php`: this server's own settings. The admin panel's first-run
-   screen writes the `db_*` values here (keeping any earlier file beside it as
-   `api/.config-before-<date>.php`). A blank value counts as not set.
+   screen writes the `db_*` values here, keeping the file's other settings (and a
+   copy of the earlier file as `api/.config-before-<date>.php`). A blank value
+   counts as not set.
 2. `api/site-settings.php`: the owner's settings from the upload package.
 3. The defaults in `config()`.
 
 ## First-time setup
 
 1. **Upload** the ZIP and *Extract* it (cPanel File Manager), or upload by hand as above.
-2. **Create the database.** On a hosting.com reseller account, first create the
-   site's own cPanel account in WHM, then log in to that cPanel:
-   1. *MySQL Databases* → create a database (cPanel names it like `cpuser_alibi`).
-   2. On the same page, create a user with a long generated password, then
-      *Add User to Database* with **All Privileges**.
-3. **Connect it.** Open `/admin/` and sign in. While the database isn't connected
-   (or stops answering), the panel shows **Connect the database**: enter the
-   name, user and password. It tests them, creates the 10 tables from
-   `api/setup.sql` and saves them in `api/config.php`. It explains a wrong
-   password, a wrong name or missing privileges in plain words. If the user has no
-   CREATE rights, *phpMyAdmin* → the database → *Import* → `api/setup.sql` does the
-   same, then connect again.
+2. **Open `/admin/` and sign in.** While the database isn't connected (or the saved
+   details are turned down), the panel shows **Connect the database**.
+3. **Click "Create the database for me".** On cPanel the site runs cPanel's own
+   command-line tool (`uapi`, as the account's user, so no password is needed):
+   it creates a database and a user named after the account (`cpuser_alibi`, or
+   `cpuser_alibi2` if taken) with a random 32-character password and All
+   Privileges, creates the 10 tables from `api/setup.sql` and saves the details in
+   `api/config.php`. The button only appears where PHP may run `exec()` as the
+   account's user, and never while saved details exist and MySQL is simply not
+   answering (so an outage can't switch the site to an empty database).
+   Otherwise, or if cPanel refuses (e.g. the database limit is reached): create
+   the database and a user in cPanel → *MySQL Databases* (*Add User to Database*
+   with **All Privileges**) and type them into the same screen. It explains a
+   wrong password, a wrong name or missing privileges in plain words. If the user
+   has no CREATE rights, *phpMyAdmin* → the database → *Import* → `api/setup.sql`
+   does the same, then connect again. On a hosting.com reseller account, the
+   site's own cPanel account has to exist first (WHM → *Create a New Account*).
 4. **Enable HTTPS.** Once the SSL certificate is active (usually free with
    AutoSSL in cPanel), turn on cPanel → *Domains* → *Force HTTPS Redirect*, or
    uncomment the five HTTPS lines in the root `.htaccess`.

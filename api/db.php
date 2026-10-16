@@ -57,8 +57,8 @@ function db_connect(string $host, int $port, string $name, string $user, string 
 
 /**
  * Save this server's database details in api/config.php (written to a temporary
- * file first, then swapped in). Only the db_* settings (and data_dir, if set) are
- * kept: everything else comes from site-settings.php. Any earlier config.php is
+ * file first, then swapped in). Other settings already in config.php are kept,
+ * except blank ones (they'd count as not set anyway). Any earlier config.php is
  * kept beside it as a dot-file, which .htaccess never serves. False if the folder
  * isn't writable.
  */
@@ -68,12 +68,13 @@ function db_save_config(array $db): bool
     $keep = ['db_host' => 'localhost', 'db_name' => '', 'db_user' => '', 'db_pass' => '', 'db_port' => 3306];
     $values = array_intersect_key($db + $keep, $keep);
     $values['db_port'] = (int) $values['db_port'] ?: 3306;
-    $dataDir = (string) (config()['data_dir'] ?? '');
-    if ($dataDir !== '') $values['data_dir'] = $dataDir;
+    $old = is_file($file) ? (array) (include $file) : [];
+    $values += array_filter($old, function ($v) { return $v !== ''; });
 
     $php = "<?php\n"
         . "/**\n"
-        . " * This server's database details, saved by the admin panel's first-run screen on " . date('Y-m-d H:i') . ".\n"
+        . " * This server's own settings; the database details were saved by the admin panel's\n"
+        . " * first-run screen on " . date('Y-m-d H:i') . ".\n"
         . " * The owner's settings (admin password, emails, chat keys) are in site-settings.php.\n"
         . " * A value set here wins over site-settings.php. Never share or upload this file.\n"
         . " */\n"

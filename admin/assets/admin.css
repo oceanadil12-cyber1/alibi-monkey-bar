@@ -581,6 +581,7 @@ body.bare { display: grid; place-items: center; padding: 24px; }
 .login > .muted { text-align: center; }
 .login .flash { margin: 0; }
 /* First-run database screen (admin/inc/setup.php) */
+.setup-form { display: flex; flex-direction: column; gap: 14px; }
 .setup-more summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 .setup-more[open] { display: flex; flex-direction: column; gap: 12px; }
 .setup-more[open] summary { margin-bottom: 2px; }

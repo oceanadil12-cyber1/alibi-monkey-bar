@@ -1,9 +1,8 @@
 # Putting the Alibi Monkey Bar website live
 
-About 10 minutes in cPanel, and no files to edit. The owner's settings (admin
-password, notification email, chat assistant keys) are already inside the package.
-The only thing the site can't do for itself is create its MySQL database, because
-that needs the hosting login.
+About 5 minutes in cPanel, with no files to edit and no database work. The owner's
+settings (admin password, notification email, chat assistant keys) are already
+inside the package, and the website creates its own MySQL database.
 
 ## What's in this folder
 
@@ -24,15 +23,17 @@ that needs the hosting login.
    in that folder, not inside another folder. (The site also works from a
    subfolder, e.g. for a preview, but the live site belongs at the domain root.)
 
-2. **Database.** cPanel → *MySQL Databases*:
-   - *Create New Database*, e.g. `alibi` (cPanel names it `cpuser_alibi`)
-   - *Add New User* with a password
-   - *Add User To Database* → tick **ALL PRIVILEGES**
+2. **Open the admin.** Go to `https://DOMAIN/admin/` and sign in with the admin
+   password (the owner gives it to you).
 
-3. **Connect.** Open `https://DOMAIN/admin/`, sign in with the admin password
-   (the owner gives it to you), and type the database name, user and password into
-   the **Connect the database** screen. The site checks them, creates its tables and
-   saves the details itself. That's it: the website is live.
+3. **Click "Create the database for me".** The website makes its own MySQL
+   database and user in the hosting account (named like `cpuser_alibi`), creates
+   its tables and saves everything. That's it: the website is live.
+
+   *Only if that button isn't there* (a few hosts don't allow it) or it shows a red
+   message: in cPanel → *MySQL Databases*, create a database, create a user with a
+   password, and *Add User To Database* with **ALL PRIVILEGES**. Then type those
+   three into the same screen and click *Connect and finish*.
 
 ## Quick check
 
@@ -66,7 +67,7 @@ the database regularly: cPanel → *Backup* → *Download a MySQL Database Backu
 | What you see | Fix |
 | --- | --- |
 | "500 Internal Server Error" | PHP is too old: cPanel → *MultiPHP Manager* → PHP 8.2 |
-| The Connect screen shows a red message | It says what's wrong (user, password, database name or privileges) |
+| The Connect screen shows a red message | It says what's wrong; if the one-click button failed, use the cPanel steps under step 3 |
 | `/admin/` shows a file list or "Not Found" | The hidden `.htaccess` files are missing: File Manager → *Settings* → *Show Hidden Files*, then extract the ZIP again |
 | `/dine-in/table/5` shows "Not Found" | Same as above: `.htaccess` missing, or the host has `mod_rewrite` off |
 | Emails don't arrive | Check *Email Deliverability* and the spam folder |
