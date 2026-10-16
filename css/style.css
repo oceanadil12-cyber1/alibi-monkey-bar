@@ -1076,7 +1076,7 @@ img {
 
 .footer-bottom {
   border-top: 1px solid var(--border);
-  padding: 24px 0;
+  padding: 24px 0 92px; /* room below for the floating chat button, so it never covers the credit */
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -4559,8 +4559,9 @@ html {
     padding-bottom: calc(56px + env(safe-area-inset-bottom));
   }
 
+  /* Room under the last footer line for the floating chat button, so it doesn't cover the credit */
   .footer-bottom {
-    padding-bottom: 12px;
+    padding-bottom: 76px;
   }
 
   /* Move floating buttons above the CTA bar */
