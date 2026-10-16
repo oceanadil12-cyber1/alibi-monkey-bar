@@ -1078,13 +1078,23 @@ img {
   border-top: 1px solid var(--border);
   padding: 24px 0;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 8px 24px;
 }
 
 .footer-bottom p {
   font-size: 13px;
   color: var(--text-muted);
+}
+
+.footer-credit a {
+  color: var(--gold);
+}
+
+.footer-credit a:hover {
+  text-decoration: underline;
 }
 
 .footer-bottom-links {
@@ -4197,6 +4207,29 @@ body:has(.mobile-nav.open) .chat-panel { display: none; }
 
 .chat-foot { padding: 0 14px 12px; background: #0f0f0f; font-size: 11.5px; color: #777; text-align: center; }
 .chat-foot a { color: var(--gold); }
+.chat-credit { display: block; margin-top: 3px; font-size: 11px; color: #666; }
+.chat-credit a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Phones: the greeting bubble that stands in for opening the chat by itself (js/chat.js) */
+.chat-teaser {
+  position: fixed;
+  right: 16px;
+  z-index: 1400;
+  display: flex;
+  align-items: flex-start;
+  max-width: min(280px, calc(100vw - 32px));
+  border: 1px solid var(--gold);
+  border-radius: 16px;
+  background: #1c1c1c;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  animation: chat-teaser-in 0.3s ease-out;
+}
+.chat-teaser-msg { flex: 1; padding: 12px 6px 12px 14px; border: none; background: none; color: var(--white); font: 500 14px/1.4 'Inter', sans-serif; text-align: left; cursor: pointer; }
+.chat-teaser-x { flex: none; display: flex; padding: 10px; border: none; background: none; color: #999; cursor: pointer; }
+.chat-teaser-x svg { width: 16px; height: 16px; }
+body:has(.mobile-nav.open) .chat-teaser,
+body:has(.chat-panel:not([hidden])) .chat-teaser { display: none; }
+@keyframes chat-teaser-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* Built-in chat (home page "Ask the Alibi" section) */
 .chat-launcher.is-away { opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; }
@@ -4227,7 +4260,7 @@ body:has(.mobile-nav.open) .chat-panel { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-panel, .chat-row.is-new, .chat-card.is-new, .chat-order.is-new, .chat-menu.is-new, .chat-menu-browse.is-new, .chat-dots i, .chat-launcher.is-pulse::after { animation: none; }
+  .chat-panel, .chat-row.is-new, .chat-card.is-new, .chat-order.is-new, .chat-menu.is-new, .chat-menu-browse.is-new, .chat-dots i, .chat-launcher.is-pulse::after, .chat-teaser { animation: none; }
   .chat-launcher, .chat-chips button, .chat-send { transition: none; }
 }
 

@@ -107,7 +107,8 @@
         '<button type="submit" class="chat-send" aria-label="Send" disabled>' + ICONS.send + '</button>' +
       '</div>' +
     '</form>' +
-    '<p class="chat-foot">To book or for anything urgent, call <a href="' + PHONE_TEL + '">' + PHONE + '</a>.</p>';
+    '<p class="chat-foot">To book or for anything urgent, call <a href="' + PHONE_TEL + '">' + PHONE + '</a>.' +
+      '<span class="chat-credit">Chat built by <a href="https://seoberg.com" target="_blank" rel="noopener">SEOBERG</a></span></p>';
 
   document.body.append(launcher);
   (embedded ? embedHost : document.body).append(panel);
@@ -666,4 +667,42 @@
     }
   } else if (state.open) setOpen(true, false); // stay open when moving between pages
   if (!state.messages.length) launcher.classList.add('is-pulse'); // a gentle "hello" on first visit
+
+  // ---------- opens by itself, once per visit ----------
+
+  // 3 seconds after the first page has fully loaded, the chat opens without a click.
+  // On a phone the panel would cover the whole screen (and Google ranks pages with
+  // screen-covering pop-ups lower on mobile), so phones get a small greeting bubble
+  // beside the button instead. Once shown, it never comes back in this browser tab,
+  // so a guest who closes the chat isn't asked again on every page.
+  const AUTO_DELAY = 3000;
+  const PHONE_SCREEN = '(max-width: 480px)'; // where the panel goes full-screen (css/style.css)
+
+  function autoOpen() {
+    if (state.auto || !panel.hidden || document.querySelector('.mobile-nav.open')) return;
+    state.auto = true;
+    save();
+    if (matchMedia(PHONE_SCREEN).matches) showTeaser();
+    else setOpen(true, false); // no focus: the page stays where the guest is
+  }
+
+  function showTeaser() {
+    const teaser = el('div', 'chat-teaser');
+    teaser.innerHTML = '<button type="button" class="chat-teaser-msg">Hi! Need a table or food? Ask me.</button>' +
+      '<button type="button" class="chat-teaser-x" aria-label="Dismiss">' + ICONS.close + '</button>';
+    document.body.append(teaser);
+    // Sit just above the button, wherever the page's own bars have moved it.
+    const place = () => { teaser.style.bottom = Math.max(16, innerHeight - launcher.getBoundingClientRect().top + 10) + 'px'; };
+    place();
+    addEventListener('resize', place);
+    const remove = () => { teaser.remove(); removeEventListener('resize', place); };
+    teaser.querySelector('.chat-teaser-msg').addEventListener('click', () => { remove(); setOpen(true, true); });
+    teaser.querySelector('.chat-teaser-x').addEventListener('click', remove);
+    launcher.addEventListener('click', remove, { once: true });
+  }
+
+  if (!embedded && !state.auto && !state.open) {
+    const later = () => setTimeout(autoOpen, AUTO_DELAY);
+    if (document.readyState === 'complete') later(); else addEventListener('load', later, { once: true });
+  }
 })();
