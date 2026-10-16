@@ -144,7 +144,7 @@ function admin_order_detail(string $num): void
         . '</div><div class="stack">'
         .   card('Guest', kv(
                 $o['type'] === 'dine-in'
-                    ? [['Table', '<b>Table #' . (int) ($o['table'] ?? 0) . '</b>'], ['Type', 'Dine-in']]
+                    ? [['Table', '<b>Table #' . (int) ($o['table'] ?? 0) . '</b>'], ['Name', h($o['name'])], ['Type', 'Dine-in']]
                     : [
                         ['Name', h($o['name'])],
                         ['Phone', $o['phone'] !== '' ? tel_link($o['phone']) : ''],

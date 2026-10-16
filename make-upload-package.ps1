@@ -22,8 +22,14 @@ try {
         $f = $_
         ($f -match $rootFiles) -or (@($folders | Where-Object { $f.StartsWith($_) }).Count -gt 0)
     } | Where-Object { $_ -notmatch $never -and (Test-Path -LiteralPath $_ -PathType Leaf) } | Sort-Object)
-    foreach ($must in 'api/setup.sql', '.htaccess', '404.php', 'admin/inc/setup.php') {
-        if (-not ($files -contains $must)) { throw "$must missing from the package list." }
+    # The files the website can't work without: a build missing any of them stops here
+    # (api/checkout.php once vanished in an auto-save, which broke online ordering).
+    $critical = @('.htaccess', 'index.html', 'menu.html', 'events.html', '404.php', 'api/setup.sql', 'api/lib.php', 'api/db.php',
+        'api/menu.php', 'api/checkout.php', 'api/contact.php', 'api/subscribe.php', 'api/chat.php', 'api/dine-in-order.php',
+        'api/waiter-call.php', 'api/kds.php', 'api/happy-hour.php', 'admin/index.php', 'admin/inc/setup.php', 'kds/index.php',
+        'kds/api.php', 'dine-in/index.php', 'js/order.js', 'js/chat.js', 'js/main.js', 'data/menu.json')
+    foreach ($must in $critical) {
+        if (-not ($files -contains $must)) { throw "$must is missing: the website needs it. Restore it before building the package." }
     }
 
     $commit  = (git rev-parse --short HEAD).Trim()

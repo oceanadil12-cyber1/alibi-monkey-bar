@@ -32,7 +32,10 @@ feed. Checkout replies "Online payment is being set up", and forms still save to
 - **Same-site only:** POST endpoints require `Content-Type: application/json`,
   and requests from other websites are rejected (403).
 - **Rate limiting (per visitor IP):** forms allow 8 submissions per 10 minutes,
-  and payments allow 8 attempts per 15 minutes (a guard against card testing).
+  cash orders 12 per 15 minutes, and payments 8 attempts per 15 minutes (a guard
+  against card testing). Table ordering counts per table, because guests on the
+  venue Wi-Fi share one address: 8 orders per table per 10 minutes and 4 waiter
+  calls per table per 5 minutes (with roomy caps of 80 and 60 per address).
   Past that, the visitor gets HTTP 429 ("Too many attempts…").
 - **Input cleaning:** every field is trimmed and length-limited before it is
   saved or emailed.
@@ -74,7 +77,8 @@ Prices are never read from the browser.
   double-click or retry can't charge twice.
 - **place** (cash on delivery, the default until a payment processor is chosen):
   runs the same checks, then saves the order to the `orders` table, emails
-  `notify_email` and returns a six-character order number. Nothing is charged.
+  `notify_email` (and the guest a copy, if they gave an email) and returns a
+  six-character order number. Nothing is charged.
   If the database is down the order goes to `api/data/unsaved/orders.jsonl`
   instead; if neither that nor the email works, it returns 500 with a "please
   call us" message rather than a fake confirmation. The admin panel's **Orders**

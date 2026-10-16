@@ -387,11 +387,29 @@ function notify(string $subject, array $fields, string $replyTo = ''): bool
     if ($to === '') return false;
     $body = '';
     foreach ($fields as $k => $v) $body .= str_pad($k . ':', 12) . str_replace("\n", "\n            ", (string) $v) . "\n";
-    $host = preg_replace('/[^a-z0-9.\-]/i', '', preg_replace('/^www\.|:\d+$/', '', $_SERVER['HTTP_HOST'] ?? '')) ?: 'localhost';
-    $from = trim((string) (config()['from_email'] ?? '')) ?: "website@$host";
-    $headers = "From: Alibi Website <$from>\r\nContent-Type: text/plain; charset=UTF-8\r\n";
+    $headers = 'From: Alibi Website <' . mail_from() . ">\r\nContent-Type: text/plain; charset=UTF-8\r\n";
     if (filter_var($replyTo, FILTER_VALIDATE_EMAIL)) $headers .= "Reply-To: $replyTo\r\n";
     return @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, $headers);
+}
+
+/** Email a guest (their copy of an order). Replies go to the restaurant. False if the address is invalid or mail fails. */
+function mail_guest(string $to, string $subject, string $intro, array $fields): bool
+{
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) return false;
+    $body = $intro . "\n\n";
+    foreach ($fields as $k => $v) $body .= str_pad($k . ':', 14) . str_replace("\n", "\n              ", (string) $v) . "\n";
+    $body .= "\nGeorgie's Alibi Monkey Bar\n";
+    $headers = "From: \"Georgie's Alibi Monkey Bar\" <" . mail_from() . ">\r\nContent-Type: text/plain; charset=UTF-8\r\n";
+    $reply = trim((string) (config()['notify_email'] ?? ''));
+    if (filter_var($reply, FILTER_VALIDATE_EMAIL)) $headers .= "Reply-To: $reply\r\n";
+    return @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, $headers);
+}
+
+/** The sender address: config from_email, else website@ this site's own domain. */
+function mail_from(): string
+{
+    $host = preg_replace('/[^a-z0-9.\-]/i', '', preg_replace('/^www\.|:\d+$/', '', $_SERVER['HTTP_HOST'] ?? '')) ?: 'localhost';
+    return trim((string) (config()['from_email'] ?? '')) ?: "website@$host";
 }
 
 function cache_read(string $name, int $maxAgeSeconds)

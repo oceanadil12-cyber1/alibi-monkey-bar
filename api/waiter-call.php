@@ -13,13 +13,15 @@ require_once __DIR__ . '/lib.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail('Use POST.', 405);
 require_same_site();
-rate_limit('waiter', 4, 300);
+// Guests on the venue Wi-Fi all share one address, so the tight limit is per table.
+rate_limit('waiter', 60, 300);
 
 $req = json_decode((string) file_get_contents('php://input'), true);
 if (!is_array($req)) fail('Invalid request.');
 
 $table = (int) ($req['table'] ?? 0);
 if ($table < 1 || $table > 999) fail('Invalid table number.');
+rate_limit('waiter-table-' . $table, 4, 300);
 
 $name = trim(mb_substr((string) ($req['name'] ?? ''), 0, 30));
 if ($name === '' || !preg_match('/^[A-Za-z][A-Za-z ]*$/', $name) || mb_strlen($name) < 2) {

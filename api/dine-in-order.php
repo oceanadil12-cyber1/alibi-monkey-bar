@@ -18,7 +18,8 @@ require_once __DIR__ . '/menu.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail('Use POST.', 405);
 require_same_site();
-rate_limit('dinein', 8, 600);
+// Guests on the venue Wi-Fi all share one address, so the tight limit is per table.
+rate_limit('dinein', 80, 600);
 
 $req = json_decode((string) file_get_contents('php://input'), true);
 if (!is_array($req)) fail('Invalid request.');
@@ -26,6 +27,7 @@ if (!is_array($req)) fail('Invalid request.');
 // --- validate table ---
 $table = (int) ($req['table'] ?? 0);
 if ($table < 1 || $table > 999) fail('Invalid table number.');
+rate_limit('dinein-table-' . $table, 8, 600);
 
 // --- validate customer name ---
 $name = trim(mb_substr((string) ($req['name'] ?? ''), 0, 30));

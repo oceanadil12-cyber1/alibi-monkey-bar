@@ -316,6 +316,19 @@ if ($action === 'place') {
     // Never tell a guest the order went through when the restaurant can't see it.
     if (!$saved && !$mailed) fail('Sorry, we could not place your order right now. Please call us at (954) 565-2526.', 500);
 
+    // The guest's own copy, when they gave an email (the confirmation screen says one was sent).
+    if ($customer['email'] !== '') {
+        $delivery = $fulfillment['type'] === 'delivery';
+        mail_guest($customer['email'], "Your Alibi order #$number", 'Thanks, ' . $customer['name'] . '! We have your order and the kitchen is on it.', [
+            'Order'    => "#$number",
+            $delivery ? 'Delivery to' : 'Pickup at' => $delivery ? $addr : (string) ($store['address'] ?? ''),
+            'Ready in' => 'about ' . ($delivery ? $prepMinutes + 20 : $prepMinutes) . ' minutes',
+            'Items'    => implode("\n", $itemLines),
+            'To pay'   => '$' . number_format($total / 100, 2) . ' in cash, plus sales tax',
+            'Questions' => 'Call us at ' . (string) ($store['phone'] ?? '(954) 565-2526'),
+        ]);
+    }
+
     send_json([
         'ok'          => true,
         'codMode'     => true,

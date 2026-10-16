@@ -152,7 +152,7 @@
         cartEl.innerHTML = html;
         cartEl.insertBefore(emptyMsg, cartEl.firstChild);
 
-        totalEl.textContent = total > 0 ? 'Total: ' + money(total) : cart.length + ' items';
+        totalEl.textContent = total > 0 ? 'Total: ' + money(total) : cart.length + (cart.length === 1 ? ' item' : ' items');
         submitBtn.disabled = false;
     }
 
@@ -217,7 +217,7 @@
             if (data.ok) {
                 resultEl.hidden = false;
                 resultEl.className = 'flash ok';
-                resultEl.innerHTML = '<b>Order #' + esc(data.orderNumber) + '</b> sent to kitchen! Table ' + data.table + ' · ' + data.items + ' items';
+                resultEl.innerHTML = '<b>Order #' + esc(data.orderNumber) + '</b> sent to kitchen! Table ' + data.table + ' · ' + data.items + (data.items === 1 ? ' item' : ' items');
                 cart = [];
                 guestInput.value = '';
                 notesInput.value = '';
