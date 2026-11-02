@@ -29,7 +29,7 @@ if defined PHP (
   echo  Admin panel: http://localhost:%PORT%/admin/
   echo.
   start "" http://localhost:%PORT%
-  "%PHP%" -S localhost:%PORT% -t .
+  "%PHP%" -S localhost:%PORT% -t . .router.php
 ) else (
   echo  Mode: static preview - PHP not found, so the menu uses its saved
   echo  snapshot and the forms will not send. Install XAMPP for full mode.
