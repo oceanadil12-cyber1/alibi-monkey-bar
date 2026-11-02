@@ -29,7 +29,7 @@ const ORDER_TOOL = [
                     'items' => [
                         'type'       => 'object',
                         'properties' => [
-                            'dish'     => ['type' => 'string', 'description' => 'Dish name from the food menu, e.g. "Chicken Wings", "Alibi Burger", "Fish Tacos". Use menu names; close matches are accepted.'],
+                            'dish'     => ['type' => 'string', 'description' => 'Dish name from the food menu, e.g. "Chicken Wings", "The Champ Burger", "Mexican Street Tacos". Use menu names; close matches are accepted.'],
                             'size'     => ['type' => 'string', 'description' => 'Size or version when the dish has several, e.g. "12 Wings", "6 Wings", "Beef", "Shrimp"'],
                             'quantity' => ['type' => 'integer', 'description' => 'How many (1-20). Default 1.'],
                             'choices'  => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Only options the guest said (sauce like "BBQ" or "Hot", side like "fries", temperature like "medium rare"). Empty if they said none.'],
