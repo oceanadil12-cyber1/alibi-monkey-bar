@@ -13,12 +13,13 @@ function admin_page_dine_in(): void
     $categories = [];
     $items = [];
     if ($menu && !empty($menu['items'])) {
-        foreach ($menu['items'] as $id => $item) {
-            if (!empty($item['soldOut']) || !empty($item['hidden'])) continue;
-            $cat = $item['category'] ?? 'Other';
-            if (!isset($categories[$cat])) $categories[$cat] = [];
-            $categories[$cat][] = $id;
-            $items[$id] = $item;
+        foreach ($menu['categories'] as $category) {
+            foreach ($category['itemIds'] as $id) {
+                $item = $menu['items'][$id] ?? null;
+                if (!$item || !empty($item['soldOut']) || !empty($item['hidden'])) continue;
+                $categories[$category['name']][] = $id;
+                $items[$id] = $item;
+            }
         }
     }
 

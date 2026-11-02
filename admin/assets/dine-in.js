@@ -64,35 +64,32 @@
     function renderItems() {
         const ids = categories[activeCat] || [];
         if (!ids.length) { itemsEl.innerHTML = '<p class="muted">No items in this category.</p>'; return; }
+        // one row per size or choice, so the waiter can pick e.g. a small salad
         itemsEl.innerHTML = ids.map(id => {
             const item = items[id];
             if (!item) return '';
-            const v = (item.variations || []).find(v => !v.soldOut) || item.variations?.[0];
-            const price = v ? v.price : 0;
-            return `<div class="dinein-item" data-id="${esc(id)}">
+            return (item.variations || []).filter(v => !v.soldOut).map(v => `<div class="dinein-item" data-id="${esc(id)}">
                 <div class="dinein-item-info">
-                    <b>${esc(item.name)}</b>
-                    <span class="muted">${price ? money(price) : ''}</span>
+                    <b>${esc(item.name)}${v.name !== 'Regular' ? ' <small>(' + esc(v.name) + ')</small>' : ''}</b>
+                    <span class="muted">${v.price ? money(v.price) : ''}</span>
                 </div>
-                <button class="btn sm primary dinein-add" data-id="${esc(id)}">+ Add</button>
-            </div>`;
+                <button class="btn sm primary dinein-add" data-id="${esc(id)}" data-variation="${esc(v.id)}">+ Add</button>
+            </div>`).join('');
         }).join('');
     }
 
     itemsEl.addEventListener('click', (e) => {
         const btn = e.target.closest('.dinein-add');
         if (!btn) return;
-        const id = btn.dataset.id;
-        addToCart(id);
+        addToCart(btn.dataset.id, btn.dataset.variation);
     });
 
     // --- cart ---
-    function addToCart(id) {
+    function addToCart(id, variationId) {
         const item = items[id];
         if (!item) return;
 
-        // pick first available variation
-        const variation = (item.variations || []).find(v => !v.soldOut) || item.variations?.[0];
+        const variation = (item.variations || []).find(v => v.id === variationId);
         const price = variation ? variation.price : 0;
         const varName = variation ? variation.name : '';
 
