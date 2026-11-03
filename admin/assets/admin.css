@@ -283,22 +283,22 @@ tr.is-off { opacity: .55; }
 /* Phones and tablets: each row becomes a card, each cell a "LABEL ... value" line
    (admin.js copies the column titles into data-label). No sideways scrolling. */
 @media (max-width: 1200px) {
-  .table.stack { overflow: visible; border: 0; border-radius: 0; background: transparent; }
-  .tbl.stack { min-width: 0; }
-  .tbl.stack thead { display: none; }
-  .tbl.stack, .tbl.stack tbody, .tbl.stack tr, .tbl.stack td { display: block; width: 100%; }
-  .tbl.stack tr { margin-bottom: 10px; padding: 6px 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
-  .tbl.stack tr[hidden] { display: none; }
-  .tbl.stack tbody tr:hover { background: var(--card); }
-  .tbl.stack td { position: relative; min-height: 34px; max-width: none; padding: 8px 14px 8px calc(38% + 18px); border: 0; text-align: right; overflow-wrap: anywhere; }
-  .tbl.stack td::before { content: attr(data-label); position: absolute; left: 14px; top: 10px; width: 38%; font-size: 11px; font-weight: 700; letter-spacing: 1px; line-height: 1.35; text-transform: uppercase; color: var(--muted); text-align: left; }
-  .tbl.stack td:not([data-label]), .tbl.stack td[data-label=""] { padding-left: 14px; }
-  .tbl.stack td:not([data-label])::before, .tbl.stack td[data-label=""]::before { content: none; }
-  .tbl.stack .gcell, .tbl.stack .fprices { justify-content: flex-end; text-align: left; }
-  .tbl.stack tr.cat { margin: 16px 0 8px; padding: 0; border: 0; background: transparent; }
-  .tbl.stack tr.cat td { display: block; padding: 0 2px; background: transparent; text-align: left; }
-  .tbl.stack tr.unread td:first-child, .tbl.stack tr.order-new td:first-child { box-shadow: none; }
-  .tbl.stack tr.unread, .tbl.stack tr.order-new { box-shadow: inset 3px 0 0 var(--info); }
+  .table.stacked { overflow: visible; border: 0; border-radius: 0; background: transparent; }
+  .tbl.stacked { min-width: 0; }
+  .tbl.stacked thead { display: none; }
+  .tbl.stacked, .tbl.stacked tbody, .tbl.stacked tr, .tbl.stacked td { display: block; width: 100%; }
+  .tbl.stacked tr { margin-bottom: 10px; padding: 6px 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+  .tbl.stacked tr[hidden] { display: none; }
+  .tbl.stacked tbody tr:hover { background: var(--card); }
+  .tbl.stacked td { position: relative; min-height: 34px; max-width: none; padding: 8px 14px 8px calc(38% + 18px); border: 0; text-align: right; overflow-wrap: anywhere; }
+  .tbl.stacked td::before { content: attr(data-label); position: absolute; left: 14px; top: 10px; width: 38%; font-size: 11px; font-weight: 700; letter-spacing: 1px; line-height: 1.35; text-transform: uppercase; color: var(--muted); text-align: left; }
+  .tbl.stacked td:not([data-label]), .tbl.stacked td[data-label=""] { padding-left: 14px; }
+  .tbl.stacked td:not([data-label])::before, .tbl.stacked td[data-label=""]::before { content: none; }
+  .tbl.stacked .gcell, .tbl.stacked .fprices { justify-content: flex-end; text-align: left; }
+  .tbl.stacked tr.cat { margin: 16px 0 8px; padding: 0; border: 0; background: transparent; }
+  .tbl.stacked tr.cat td { display: block; padding: 0 2px; background: transparent; text-align: left; }
+  .tbl.stacked tr.unread td:first-child, .tbl.stacked tr.order-new td:first-child { box-shadow: none; }
+  .tbl.stacked tr.unread, .tbl.stacked tr.order-new { box-shadow: inset 3px 0 0 var(--info); }
 }
 
 /* ---------- badges, chips, tabs, search ---------- */

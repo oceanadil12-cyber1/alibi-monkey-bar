@@ -59,7 +59,7 @@
     });
   });
 
-  // ----- Tables turn into stacked cards on phones and tablets (.tbl.stack in admin.css) -----
+  // ----- Tables turn into stacked cards on phones and tablets (.tbl.stacked in admin.css) -----
   // Each cell gets its column's title, shown as the label on its line of the card.
   $$('table.tbl:not(.items):not(.hours)').forEach((table) => {
     const heads = $$('thead th', table).map((th) => th.textContent.trim());
@@ -69,9 +69,9 @@
       let col = 0;
       Array.from(tr.children).forEach((td) => { td.dataset.label = heads[col] || ''; col += td.colSpan || 1; });
     });
-    table.classList.add('stack');
+    table.classList.add('stacked');
     const wrap = table.closest('.table');
-    if (wrap) wrap.classList.add('stack');
+    if (wrap) wrap.classList.add('stacked');
   });
 
   // ----- Character counter under a text box -----
