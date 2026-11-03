@@ -69,7 +69,18 @@ function admin_page_chat_settings(): void
         if (!chat_settings_save($new)) {
             flash('The settings couldn\'t be saved: the database didn\'t answer. Please try again.', 'err');
         } else {
-            admin_log('chat.settings', $new['enabled'] ? 'chat on' : 'chat switched off');
+            // Which settings changed, by the names on this page.
+            $names = ['enabled' => 'Chat on the website', 'position' => 'Button position', 'button' => 'Button style', 'autoOpen' => 'Open by itself',
+                'autoDelay' => 'Open-by-itself delay', 'bubble' => 'Bubble text', 'title' => 'Title', 'status' => 'Status line', 'welcome' => 'Welcome message',
+                'gate' => 'Ask for contact details', 'gatePhone' => 'Ask for phone', 'gateText' => 'Contact details text', 'suggestions' => 'Suggested questions',
+                'phone' => 'Phone', 'hours' => 'Hours', 'notice' => 'Notice', 'privacyUrl' => 'Privacy policy link', 'logo' => 'Logo'];
+            $saved = chat_settings();
+            $changes = [];
+            foreach ($names as $k => $label) {
+                if (($cur[$k] ?? null) == ($saved[$k] ?? null)) continue;
+                $changes[] = $k === 'enabled' ? 'Chat ' . (!empty($saved['enabled']) ? 'switched on' : 'switched off') : $label . ' changed';
+            }
+            if ($changes) admin_log('chat.settings', '', $changes);
             $notes = [];
             if ($logoError !== '') $notes[] = 'The new logo wasn\'t used: ' . lcfirst($logoError);
             if ($privacy !== '' && !preg_match('#^https?://#i', $privacy)) $notes[] = 'The privacy policy link was left out: it must start with https://';

@@ -32,8 +32,38 @@ function hh_cents(string $price): ?int
     return $price === '' ? null : (int) round(((float) $price) * 100);
 }
 
-/** Save the Happy Hour form to happy-hour.json. */
-function save_happy_hour(): void
+/** "6.99" → "$6.99" for the change lists. */
+function hh_money(string $price): string
+{
+    return $price === '' ? 'no price' : '$' . number_format((float) $price, 2);
+}
+
+/** What differs between the old and new Happy Hour, as readable lines ("Wings (5): price $6.99 → $7.49"). */
+function happy_hour_changes(array $old, array $new): array
+{
+    $out = [];
+    if (!empty($old['enabled']) !== !empty($new['enabled'])) $out[] = 'Happy Hour ' . (!empty($new['enabled']) ? 'shown on the website' : 'hidden from the website');
+    if (!empty($old['tickerEnabled']) !== !empty($new['tickerEnabled'])) $out[] = 'Scrolling ticker ' . (!empty($new['tickerEnabled']) ? 'on' : 'off');
+    if ($old['start'] !== $new['start'] || $old['end'] !== $new['end']) $out[] = 'Time ' . hh_fmt($old['start']) . '–' . hh_fmt($old['end']) . ' → ' . hh_fmt($new['start']) . '–' . hh_fmt($new['end']);
+    if ($old['note'] !== $new['note']) $out[] = 'Intro line changed';
+    foreach (['items' => 'item', 'sides' => 'side'] as $list => $kind) {
+        $before = [];
+        foreach ($old[$list] as $it) $before[mb_strtolower($it['name'])] = $it;
+        $after = [];
+        foreach ($new[$list] as $it) $after[mb_strtolower($it['name'])] = $it;
+        foreach ($after as $key => $it) {
+            if (!isset($before[$key])) { $out[] = $it['name'] . ': added as a ' . $kind . ' at ' . hh_money((string) $it['price']); continue; }
+            $was = $before[$key];
+            if (hh_cents((string) $was['price']) !== hh_cents((string) $it['price'])) $out[] = $it['name'] . ': price ' . hh_money((string) $was['price']) . ' → ' . hh_money((string) $it['price']);
+            if (($was['desc'] ?? '') !== ($it['desc'] ?? '')) $out[] = $it['name'] . ': description changed';
+        }
+        foreach ($before as $key => $it) if (!isset($after[$key])) $out[] = $it['name'] . ': removed from ' . $list;
+    }
+    return $out;
+}
+
+/** Save the Happy Hour form to happy-hour.json; returns what changed. */
+function save_happy_hour(): array
 {
     // Prices before this save, for "Last price".
     $old = happy_hour_data();
@@ -59,7 +89,7 @@ function save_happy_hour(): void
         $sides[] = ['name' => $n, 'price' => $price];
     }
     write_price_history($history);
-    write_happy_hour([
+    $new = [
         'enabled'       => !empty($_POST['enabled']),
         'tickerEnabled' => !empty($_POST['tickerEnabled']),
         'start'         => hh_clean_time((string) ($_POST['start'] ?? ''), '16:00'),
@@ -67,7 +97,9 @@ function save_happy_hour(): void
         'note'          => trim(mb_substr((string) ($_POST['note'] ?? ''), 0, 200)),
         'items'         => $items,
         'sides'         => $sides,
-    ]);
+    ];
+    write_happy_hour($new);
+    return happy_hour_changes($old, $new);
 }
 
 /** The "Add a new item" form: append one item (or side) to the Happy Hour menu. Returns its name, or '' if incomplete. */
@@ -91,13 +123,16 @@ function admin_page_happy_hour(): void
         require_csrf();
         if (($_POST['op'] ?? '') === 'add') {
             $name = add_happy_hour_item();
-            if ($name !== '') { admin_log('happy.add', $name); flash('Added ' . $name . ' to Happy Hour. It is on the website menu now.'); }
+            if ($name !== '') {
+                admin_log('happy.add', $name . ' — ' . hh_money(hh_clean_price((string) ($_POST['price'] ?? ''))) . (($_POST['section'] ?? '') === 'sides' ? ' (side)' : ''));
+                flash('Added ' . $name . ' to Happy Hour. It is on the website menu now.');
+            }
             else flash('Give the new item a name and a price.', 'err');
             redirect(admin_url('happy-hour'));
         }
-        save_happy_hour();
-        admin_log('happy.save', 'menu, times and ticker');
-        flash('Saved. The website shows the new Happy Hour on the next page load.');
+        $changes = save_happy_hour();
+        if ($changes) admin_log('happy.save', '', $changes);
+        flash($changes ? 'Saved. The website shows the new Happy Hour on the next page load.' : 'Saved. Nothing had changed.');
         redirect(admin_url('happy-hour'));
     }
 

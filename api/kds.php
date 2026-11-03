@@ -202,6 +202,7 @@ if ($action === 'settings-get') {
 
 if ($action === 'settings-save') {
     $s = $req['settings'] ?? [];
+    $before = kds_settings();
     $data = [
         'dine_in_prep_minutes'  => max(1, min(120, (int) ($s['dine_in_prep_minutes'] ?? 15))),
         'delivery_prep_minutes' => max(1, min(120, (int) ($s['delivery_prep_minutes'] ?? 20))),
@@ -210,7 +211,11 @@ if ($action === 'settings-save') {
     ];
     require_once __DIR__ . '/db.php';
     db_setting_save('kds_settings', $data);
-    admin_log('kds.settings', json_encode($data));
+    $names = ['dine_in_prep_minutes' => 'Dine-in prep time', 'delivery_prep_minutes' => 'Delivery prep time', 'pickup_prep_minutes' => 'Pickup prep time'];
+    $changes = [];
+    foreach ($names as $k => $label) if ((int) $before[$k] !== $data[$k]) $changes[] = $label . ': ' . (int) $before[$k] . ' → ' . $data[$k] . ' min';
+    if (!empty($before['sound_enabled']) !== $data['sound_enabled']) $changes[] = 'Kitchen sound ' . ($data['sound_enabled'] ? 'on' : 'off');
+    if ($changes) admin_log('kds.settings', '', $changes);
     send_json(['ok' => true, 'settings' => $data]);
 }
 

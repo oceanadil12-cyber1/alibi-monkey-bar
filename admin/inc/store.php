@@ -509,6 +509,13 @@ const ADMIN_ACTIONS = [
     'knowledge.save'     => ['Chat knowledge saved', 'gold'],
     'knowledge.restore'  => ['Chat knowledge restored', 'gold'],
     'order.dine-in'      => ['Dine-in order created', 'gold'],
+    'order.takeaway'     => ['Takeaway order created', 'gold'],
+    'order.delivery'     => ['Delivery order created', 'gold'],
+    'happy.add'          => ['Happy Hour item added', 'gold'],
+    'password.change'    => ['Password changed', 'warn'],
+    'password.change.failed' => ['Password change refused', 'crit'],
+    'alerts.settings'    => ['Email alerts settings saved', 'gold'],
+    'alerts.test'        => ['Test alert', 'muted'],
     'kds.login'          => ['KDS signed in', 'muted'],
     'kds.login.failed'   => ['KDS wrong password', 'crit'],
     'kds.start'          => ['KDS order started', 'gold'],
@@ -525,9 +532,18 @@ function admin_action_label(string $code): array
     return ADMIN_ACTIONS[$code] ?? [$code, 'muted'];
 }
 
-/** Note what someone did in the admin: $action is a short code (see the Activity page), $detail plain text. */
-function admin_log(string $action, string $detail = ''): void
+/**
+ * Note what someone did in the admin: $action is a short code (see the Activity page),
+ * $detail plain text. $changes lists each individual change ("Wings: price $6.99 → $7.49");
+ * the log keeps a short summary of them, the email alert lists them all.
+ */
+function admin_log(string $action, string $detail = '', array $changes = []): void
 {
+    if ($changes) {
+        $summary = implode('; ', $changes);
+        $detail = trim($detail . ($detail !== '' ? ': ' : '') . $summary);
+        if (mb_strlen($detail) > 300) $detail = mb_substr($detail, 0, 280) . '… (' . count($changes) . ' changes)';
+    }
     try {
         db_insert('admin_activity', [
             'action' => $action,
@@ -538,6 +554,82 @@ function admin_log(string $action, string $detail = ''): void
     } catch (Throwable $e) {
         error_log('admin_log: ' . $e->getMessage());
     }
+    change_alert($action, $detail, $changes);
+}
+
+// ---------- email alerts for changes ----------
+
+/** Sign-ins and sign-outs (and refused password changes): emailed only when 'signins' is on. */
+const ALERT_SIGNIN_ACTIONS = ['login', 'login.failed', 'logout', 'kds.login', 'kds.login.failed', 'password.change.failed'];
+/** Kitchen and floor work that happens all day (orders already email on their own): only when 'kitchen' is on. */
+const ALERT_KITCHEN_ACTIONS = ['kds.start', 'kds.complete', 'kds.recall', 'waiter.call', 'waiter.resolve', 'order.dine-in', 'order.takeaway', 'order.delivery'];
+
+/** Email alert settings: on unless switched off, sent to 'email' (blank = config notify_email). */
+function alert_settings(): array
+{
+    try {
+        $s = db_setting('change_alerts');
+    } catch (Throwable $e) {
+        $s = null;
+    }
+    return array_merge(['enabled' => true, 'email' => '', 'signins' => false, 'kitchen' => false], is_array($s) ? $s : []);
+}
+
+/** Where alerts go: the address set on the Activity page, else the restaurant's notify_email. */
+function alert_recipient(array $s): string
+{
+    $to = trim((string) ($s['email'] ?? ''));
+    if ($to === '') $to = trim((string) (config()['notify_email'] ?? ''));
+    return filter_var($to, FILTER_VALIDATE_EMAIL) ? $to : '';
+}
+
+/** Should this action be emailed under these settings? */
+function alert_wanted(string $action, array $s): bool
+{
+    if (empty($s['enabled'])) return false;
+    if (in_array($action, ALERT_SIGNIN_ACTIONS, true)) return !empty($s['signins']);
+    if (in_array($action, ALERT_KITCHEN_ACTIONS, true)) return !empty($s['kitchen']);
+    return true;
+}
+
+/**
+ * Email the team about a change just logged. A mail problem never stops the change itself.
+ * Passing $settings sends it to that recipient whatever the switches say (test alerts,
+ * and the last alert when alerts are switched off).
+ */
+function change_alert(string $action, string $detail, array $changes = [], ?array $settings = null): bool
+{
+    $s = $settings ?? alert_settings();
+    if ($settings === null && !alert_wanted($action, $s)) return false;
+    $to = alert_recipient($s);
+    if ($to === '') return false;
+
+    [$label] = admin_action_label($action);
+    $where = defined('KDS') ? 'Kitchen display' : (defined('ADMIN') ? 'Admin panel' : 'Website');
+    $first = $changes ? $changes[0] . (count($changes) > 1 ? ' (+' . (count($changes) - 1) . ' more)' : '') : $detail;
+    $subject = 'Alibi alert: ' . $label . ($first !== '' ? ' — ' . $first : '');
+    if (mb_strlen($subject) > 140) $subject = mb_substr($subject, 0, 137) . '…';
+
+    $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $host = preg_replace('/[^a-z0-9.:\-]/i', '', (string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $link = $host !== '' ? ($https ? 'https://' : 'http://') . $host . site_base() . 'admin/?page=activity' : '';
+
+    $body = "A change was just made in the Alibi system.\n\n"
+        . 'What:    ' . $label . "\n"
+        . ($changes
+            ? "Changes:\n" . implode("\n", array_map(fn($c) => '  - ' . $c, $changes)) . "\n"
+            : 'Details: ' . ($detail !== '' ? $detail : '(none)') . "\n")
+        . 'When:    ' . date('l, M j, Y g:i A') . "\n"
+        . 'Where:   ' . $where . "\n"
+        . 'From:    ' . (client_ip() ?: 'unknown') . " (IP address)\n"
+        . ($link !== '' ? "\nFull activity log: $link\n" : '')
+        . "\nIf you didn't expect this change, check the activity log and consider changing the admin password.\n"
+        . "These alerts can be switched off under System → Activity log.\n";
+
+    $headers = 'From: Alibi Alerts <' . mail_from() . ">\r\nContent-Type: text/plain; charset=UTF-8\r\n";
+    $ok = @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, $headers);
+    if (!$ok) error_log("change_alert: could not email $action alert");
+    return $ok;
 }
 
 /** The newest $limit activity entries, newest first. */

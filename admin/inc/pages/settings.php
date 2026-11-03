@@ -16,9 +16,56 @@ function hms(string $t): ?string
     return null;
 }
 
-/** Save the Store settings form to store-settings.json. */
-function save_store_settings(): void
+/** What differs between the old and new store settings, as readable lines ("Delivery fee: $3.00 → $4.00"). */
+function store_settings_changes(array $old, array $new): array
 {
+    $money = fn($c) => '$' . number_format(((int) $c) / 100, 2);
+    $hours = function ($h) {
+        $parts = [];
+        foreach (['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as $d) {
+            $parts[] = ucfirst(strtolower($d)) . ' ' . (isset($h[$d][0]) ? substr($h[$d][0]['open'], 0, 5) . '–' . substr($h[$d][0]['close'], 0, 5) : 'closed');
+        }
+        return $parts;
+    };
+    $labels = [
+        'name' => ['Name', null], 'address' => ['Address', null], 'phone' => ['Phone', null],
+        'prepMinutes' => ['Prep time', fn($v) => (int) $v . ' min'],
+        'pickupMinimum' => ['Pickup minimum', $money], 'deliveryFee' => ['Delivery fee', $money], 'deliveryMinimum' => ['Delivery minimum', $money],
+        'deliveryEnabled' => ['Delivery', fn($v) => $v ? 'on' : 'off'],
+        'deliveryZips' => ['Delivery ZIP codes', fn($v) => implode(', ', (array) $v) ?: 'none'],
+        'pickupInstructions' => ['Pickup instructions', fn($v) => 'changed'],
+        'notificationsEnabled' => ['Notifications', fn($v) => $v ? 'on' : 'off'],
+        'alertOrderNotStarted' => ['Alert: order not started', fn($v) => (int) $v . ' min'],
+        'alertOrderLatePrep' => ['Alert: prep overtime', fn($v) => (int) $v . ' min'],
+        'alertOrderReadyIdle' => ['Alert: order ready idle', fn($v) => (int) $v . ' min'],
+        'alertEventSoon' => ['Alert: event starting soon', fn($v) => (int) $v . ' min'],
+    ];
+    $out = [];
+    foreach ($labels as $k => [$label, $fmt]) {
+        $a = $old[$k] ?? null;
+        $b = $new[$k] ?? null;
+        if (is_bool($b)) $a = !empty($a);
+        if ($a == $b) continue;
+        if ($k === 'pickupInstructions') { $out[] = 'Pickup instructions changed'; continue; }
+        $out[] = $label . ': ' . ($fmt ? $fmt($a) : (string) $a) . ' → ' . ($fmt ? $fmt($b) : (string) $b);
+    }
+    foreach (['pickupHours' => 'Pickup hours', 'deliveryHours' => 'Delivery hours'] as $k => $label) {
+        $a = $hours($old[$k] ?? []);
+        $b = $hours($new[$k] ?? []);
+        foreach ($b as $i => $day) if ($a[$i] !== $day) $out[] = $label . ': ' . $a[$i] . ' → ' . substr($day, 4);
+    }
+    return $out;
+}
+
+/** Save the Store settings form to store-settings.json; returns what changed. */
+function save_store_settings(): array
+{
+    $menu = load_menu();
+    // The values the form showed, so untouched fields don't count as changes.
+    $old = ($menu ? ($menu['store'] ?? []) : []) + [
+        'prepMinutes' => 25, 'pickupMinimum' => 0, 'deliveryFee' => 0, 'deliveryMinimum' => 0, 'deliveryZips' => [],
+        'pickupInstructions' => '', 'alertOrderNotStarted' => 5, 'alertOrderLatePrep' => 0, 'alertOrderReadyIdle' => 5, 'alertEventSoon' => 30,
+    ];
     $days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     $readHours = function (string $prefix) use ($days) {
         $out = [];
@@ -34,7 +81,7 @@ function save_store_settings(): void
         $z = substr(preg_replace('/\D/', '', $z), 0, 5);
         if ($z !== '') $zips[] = $z;
     }
-    write_store_settings([
+    $new = [
         'name'               => trim(mb_substr((string) ($_POST['name'] ?? ''), 0, 80)),
         'address'            => trim(mb_substr((string) ($_POST['address'] ?? ''), 0, 160)),
         'phone'              => trim(mb_substr((string) ($_POST['phone'] ?? ''), 0, 40)),
@@ -52,16 +99,18 @@ function save_store_settings(): void
         'alertOrderLatePrep'      => min(120, max(0, (int) ($_POST['alertOrderLatePrep'] ?? 0))),
         'alertOrderReadyIdle'     => min(120, max(0, (int) ($_POST['alertOrderReadyIdle'] ?? 5))),
         'alertEventSoon'          => min(120, max(0, (int) ($_POST['alertEventSoon'] ?? 30))),
-    ]);
+    ];
+    write_store_settings($new);
+    return store_settings_changes($old, $new);
 }
 
 function admin_page_settings(): void
 {
     if (is_post()) {
         require_csrf();
-        save_store_settings();
-        admin_log('settings.save', 'hours, delivery, fees and notifications');
-        flash('Saved. The website follows the new settings straight away.');
+        $changes = save_store_settings();
+        if ($changes) admin_log('settings.save', '', $changes);
+        flash($changes ? 'Saved. The website follows the new settings straight away.' : 'Saved. Nothing had changed.');
         redirect(admin_url('settings'));
     }
 

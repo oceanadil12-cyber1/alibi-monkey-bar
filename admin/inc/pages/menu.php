@@ -12,9 +12,39 @@ if (!defined('ADMIN')) { http_response_code(403); exit('Forbidden'); }
 
 // ---------- saving ----------
 
-/** Save the submitted Food form to the overrides file (only non-default values). */
-function save_food_overrides(array $base): void
+/** "$15.99" for the change lists. */
+function food_money(?int $cents): string
 {
+    return $cents === null ? 'none' : '$' . number_format($cents / 100, 2);
+}
+
+/** What differs between an item's old and new overrides, as readable lines ("Wings: turned off"). */
+function food_changes(string $name, array $old, array $new, array $variationNames, array $basePrices): array
+{
+    $out = [];
+    if (!empty($old['hidden']) !== !empty($new['hidden'])) $out[] = $name . ': ' . (!empty($new['hidden']) ? 'turned off (hidden from the website)' : 'turned on');
+    foreach ($basePrices as $vid => $b) {
+        $was = $old['prices'][$vid] ?? $b;
+        $now = $new['prices'][$vid] ?? $b;
+        if ($was !== $now) {
+            $v = $variationNames[$vid] ?? 'Regular';
+            $out[] = $name . ($v !== 'Regular' ? ' (' . $v . ')' : '') . ': price ' . food_money($was) . ' → ' . food_money($now);
+        }
+    }
+    if (!empty($old['pickupOnly']) !== !empty($new['pickupOnly'])) $out[] = $name . ': pickup only ' . (!empty($new['pickupOnly']) ? 'on' : 'off');
+    if (!empty($old['deliveryOnly']) !== !empty($new['deliveryOnly'])) $out[] = $name . ': delivery only ' . (!empty($new['deliveryOnly']) ? 'on' : 'off');
+    if ((int) ($old['deliveryFee'] ?? 0) !== (int) ($new['deliveryFee'] ?? 0)) $out[] = $name . ': delivery surcharge ' . food_money((int) ($old['deliveryFee'] ?? 0)) . ' → ' . food_money((int) ($new['deliveryFee'] ?? 0));
+    if ((int) ($old['prepMinutes'] ?? 0) !== (int) ($new['prepMinutes'] ?? 0)) {
+        $mins = fn($m) => $m ? $m . ' min' : 'store default';
+        $out[] = $name . ': prep time ' . $mins((int) ($old['prepMinutes'] ?? 0)) . ' → ' . $mins((int) ($new['prepMinutes'] ?? 0));
+    }
+    return $out;
+}
+
+/** Save the submitted Food form to the overrides file (only non-default values); returns what changed. */
+function save_food_overrides(array $base): array
+{
+    $changes = [];
     $basePrice = [];
     foreach ($base['items'] as $id => $it) {
         foreach ($it['variations'] as $v) $basePrice[$id][$v['id']] = (int) $v['price'];
@@ -44,10 +74,14 @@ function save_food_overrides(array $base): void
             // A blank price goes back to the menu's own price.
             price_history_note($history, "menu:$id:$vid", $existingItems[$id]['prices'][(string) $vid] ?? $b, $c ?? $b);
         }
+        $vnames = [];
+        foreach ($base['items'][$id]['variations'] as $v) $vnames[$v['id']] = $v['name'];
+        array_push($changes, ...food_changes($base['items'][$id]['name'], $existingItems[$id] ?? [], $o, $vnames, $basePrice[$id] ?? []));
         if ($o) $out['items'][$id] = $o;
     }
     write_menu_overrides($out);
     write_price_history($history);
+    return $changes;
 }
 
 /** Category id → name, from the base menu. */
@@ -84,9 +118,10 @@ function add_custom_item(array $base): string
     return $name;
 }
 
-/** Save edits and deletions to existing custom items; returns [edited, deleted]. */
+/** Save edits and deletions to existing custom items; returns [edited, deleted, changes]. */
 function save_custom_items(array $base): array
 {
+    $changes = [];
     $cats = food_categories($base);
     $ov = read_menu_overrides();
     $prev = [];
@@ -96,12 +131,23 @@ function save_custom_items(array $base): array
     $deleted = 0;
     foreach (array_map('strval', (array) ($_POST['cid'] ?? [])) as $id) {
         if (!isset($prev[$id])) continue;
-        if (!empty($_POST['cdelete'][$id])) { $deleted++; unset($history["custom:$id"]); continue; } // deleted
+        $was = $prev[$id];
+        if (!empty($_POST['cdelete'][$id])) { $deleted++; unset($history["custom:$id"]); $changes[] = ($was['name'] ?? 'Item') . ': deleted'; continue; }
         $name = trim(mb_substr((string) ($_POST['cname'][$id] ?? ''), 0, 80));
-        if ($name === '') continue;
+        if ($name === '') { $changes[] = ($was['name'] ?? 'Item') . ': removed (name left blank)'; continue; }
         $catId = (string) ($_POST['ccat'][$id] ?? '');
         $price = max(0, (int) (dollars_to_cents((string) ($_POST['cprice'][$id] ?? '')) ?? 0));
         price_history_note($history, "custom:$id", (int) ($prev[$id]['price'] ?? 0), $price);
+        $now = [
+            'pickupOnly'   => !empty($_POST['cpickup'][$id]),
+            'deliveryOnly' => !empty($_POST['cdelonly'][$id]),
+            'deliveryFee'  => max(0, (int) (dollars_to_cents((string) ($_POST['cdfee'][$id] ?? '')) ?? 0)),
+            'prepMinutes'  => min(600, max(0, (int) ($_POST['cprep'][$id] ?? 0))),
+            'prices'       => ['v' => $price],
+        ];
+        if ($name !== ($was['name'] ?? '')) $changes[] = ($was['name'] ?? '') . ': renamed to ' . $name;
+        if ($catId !== (string) ($was['category'] ?? '')) $changes[] = $name . ': moved to ' . ($cats[$catId] ?? 'More');
+        array_push($changes, ...food_changes($name, ['prices' => ['v' => (int) ($was['price'] ?? 0)]] + $was, $now, [], ['v' => (int) ($was['price'] ?? 0)]));
         $out[] = [
             'id'           => $id,
             'name'         => $name,
@@ -118,14 +164,14 @@ function save_custom_items(array $base): array
     $ov['custom'] = $out;
     write_menu_overrides($ov);
     write_price_history($history);
-    return [count($out), $deleted];
+    return [count($out), $deleted, $changes];
 }
 
-/** Save description + option-group edits for one item (keeps its price/pickup/etc.). */
-function save_item_options(array $base): void
+/** Save description + option-group edits for one item (keeps its price/pickup/etc.); returns what changed. */
+function save_item_options(array $base): array
 {
     $id = (string) ($_POST['item'] ?? '');
-    if (!isset($base['items'][$id])) return;
+    if (!isset($base['items'][$id])) return [];
     $baseItem = $base['items'][$id];
     $basePrice = [];
     foreach ($baseItem['modifiers'] as $g) foreach ($g['choices'] as $c) $basePrice[(string) $c['id']] = (int) $c['price'];
@@ -133,6 +179,7 @@ function save_item_options(array $base): void
     $ov = read_menu_overrides();
     $ov['items'] = $ov['items'] ?? [];
     $o = $ov['items'][$id] ?? []; // keep existing basic fields (price/pickup/fee/prep)
+    $was = $o;
 
     $desc = trim(mb_substr((string) ($_POST['description'] ?? ''), 0, 300));
     if ($desc !== '' && $desc !== (string) ($baseItem['description'] ?? '')) $o['description'] = $desc;
@@ -156,6 +203,24 @@ function save_item_options(array $base): void
     if ($o) $ov['items'][$id] = $o; else unset($ov['items'][$id]);
     write_menu_overrides($ov);
     write_price_history($history);
+
+    // What changed, for the activity log and email alert.
+    $name = $baseItem['name'];
+    $changes = [];
+    if (($was['description'] ?? '') !== ($o['description'] ?? '')) $changes[] = $name . ': description changed';
+    foreach ($baseItem['modifiers'] as $g) {
+        $gHid = in_array((string) $g['id'], $o['hideGroups'] ?? [], true);
+        if (in_array((string) $g['id'], $was['hideGroups'] ?? [], true) !== $gHid) $changes[] = $name . ': option group "' . $g['name'] . '" ' . ($gHid ? 'hidden' : 'shown');
+        foreach ($g['choices'] as $c) {
+            $cid = (string) $c['id'];
+            $cHid = in_array($cid, $o['hideChoices'] ?? [], true);
+            if (in_array($cid, $was['hideChoices'] ?? [], true) !== $cHid) $changes[] = $name . ': option "' . $c['name'] . '" ' . ($cHid ? 'hidden' : 'shown');
+            $before = $was['choicePrices'][$cid] ?? (int) $c['price'];
+            $after = $o['choicePrices'][$cid] ?? (int) $c['price'];
+            if ($before !== $after) $changes[] = $name . ': option "' . $c['name'] . '" price ' . food_money($before) . ' → ' . food_money($after);
+        }
+    }
+    return $changes;
 }
 
 // ---------- pages ----------
@@ -170,8 +235,8 @@ function admin_page_menu(): void
         if (is_post()) {
             require_csrf();
             if ($base && ($_POST['op'] ?? '') === 'item' && isset($base['items'][(string) ($_POST['item'] ?? '')])) {
-                save_item_options($base);
-                admin_log('menu.item', $base['items'][(string) $_POST['item']]['name']);
+                $changes = save_item_options($base);
+                if ($changes) admin_log('menu.item', '', $changes);
                 flash('Saved. The website menu is updated.');
             }
             redirect(admin_url('menu', ['item' => $itemId]));
@@ -185,19 +250,24 @@ function admin_page_menu(): void
             $op = $_POST['op'] ?? 'items';
             if ($op === 'add') {
                 $name = add_custom_item($base);
-                if ($name !== '') { admin_log('menu.add', $name); flash('Added ' . $name . '. It is on the website menu now.'); }
+                if ($name !== '') {
+                    $custom = read_menu_overrides()['custom'] ?? [];
+                    $added = end($custom) ?: [];
+                    admin_log('menu.add', $name . ' — ' . food_money((int) ($added['price'] ?? 0)) . ' in ' . ($added['categoryName'] ?? 'More'));
+                    flash('Added ' . $name . '. It is on the website menu now.');
+                }
                 else flash('Give the new item a name and a price.', 'err');
             } elseif ($op === 'custom') {
-                [$edited, $deleted] = save_custom_items($base);
-                admin_log('menu.custom', $edited . ' saved, ' . $deleted . ' deleted');
+                [$edited, $deleted, $changes] = save_custom_items($base);
+                if ($changes) admin_log('menu.custom', '', $changes);
                 flash('Saved your added items.' . ($deleted ? ' ' . plural($deleted, 'item') . ' deleted.' : ''));
             } elseif (empty($_POST['end'])) {
                 // The server drops form fields past its max_input_vars limit; saving a cut-off form would lose settings.
                 flash('Nothing was saved: the menu form is bigger than this server accepts (max_input_vars is ' . ini_get('max_input_vars') . '). Ask your web host to raise it.', 'err');
             } else {
-                save_food_overrides($base);
-                admin_log('menu.items', 'prices, availability and fulfillment');
-                flash('Saved. The website menu is updated.');
+                $changes = save_food_overrides($base);
+                if ($changes) admin_log('menu.items', '', $changes);
+                flash($changes ? 'Saved. The website menu is updated.' : 'Saved. Nothing had changed.');
             }
         }
         redirect(admin_url('menu'));
