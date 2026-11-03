@@ -39,6 +39,44 @@ function write_menu_overrides(array $data): bool
     }
 }
 
+// ---------- price history (the admin's "Last price") ----------
+
+/**
+ * The price each item had before its latest change, so the admin can show
+ * "Last price $14.99". Keyed by 'menu:ITEM:VARIATION', 'custom:ID',
+ * 'choice:ITEM:CHOICE', 'hh:item:NAME' or 'hh:side:NAME'; each entry is
+ * ['prev' => cents, 'changed' => ISO date].
+ */
+function read_price_history(): array
+{
+    try {
+        require_once __DIR__ . '/db.php';
+        $data = db_setting('price_history');
+    } catch (Throwable $e) {
+        $data = null;
+    }
+    return is_array($data) ? $data : [];
+}
+
+function write_price_history(array $data): bool
+{
+    try {
+        require_once __DIR__ . '/db.php';
+        db_setting_save('price_history', $data);
+        return true;
+    } catch (Throwable $e) {
+        error_log('write_price_history: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/** Note in $history that $key's price went from $old to $new cents (nothing when unchanged or unknown). */
+function price_history_note(array &$history, string $key, ?int $old, ?int $new): void
+{
+    if ($old === null || $new === null || $old === $new) return;
+    $history[$key] = ['prev' => $old, 'changed' => date('c')];
+}
+
 // ---------- store settings (hours, delivery, fees) ----------
 
 /** Locally-edited store settings (empty = use the frozen snapshot's values). */

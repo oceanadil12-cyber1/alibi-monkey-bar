@@ -21,6 +21,7 @@ function save_food_overrides(array $base): void
     }
     $existing = read_menu_overrides();
     $existingItems = $existing['items'] ?? [];
+    $history = read_price_history();
     $out = ['items' => [], 'custom' => $existing['custom'] ?? []]; // keep custom items
     foreach (array_map('strval', (array) ($_POST['ids'] ?? [])) as $id) {
         if (!isset($base['items'][$id])) continue;
@@ -40,10 +41,13 @@ function save_food_overrides(array $base): void
             $c = dollars_to_cents((string) $dollars);
             $b = $basePrice[$id][(string) $vid] ?? null;
             if ($c !== null && $b !== null && $c !== $b) $o['prices'][(string) $vid] = $c;
+            // A blank price goes back to the menu's own price.
+            price_history_note($history, "menu:$id:$vid", $existingItems[$id]['prices'][(string) $vid] ?? $b, $c ?? $b);
         }
         if ($o) $out['items'][$id] = $o;
     }
     write_menu_overrides($out);
+    write_price_history($history);
 }
 
 /** Category id → name, from the base menu. */
@@ -87,19 +91,22 @@ function save_custom_items(array $base): array
     $ov = read_menu_overrides();
     $prev = [];
     foreach ($ov['custom'] ?? [] as $c) if (!empty($c['id'])) $prev[(string) $c['id']] = $c;
+    $history = read_price_history();
     $out = [];
     $deleted = 0;
     foreach (array_map('strval', (array) ($_POST['cid'] ?? [])) as $id) {
         if (!isset($prev[$id])) continue;
-        if (!empty($_POST['cdelete'][$id])) { $deleted++; continue; } // deleted
+        if (!empty($_POST['cdelete'][$id])) { $deleted++; unset($history["custom:$id"]); continue; } // deleted
         $name = trim(mb_substr((string) ($_POST['cname'][$id] ?? ''), 0, 80));
         if ($name === '') continue;
         $catId = (string) ($_POST['ccat'][$id] ?? '');
+        $price = max(0, (int) (dollars_to_cents((string) ($_POST['cprice'][$id] ?? '')) ?? 0));
+        price_history_note($history, "custom:$id", (int) ($prev[$id]['price'] ?? 0), $price);
         $out[] = [
             'id'           => $id,
             'name'         => $name,
             'description'  => trim(mb_substr((string) ($_POST['cdesc'][$id] ?? ($prev[$id]['description'] ?? '')), 0, 300)),
-            'price'        => max(0, (int) (dollars_to_cents((string) ($_POST['cprice'][$id] ?? '')) ?? 0)),
+            'price'        => $price,
             'category'     => $catId,
             'categoryName' => $cats[$catId] ?? 'More',
             'pickupOnly'   => !empty($_POST['cpickup'][$id]),
@@ -110,6 +117,7 @@ function save_custom_items(array $base): array
     }
     $ov['custom'] = $out;
     write_menu_overrides($ov);
+    write_price_history($history);
     return [count($out), $deleted];
 }
 
@@ -135,15 +143,19 @@ function save_item_options(array $base): void
     if ($hideG) $o['hideGroups'] = $hideG; else unset($o['hideGroups']);
     if ($hideC) $o['hideChoices'] = $hideC; else unset($o['hideChoices']);
 
+    $history = read_price_history();
     $cp = [];
     foreach ((array) ($_POST['chprice'] ?? []) as $cid => $val) {
+        $cid = (string) $cid;
         $c = dollars_to_cents((string) $val);
-        if ($c !== null && isset($basePrice[(string) $cid]) && $c !== $basePrice[(string) $cid]) $cp[(string) $cid] = $c;
+        if ($c !== null && isset($basePrice[$cid]) && $c !== $basePrice[$cid]) $cp[$cid] = $c;
+        if (isset($basePrice[$cid])) price_history_note($history, "choice:$id:$cid", $o['choicePrices'][$cid] ?? $basePrice[$cid], $c ?? $basePrice[$cid]);
     }
     if ($cp) $o['choicePrices'] = $cp; else unset($o['choicePrices']);
 
     if ($o) $ov['items'][$id] = $o; else unset($ov['items'][$id]);
     write_menu_overrides($ov);
+    write_price_history($history);
 }
 
 // ---------- pages ----------
@@ -201,9 +213,9 @@ function admin_menu_list_page(array $base): void
 {
     $over = read_menu_overrides();
     $ov = $over['items'] ?? [];
+    $history = read_price_history();
     $storePrep = (int) ($base['store']['prepMinutes'] ?? 25);
     $csrf = csrf_field();
-    $money = fn($c) => '$' . number_format($c / 100, 2);
 
     // Category options for the forms.
     $cats = food_categories($base);
@@ -227,7 +239,7 @@ function admin_menu_list_page(array $base): void
                 $cur = $o['prices'][$v['id']] ?? $v['price'];
                 $prices .= '<label class="fp"><span class="fp-lbl">' . ($v['name'] !== 'Regular' ? h($v['name']) : 'Price') . '</span>'
                     . money_input('price[' . $id . '][' . $v['id'] . ']', number_format($cur / 100, 2, '.', ''))
-                    . '<small>Base price ' . h($money($v['price'])) . '</small></label>';
+                    . last_price_html($history, 'menu:' . $id . ':' . $v['id']) . '</label>';
             }
             $items .= '<tr class="' . ($off ? 'is-off' : '') . '" data-name="' . h(mb_strtolower($it['name'])) . '">'
                 . '<td><label class="switch"><input type="checkbox" name="avail[' . h($id) . ']" value="1" ' . ($off ? '' : 'checked') . ' aria-label="Show ' . h($it['name']) . ' on the website"><span></span></label>'
@@ -265,7 +277,7 @@ function admin_menu_list_page(array $base): void
         if ($id === '') continue;
         $customRows .= '<tr><td><input name="cname[' . h($id) . ']" value="' . h($c['name'] ?? '') . '" maxlength="80" aria-label="Name">'
             . '<input type="hidden" name="cid[]" value="' . h($id) . '"><input type="hidden" name="cdesc[' . h($id) . ']" value="' . h($c['description'] ?? '') . '"></td>'
-            . '<td>' . money_input('cprice[' . $id . ']', number_format((int) ($c['price'] ?? 0) / 100, 2, '.', '')) . '</td>'
+            . '<td><div class="fp">' . money_input('cprice[' . $id . ']', number_format((int) ($c['price'] ?? 0) / 100, 2, '.', '')) . last_price_html($history, 'custom:' . $id) . '</div></td>'
             . '<td><select name="ccat[' . h($id) . ']" aria-label="Category">' . $catOptions((string) ($c['category'] ?? '')) . '</select></td>'
             . '<td><label class="check"><input type="checkbox" name="cpickup[' . h($id) . ']" value="1" ' . (!empty($c['pickupOnly']) ? 'checked' : '') . '> Pickup only</label>'
             . '<label class="check"><input type="checkbox" name="cdelonly[' . h($id) . ']" value="1" ' . (!empty($c['deliveryOnly']) ? 'checked' : '') . '> Delivery only</label></td>'
@@ -278,7 +290,7 @@ function admin_menu_list_page(array $base): void
         . '<div class="table flush"><table class="tbl ftable"><thead><tr><th>Name</th><th>Price</th><th>Category</th><th>Fulfillment</th><th>Delivery surcharge</th><th>Prep time</th><th></th></tr></thead><tbody>' . $customRows . '</tbody></table></div>'
         . '<div class="bar">' . btn_submit('Save added items', 'primary') . '</div></form>');
 
-    $body = page_head('Menu & food', 'Your menu for the website. Orders are cash on delivery, so the price you set is what the guest pays. Turn an item off to hide it; a blank price keeps the base price; a blank prep time uses the store default (' . $storePrep . ' min).',
+    $body = page_head('Menu & food', 'Your menu for the website. Orders are cash on delivery, so the price you set is what the guest pays. Turn an item off to hide it; a blank price goes back to the original menu price; "Last price" shows what an item cost before its latest change; a blank prep time uses the store default (' . $storePrep . ' min).',
             btn_link('View menu page', SITE_BASE . 'menu.html', 'sm', 'external', ' target="_blank" rel="noopener"'))
         . $add . $custom
         . '<form class="menuform" method="post" action="' . h(admin_url('menu')) . '">' . $csrf . '<input type="hidden" name="op" value="items">'
@@ -302,6 +314,7 @@ function admin_menu_item_page(?array $base, string $id): void
     $hideG = array_flip($o['hideGroups'] ?? []);
     $hideC = array_flip($o['hideChoices'] ?? []);
     $cp = $o['choicePrices'] ?? [];
+    $history = read_price_history();
     $desc = $o['description'] ?? ($item['description'] ?? '');
 
     $groups = '';
@@ -310,7 +323,7 @@ function admin_menu_item_page(?array $base, string $id): void
         foreach ($g['choices'] as $c) {
             $price = $cp[$c['id']] ?? $c['price'];
             $choices .= '<tr><td>' . h($c['name']) . '</td>'
-                . '<td>' . money_input('chprice[' . $c['id'] . ']', number_format((int) $price / 100, 2, '.', '')) . ' <small class="muted">Base price $' . number_format((int) $c['price'] / 100, 2) . '</small></td>'
+                . '<td>' . money_input('chprice[' . $c['id'] . ']', number_format((int) $price / 100, 2, '.', '')) . ' ' . last_price_html($history, 'choice:' . $id . ':' . $c['id']) . '</td>'
                 . '<td><label class="check"><input type="checkbox" name="hidechoice[]" value="' . h($c['id']) . '" ' . (isset($hideC[$c['id']]) ? 'checked' : '') . '> Hide</label></td></tr>';
         }
         $groups .= '<section class="fgrp"><div class="fgrp-head"><strong>' . h($g['name']) . '</strong>'

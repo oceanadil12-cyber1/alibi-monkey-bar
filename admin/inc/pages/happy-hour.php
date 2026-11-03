@@ -20,21 +20,45 @@ function hh_clean_time(string $s, string $fallback): string
         ? sprintf('%02d:%02d', (int) $m[1], (int) $m[2]) : $fallback;
 }
 
+/** Price-history key for a Happy Hour item or side ('item' / 'side'), by name. */
+function hh_price_key(string $kind, string $name): string
+{
+    return 'hh:' . $kind . ':' . mb_strtolower(trim($name));
+}
+
+/** "6.99" → 699; '' → null. */
+function hh_cents(string $price): ?int
+{
+    return $price === '' ? null : (int) round(((float) $price) * 100);
+}
+
 /** Save the Happy Hour form to happy-hour.json. */
 function save_happy_hour(): void
 {
+    // Prices before this save, for "Last price".
+    $old = happy_hour_data();
+    $was = [];
+    foreach ($old['items'] as $it) $was[hh_price_key('item', $it['name'])] = hh_cents((string) $it['price']);
+    foreach ($old['sides'] as $s) $was[hh_price_key('side', $s['name'])] = hh_cents((string) $s['price']);
+    $history = read_price_history();
+
     $items = [];
     foreach ((array) ($_POST['hhname'] ?? []) as $k => $n) {
         $n = trim(mb_substr((string) $n, 0, 60));
         if ($n === '') continue;
-        $items[] = ['name' => $n, 'desc' => trim(mb_substr((string) ($_POST['hhdesc'][$k] ?? ''), 0, 90)), 'price' => hh_clean_price((string) ($_POST['hhprice'][$k] ?? ''))];
+        $price = hh_clean_price((string) ($_POST['hhprice'][$k] ?? ''));
+        price_history_note($history, hh_price_key('item', $n), $was[hh_price_key('item', $n)] ?? null, hh_cents($price));
+        $items[] = ['name' => $n, 'desc' => trim(mb_substr((string) ($_POST['hhdesc'][$k] ?? ''), 0, 90)), 'price' => $price];
     }
     $sides = [];
     foreach ((array) ($_POST['sidename'] ?? []) as $k => $n) {
         $n = trim(mb_substr((string) $n, 0, 60));
         if ($n === '') continue;
-        $sides[] = ['name' => $n, 'price' => hh_clean_price((string) ($_POST['sideprice'][$k] ?? ''))];
+        $price = hh_clean_price((string) ($_POST['sideprice'][$k] ?? ''));
+        price_history_note($history, hh_price_key('side', $n), $was[hh_price_key('side', $n)] ?? null, hh_cents($price));
+        $sides[] = ['name' => $n, 'price' => $price];
     }
+    write_price_history($history);
     write_happy_hour([
         'enabled'       => !empty($_POST['enabled']),
         'tickerEnabled' => !empty($_POST['tickerEnabled']),
@@ -80,17 +104,18 @@ function admin_page_happy_hour(): void
     $hh = happy_hour_data();
     $items = $hh['items'];
     $sides = $hh['sides'];
+    $history = read_price_history();
 
     $itemRows = '';
     foreach ($items as $k => $it) {
         $itemRows .= '<tr><td><input name="hhname[' . $k . ']" value="' . h($it['name']) . '" maxlength="60" placeholder="Item name" aria-label="Item name"></td>'
             . '<td><input name="hhdesc[' . $k . ']" value="' . h($it['desc']) . '" maxlength="90" placeholder="Short description (optional)" aria-label="Description"></td>'
-            . '<td>' . money_input('hhprice[' . $k . ']', (string) $it['price'], '0') . '</td></tr>';
+            . '<td><div class="fp">' . money_input('hhprice[' . $k . ']', (string) $it['price'], '0') . last_price_html($history, hh_price_key('item', $it['name'])) . '</div></td></tr>';
     }
     $sideRows = '';
     foreach ($sides as $k => $s) {
         $sideRows .= '<tr><td><input name="sidename[' . $k . ']" value="' . h($s['name']) . '" maxlength="60" placeholder="Side name" aria-label="Side name"></td>'
-            . '<td>' . money_input('sideprice[' . $k . ']', (string) $s['price'], '0') . '</td></tr>';
+            . '<td><div class="fp">' . money_input('sideprice[' . $k . ']', (string) $s['price'], '0') . last_price_html($history, hh_price_key('side', $s['name'])) . '</div></td></tr>';
     }
 
     // "Add a new item" (its own form, like Menu & food).

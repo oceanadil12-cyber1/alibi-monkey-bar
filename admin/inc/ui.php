@@ -100,6 +100,15 @@ function dollars_to_cents(string $s): ?int
     return (int) round(((float) $s) * 100);
 }
 
+/** "Last price $14.99" under a price box, from read_price_history(); '' when the price never changed here. */
+function last_price_html(array $history, string $key): string
+{
+    if (!isset($history[$key]['prev'])) return '';
+    $when = strtotime((string) ($history[$key]['changed'] ?? ''));
+    return '<small class="lastprice"' . ($when ? ' title="Changed ' . h(date('M j, Y g:i A', $when)) . '"' : '') . '>Last price $'
+        . number_format((int) $history[$key]['prev'] / 100, 2) . '</small>';
+}
+
 /** A dollar amount box ("$ [ 12.00 ]"). */
 function money_input(string $name, string $value, string $placeholder = '', bool $required = false): string
 {
