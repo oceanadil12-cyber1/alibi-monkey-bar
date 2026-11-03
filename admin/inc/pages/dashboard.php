@@ -108,7 +108,8 @@ function admin_page_dashboard(): void
     $hh = happy_hour_data();
     $nowMin = (int) date('G') * 60 + (int) date('i');
     $hhLive = !empty($hh['enabled']) && $nowMin >= hh_min($hh['start']) && $nowMin < hh_min($hh['end']);
-    $pickupOpen = $store ? admin_hours_open($store['pickupHours'] ?? [], $tz) : false;
+    $pickupOn = $store && ($store['pickupEnabled'] ?? true);
+    $pickupOpen = $pickupOn && admin_hours_open($store['pickupHours'] ?? [], $tz);
     $deliveryOpen = $store && !empty($store['deliveryEnabled']) && admin_hours_open($store['deliveryHours'] ?? [], $tz);
     $codMode = cod_mode();
 
@@ -122,7 +123,8 @@ function admin_page_dashboard(): void
             $evState === 'ready' ? 'The website shows this lineup' : ($evState === 'changes' ? 'Changes are waiting to be published' : ($evState === 'drift' ? 'The page was edited outside the admin' : 'Publishing isn\'t set up')), admin_url('events'));
 
     $now = '<ul class="rows">'
-        . check_row($pickupOpen ? 'ok' : 'off', 'Pickup: ' . ($pickupOpen ? 'taking orders' : 'closed'), h($store ? admin_hours_today($store['pickupHours'] ?? [], $tz) : 'Menu unavailable'), admin_url('settings'))
+        . check_row($pickupOpen ? 'ok' : 'off', 'Take Away: ' . ($store && !$pickupOn ? 'switched off' : ($pickupOpen ? 'taking orders' : 'closed')),
+            h(!$store ? 'Menu unavailable' : ($pickupOn ? admin_hours_today($store['pickupHours'] ?? [], $tz) : 'Turn it on in Store settings')), admin_url('settings'))
         . check_row(empty($store['deliveryEnabled']) ? 'off' : ($deliveryOpen ? 'ok' : 'off'),
             'Delivery: ' . (empty($store['deliveryEnabled']) ? 'switched off' : ($deliveryOpen ? 'taking orders' : 'closed')),
             h(!empty($store['deliveryEnabled']) ? admin_hours_today($store['deliveryHours'] ?? [], $tz) . ' · fee ' . fmt_money((int) ($store['deliveryFee'] ?? 0)) : 'Turn it on in Store settings'), admin_url('settings'))

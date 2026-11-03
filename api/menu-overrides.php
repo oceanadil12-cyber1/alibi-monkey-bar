@@ -108,6 +108,8 @@ function apply_store_settings(array $menu): array
 {
     $s = read_store_settings();
     if ($s && !empty($menu['store'])) $menu['store'] = array_merge($menu['store'], $s);
+    // Takeaway (pickup) is on unless Store settings switched it off.
+    if (!empty($menu['store'])) $menu['store'] += ['pickupEnabled' => true];
     return $menu;
 }
 

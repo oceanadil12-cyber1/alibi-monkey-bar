@@ -91,8 +91,12 @@
     const get = (t) => parts.find((p) => p.type === t).value;
     return { day: get('weekday').toUpperCase().slice(0, 3), time: `${get('hour')}:${get('minute')}:${get('second')}` };
   }
+  // Store settings can switch pickup (takeaway) or delivery off.
+  const typeEnabled = (type) => (type === 'delivery' ? !!state.menu.store.deliveryEnabled : state.menu.store.pickupEnabled !== false);
+
   function openInfo(type) {
     const s = state.menu.store;
+    if (!typeEnabled(type)) return { open: false, text: `${type === 'delivery' ? 'Delivery' : 'Pickup'} is not available right now` };
     const hours = type === 'delivery' ? s.deliveryHours : s.pickupHours;
     const { day, time } = storeClock();
     const today = hours[day] || [];
@@ -170,13 +174,17 @@
     const el = document.getElementById('order-status');
     if (!el || !state.menu) return;
     const s = state.menu.store;
-    const p = openInfo('pickup');
+    const p = openInfo(typeEnabled('pickup') || !typeEnabled('delivery') ? 'pickup' : 'delivery');
+    const offers = [
+      typeEnabled('pickup') ? `Pickup at ${esc(s.address.split(',')[0])}` : '',
+      typeEnabled('delivery') ? `Delivery to ${esc(s.deliveryZips.join(', '))}` : '',
+    ].filter(Boolean);
     el.innerHTML = `
       <div class="order-status-main">
         <span class="order-status-dot ${p.open ? 'is-open' : ''}"></span>
         <div>
           <strong>${p.open ? 'Taking online orders' : 'Online ordering closed'}</strong>
-          <span>${esc(p.text)} &middot; Pickup at ${esc(s.address.split(',')[0])}${s.deliveryEnabled ? ` &middot; Delivery to ${esc(s.deliveryZips.join(', '))}` : ''} &middot; Ready in about ${s.prepMinutes} min</span>
+          <span>${offers.length ? `${esc(p.text)} &middot; ${offers.join(' &middot; ')} &middot; Ready in about ${s.prepMinutes} min` : 'Online ordering is not available right now. Please call us to order.'}</span>
         </div>
       </div>
       ${state.menu.offline ? '<p class="order-status-note">Preview mode: ordering works on the live website.</p>' : ''}`;
@@ -374,7 +382,7 @@
       </div>
       <div class="order-drawer-body">
         <div class="order-toggle" role="radiogroup" aria-label="Pickup or delivery">
-          <button type="button" role="radio" aria-checked="${f === 'pickup'}" data-ftype="pickup" class="${f === 'pickup' ? 'is-active' : ''}">Pickup</button>
+          <button type="button" role="radio" aria-checked="${f === 'pickup'}" data-ftype="pickup" class="${f === 'pickup' ? 'is-active' : ''}" ${typeEnabled('pickup') ? '' : 'disabled'}>Pickup</button>
           <button type="button" role="radio" aria-checked="${f === 'delivery'}" data-ftype="delivery" class="${f === 'delivery' ? 'is-active' : ''}" ${s.deliveryEnabled ? '' : 'disabled'}>Delivery</button>
         </div>
         <p class="order-fulfill-note">${f === 'pickup'
@@ -462,7 +470,7 @@
       </div>
       <form class="order-drawer-body order-checkout" novalidate>
         <div class="order-toggle" role="radiogroup" aria-label="Pickup or delivery">
-          <button type="button" role="radio" aria-checked="${f.type === 'pickup'}" data-ftype="pickup" class="${f.type === 'pickup' ? 'is-active' : ''}">Pickup</button>
+          <button type="button" role="radio" aria-checked="${f.type === 'pickup'}" data-ftype="pickup" class="${f.type === 'pickup' ? 'is-active' : ''}" ${typeEnabled('pickup') ? '' : 'disabled'}>Pickup</button>
           <button type="button" role="radio" aria-checked="${f.type === 'delivery'}" data-ftype="delivery" class="${f.type === 'delivery' ? 'is-active' : ''}" ${s.deliveryEnabled ? '' : 'disabled'}>Delivery</button>
         </div>
         <p class="order-fulfill-note">${f.type === 'pickup' ? `Pickup ASAP (about ${s.prepMinutes} min) at ${esc(s.address)}` : `Delivery ASAP to ZIP ${esc(s.deliveryZips.join(', '))}`}</p>
@@ -730,6 +738,8 @@
       return;
     }
     state.cart = loadCart();
+    // Start on whichever of pickup / delivery is switched on.
+    if (!typeEnabled(state.fulfillment.type) && typeEnabled('delivery')) state.fulfillment.type = 'delivery';
     renderMenu();
     renderCart();
     setInterval(renderStatus, 60000);

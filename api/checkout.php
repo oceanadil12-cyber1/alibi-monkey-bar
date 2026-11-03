@@ -112,6 +112,7 @@ function validate_fulfillment(array $f, array $store, int $subtotal, bool $compl
         }
         if (!is_open($store['deliveryHours'], $store['timezone'])) fail('We are not delivering right now. Please check our delivery hours.');
     } else {
+        if (empty($store['pickupEnabled'])) fail('Pickup (takeaway) is not available right now.' . (!empty($store['deliveryEnabled']) ? ' Please choose delivery.' : ''));
         if ($subtotal < $store['pickupMinimum']) fail('Your order is below the pickup minimum.');
         if (!is_open($store['pickupHours'], $store['timezone'])) fail('The kitchen is closed for online orders right now. Please check our hours.');
     }

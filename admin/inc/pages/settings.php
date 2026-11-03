@@ -31,6 +31,7 @@ function store_settings_changes(array $old, array $new): array
         'name' => ['Name', null], 'address' => ['Address', null], 'phone' => ['Phone', null],
         'prepMinutes' => ['Prep time', fn($v) => (int) $v . ' min'],
         'pickupMinimum' => ['Pickup minimum', $money], 'deliveryFee' => ['Delivery fee', $money], 'deliveryMinimum' => ['Delivery minimum', $money],
+        'pickupEnabled' => ['Takeaway', fn($v) => $v ? 'on' : 'off'],
         'deliveryEnabled' => ['Delivery', fn($v) => $v ? 'on' : 'off'],
         'deliveryZips' => ['Delivery ZIP codes', fn($v) => implode(', ', (array) $v) ?: 'none'],
         'pickupInstructions' => ['Pickup instructions', fn($v) => 'changed'],
@@ -87,6 +88,7 @@ function save_store_settings(): array
         'phone'              => trim(mb_substr((string) ($_POST['phone'] ?? ''), 0, 40)),
         'prepMinutes'        => min(600, max(0, (int) ($_POST['prep'] ?? 25))),
         'pickupMinimum'      => max(0, (int) (dollars_to_cents((string) ($_POST['pickupMin'] ?? '')) ?? 0)),
+        'pickupEnabled'      => !empty($_POST['pickupEnabled']),
         'deliveryEnabled'    => !empty($_POST['deliveryEnabled']),
         'deliveryFee'        => max(0, (int) (dollars_to_cents((string) ($_POST['deliveryFee'] ?? '')) ?? 0)),
         'deliveryMinimum'    => max(0, (int) (dollars_to_cents((string) ($_POST['deliveryMin'] ?? '')) ?? 0)),
@@ -140,7 +142,8 @@ function admin_page_settings(): void
         . card('Ordering & delivery', '<div class="form-grid">'
             . '<label class="field sm"><span>Prep time' . $i('Default kitchen preparation time for all items. Individual items can override this on the Menu page.') . '</span>' . minutes_input('prep', (string) (int) ($store['prepMinutes'] ?? 25)) . '</label>'
             . '<label class="field sm"><span>Pickup minimum' . $i('Minimum order total required before a customer can place a pickup order. Set to $0 for no minimum.') . '</span>' . money_input('pickupMin', $money($store['pickupMinimum'] ?? 0)) . '</label>'
-            . '<label class="check"><input type="checkbox" name="deliveryEnabled" value="1" ' . (!empty($store['deliveryEnabled']) ? 'checked' : '') . '> Delivery enabled' . $i('Master switch for delivery. When off, only pickup is available on the website.') . '</label>'
+            . '<label class="check"><input type="checkbox" name="pickupEnabled" value="1" ' . (($store['pickupEnabled'] ?? true) ? 'checked' : '') . '> Take Away enabled' . $i('Master switch for takeaway (pickup) orders on the website. When off, guests can only order delivery. With both off, the website stops taking online orders.') . '</label>'
+            . '<label class="check"><input type="checkbox" name="deliveryEnabled" value="1" ' . (!empty($store['deliveryEnabled']) ? 'checked' : '') . '> Delivery enabled' . $i('Master switch for delivery. When off, guests can only order takeaway (pickup) on the website.') . '</label>'
             . '<label class="field sm"><span>Delivery fee' . $i('Flat fee added to every delivery order. Individual items can add an extra surcharge on the Menu page.') . '</span>' . money_input('deliveryFee', $money($store['deliveryFee'] ?? 0)) . '</label>'
             . '<label class="field sm"><span>Delivery minimum' . $i('Minimum order total required before a customer can place a delivery order. Set to $0 for no minimum.') . '</span>' . money_input('deliveryMin', $money($store['deliveryMinimum'] ?? 0)) . '</label>'
             . '<label class="field"><span>Delivery ZIP codes' . $i('Only customers in these ZIP codes can order delivery. Separate multiple ZIPs with commas.') . '</span><input name="deliveryZips" value="' . h(implode(', ', $store['deliveryZips'] ?? [])) . '"></label>'

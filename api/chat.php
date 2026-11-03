@@ -190,7 +190,9 @@ function food_facts(): string
     if (!$menu) return '';
     $s = $menu['store'];
     $out = "## Online ordering (pickup and delivery at /menu.html)\n"
-        . '- Pickup hours: ' . hours_text($s['pickupHours'] ?? []) . "\n"
+        . (($s['pickupEnabled'] ?? true)
+            ? '- Pickup (takeaway) hours: ' . hours_text($s['pickupHours'] ?? []) . "\n"
+            : "- Pickup (takeaway) is not available right now" . (!empty($s['deliveryEnabled']) ? ' (delivery only)' : '') . ".\n")
         . '- Usual prep time: about ' . (int) ($s['prepMinutes'] ?? 25) . " minutes\n";
     if (!empty($s['deliveryEnabled'])) {
         $out .= '- Delivery hours: ' . hours_text($s['deliveryHours'] ?? []) . "\n"
@@ -198,7 +200,7 @@ function food_facts(): string
             . '- Delivery minimum order: ' . money((int) ($s['deliveryMinimum'] ?? 0))
             . '; delivery fee: ' . (($s['deliveryFee'] ?? 0) ? money((int) $s['deliveryFee']) : 'none') . "\n";
     } else {
-        $out .= "- Delivery is not available right now (pickup only).\n";
+        $out .= "- Delivery is not available right now" . (($s['pickupEnabled'] ?? true) ? ' (pickup only)' : '') . ".\n";
     }
 
     // Item options (sides, add-ons, cooking temperature) are left out: they repeat on
