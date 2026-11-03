@@ -1,20 +1,14 @@
 <?php
 /**
- * Sign-in for the admin panel: one shared password (config 'admin_password', or
- * the older 'chat_admin_password'), a PHP session cookie, a CSRF token on every
- * form, and a limit on password guesses. Nothing here is reachable without the
- * password except the sign-in page itself.
+ * Sign-in for the admin panel: one shared team password (config 'admin_password',
+ * or the one changed under System → Change password; see team_password_check() in
+ * api/lib.php), a PHP session cookie, a CSRF token on every form, and a limit on
+ * password guesses. Nothing here is reachable without the password except the
+ * sign-in page itself.
  */
 if (!defined('ADMIN')) { http_response_code(403); exit('Forbidden'); }
 
 const ADMIN_IDLE_SECONDS = 43200; // signed out after 12 hours without a click
-
-/** The password from config.php; '' means the panel is switched off. */
-function admin_password(): string
-{
-    $c = config();
-    return (string) ($c['admin_password'] !== '' ? $c['admin_password'] : $c['chat_admin_password']);
-}
 
 /** Headers for every admin page: never cached, never indexed, never framed, no outside scripts. */
 function admin_send_headers(): void
@@ -51,7 +45,8 @@ function admin_session_start(): void
 function admin_signed_in(bool $touch = true): bool
 {
     if (empty($_SESSION['admin_ok'])) return false;
-    if (time() - (int) ($_SESSION['admin_seen'] ?? 0) > ADMIN_IDLE_SECONDS) {
+    if (time() - (int) ($_SESSION['admin_seen'] ?? 0) > ADMIN_IDLE_SECONDS
+        || ($_SESSION['admin_pw'] ?? '') !== team_password_version()) { // idle too long, or the password changed since
         $_SESSION = [];
         return false;
     }
@@ -80,16 +75,17 @@ function require_csrf(): void
 }
 
 /** The sign-in page (or the redirect after a right password). Always ends the request. */
-function admin_login(string $password): void
+function admin_login(): void
 {
     $error = '';
     if (is_post() && isset($_POST['password']) && is_string($_POST['password'])) {
         if (rate_limited('admin-login', 10, 900)) {
             $error = 'Too many attempts. Please wait a few minutes and try again.';
-        } elseif (hash_equals($password, $_POST['password'])) {
+        } elseif (team_password_check($_POST['password'])) {
             session_regenerate_id(true);
             $_SESSION['admin_ok'] = true;
             $_SESSION['admin_seen'] = time();
+            $_SESSION['admin_pw'] = team_password_version();
             unset($_SESSION['csrf']);
             admin_log('login');
             redirect(ADMIN_BASE . (($_SERVER['QUERY_STRING'] ?? '') !== '' ? '?' . $_SERVER['QUERY_STRING'] : ''));

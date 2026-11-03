@@ -25,6 +25,19 @@ older setting name `chat_admin_password` still works.) You are signed out after 
 hours without a click, or with **Sign out** in the sidebar. More than ten sign-in
 attempts in 15 minutes lock sign-in for a while, to stop password guessing.
 
+### Changing the password
+
+Signed in, open **System → Change password**, enter the current password and the
+new one twice (at least 12 characters). The same password opens the kitchen
+display (`/kds/`), so it changes there too. Saving signs out every other browser
+and kitchen screen; they sign in again with the new password.
+
+The new password is stored as a hash in `team-password.json` in the private data
+folder (`api/data/`, or `data_dir`) and replaces `admin_password` from
+`config.php`. Uploading a new site package doesn't undo it. **Forgot it?** Delete
+`team-password.json` in cPanel → File Manager; the `config.php` password works
+again.
+
 The old address `api/chats.php` still works: it forwards to the new panel.
 
 ## What's in it

@@ -12,8 +12,8 @@
  *   /admin/?page=orders&id=AB12CD    one record
  *   /admin/?api=counts               JSON for the sidebar badges (signed in only)
  *
- * Protected by config 'admin_password' (or the older 'chat_admin_password');
- * empty = the panel is switched off. Each section is admin/inc/pages/<name>.php
+ * Protected by the team password (config 'admin_password', or the one changed
+ * under System → Change password); none set = the panel is switched off. Each section is admin/inc/pages/<name>.php
  * and defines admin_page_<name>(); see docs/ADMIN.md.
  */
 define('ADMIN', true);
@@ -31,8 +31,7 @@ require __DIR__ . '/inc/bootstrap.php';
 
 admin_send_headers();
 
-$password = admin_password();
-if ($password === '') {
+if (!team_password_set()) {
     admin_render_bare('Switched off',
         '<div class="login"><div class="login-logo"><img src="' . h(SITE_BASE) . 'images/logo.webp" alt="Georgie\'s Alibi Monkey Bar" height="56"></div>'
         . '<h1>The admin panel is switched off</h1>'
@@ -47,7 +46,7 @@ try {
     db();
 } catch (Throwable $e) {
     if (isset($_GET['api'])) send_json(['ok' => false, 'error' => 'The database can\'t be reached right now.'], 503);
-    if (!admin_signed_in()) admin_login($password);
+    if (!admin_signed_in()) admin_login();
     require __DIR__ . '/inc/setup.php';
     admin_setup_database();
 }
@@ -79,7 +78,7 @@ if (($_GET['api'] ?? '') === 'waiter') {
     require __DIR__ . '/inc/waiter-api.php';
 }
 
-if (!admin_signed_in()) admin_login($password); // shows the sign-in page, or redirects once the password is right
+if (!admin_signed_in()) admin_login(); // shows the sign-in page, or redirects once the password is right
 
 if (is_post() && isset($_POST['logout'])) {
     require_csrf();

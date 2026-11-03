@@ -92,6 +92,78 @@ function cod_mode(): bool
     return (config()['checkout_mode'] ?? 'cod') !== 'card' || !payments_enabled();
 }
 
+// ---------- team password (admin panel and kitchen display) ----------
+
+/**
+ * A password changed in the admin panel is kept here as a hash, in the private
+ * data folder, and replaces 'admin_password' from config.php. Deleting this file
+ * (cPanel → File Manager) brings the config.php password back, for a forgotten one.
+ */
+function team_password_file(): string
+{
+    return data_dir() . '/team-password.json';
+}
+
+/** The changed password's record (['hash' => ..., 'changed' => ...]), or null when config.php's is in use. */
+function team_password_record(): ?array
+{
+    $file = team_password_file();
+    if (!is_file($file)) return null;
+    $rec = json_decode((string) @file_get_contents($file), true);
+    return is_array($rec) && is_string($rec['hash'] ?? null) && $rec['hash'] !== '' ? $rec : null;
+}
+
+/** The password from config.php ('admin_password', or the older 'chat_admin_password'). */
+function config_team_password(): string
+{
+    $c = config();
+    return (string) ($c['admin_password'] !== '' ? $c['admin_password'] : $c['chat_admin_password']);
+}
+
+/** False when no password is set anywhere: the admin panel and kitchen display are switched off. */
+function team_password_set(): bool
+{
+    return team_password_record() !== null || config_team_password() !== '';
+}
+
+function team_password_check(string $input): bool
+{
+    $rec = team_password_record();
+    if ($rec) return password_verify($input, $rec['hash']);
+    $password = config_team_password();
+    return $password !== '' && hash_equals($password, $input);
+}
+
+/** 12+ characters (a changed password always is; the panel won't save a shorter one). */
+function team_password_strong(): bool
+{
+    return team_password_record() !== null || strlen(config_team_password()) >= 12;
+}
+
+/**
+ * Changes whenever the password does. Each sign-in remembers it, so changing
+ * the password signs out every other browser and kitchen screen.
+ */
+function team_password_version(): string
+{
+    $rec = team_password_record();
+    return substr(hash('sha256', $rec ? $rec['hash'] : config_team_password()), 0, 16);
+}
+
+/** Save a new password (as a hash). False if the data folder can't be written. */
+function team_password_save(string $new): bool
+{
+    $dir = data_dir();
+    if (!is_dir($dir)) @mkdir($dir, 0700, true);
+    $json = json_encode(['hash' => password_hash($new, PASSWORD_DEFAULT), 'changed' => date('c')]);
+    $file = team_password_file();
+    $tmp = $file . '.tmp-' . bin2hex(random_bytes(4));
+    if (@file_put_contents($tmp, $json, LOCK_EX) !== strlen($json)) { @unlink($tmp); return false; }
+    @chmod($tmp, 0600);
+    if (!@rename($tmp, $file)) { @unlink($tmp); return false; }
+    return true;
+}
+
 function square_base(): string
 {
     return config()['environment'] === 'production'

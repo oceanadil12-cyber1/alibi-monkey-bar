@@ -33,6 +33,7 @@ const ADMIN_NAV = [
     ]],
     ['System', [
         ['activity', 'Activity log', 'activity'],
+        ['password', 'Change password', 'lock'],
     ]],
 ];
 

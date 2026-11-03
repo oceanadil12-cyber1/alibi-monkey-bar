@@ -158,7 +158,7 @@ function admin_page_dashboard(): void
         . check_row($cfg['chat_log'] ? 'ok' : 'warn', $cfg['chat_log'] ? 'Chats are recorded' : 'Chat recording is off', $cfg['chat_log'] ? 'Saved in the database for Conversations and Insights' : 'Conversations and Insights stay empty')
         . check_row($https || $local ? 'ok' : 'warn', $https ? 'Secure connection (HTTPS)' : ($local ? 'Running on this computer' : 'Not using HTTPS'),
             $https || $local ? '' : 'Turn on HTTPS so the admin password isn\'t sent in the clear')
-        . check_row(strlen(admin_password()) >= 12 ? 'ok' : 'warn', strlen(admin_password()) >= 12 ? 'Strong admin password' : 'Short admin password', strlen(admin_password()) >= 12 ? '' : 'Use at least 12 characters')
+        . check_row(team_password_strong() ? 'ok' : 'warn', team_password_strong() ? 'Strong admin password' : 'Short admin password', team_password_strong() ? '' : 'Use at least 12 characters (System → Change password)')
         . '</ul>';
 
     // ---- needs attention ----

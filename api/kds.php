@@ -16,15 +16,8 @@ define('KDS', true);
 require_once __DIR__ . '/lib.php';
 require_once __DIR__ . '/../admin/inc/store.php';
 
-// --- session auth (same password as admin, own session) ---
-function kds_password(): string
-{
-    $c = config();
-    return (string) ($c['admin_password'] !== '' ? $c['admin_password'] : $c['chat_admin_password']);
-}
-
-$password = kds_password();
-if ($password === '') fail('KDS is not configured.', 503);
+// --- session auth (same team password as admin, own session) ---
+if (!team_password_set()) fail('KDS is not configured.', 503);
 
 session_name('alibi_kds');
 $base = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '/kds/')), '/\\') . '/kds/';
@@ -45,7 +38,8 @@ session_start();
 function kds_signed_in(): bool
 {
     if (empty($_SESSION['kds_ok'])) return false;
-    if (time() - (int) ($_SESSION['kds_seen'] ?? 0) > 43200) {
+    if (time() - (int) ($_SESSION['kds_seen'] ?? 0) > 43200
+        || ($_SESSION['kds_pw'] ?? '') !== team_password_version()) { // idle too long, or the password changed since
         $_SESSION = [];
         return false;
     }

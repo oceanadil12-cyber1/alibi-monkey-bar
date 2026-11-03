@@ -29,14 +29,7 @@ header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
 
 // --- session ---
-function kds_password(): string
-{
-    $c = config();
-    return (string) ($c['admin_password'] !== '' ? $c['admin_password'] : $c['chat_admin_password']);
-}
-
-$password = kds_password();
-if ($password === '') {
+if (!team_password_set()) {
     kds_page('KDS Offline', '<div class="kds-login"><h1>Kitchen Display System</h1><p>Set <code>admin_password</code> in config to enable.</p></div>');
 }
 
@@ -67,7 +60,8 @@ session_start();
 function kds_signed_in(): bool
 {
     if (empty($_SESSION['kds_ok'])) return false;
-    if (time() - (int) ($_SESSION['kds_seen'] ?? 0) > 43200) {
+    if (time() - (int) ($_SESSION['kds_seen'] ?? 0) > 43200
+        || ($_SESSION['kds_pw'] ?? '') !== team_password_version()) { // idle too long, or the password changed since
         $_SESSION = [];
         return false;
     }
@@ -121,10 +115,11 @@ if (!kds_signed_in()) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && is_string($_POST['password'])) {
         if (rate_limited('kds-login', 10, 900)) {
             $error = 'Too many attempts. Please wait.';
-        } elseif (hash_equals($password, $_POST['password'])) {
+        } elseif (team_password_check($_POST['password'])) {
             session_regenerate_id(true);
             $_SESSION['kds_ok'] = true;
             $_SESSION['kds_seen'] = time();
+            $_SESSION['kds_pw'] = team_password_version();
             admin_log('kds.login');
             header('Location: ' . $KDS_BASE);
             exit;
