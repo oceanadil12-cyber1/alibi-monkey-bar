@@ -648,6 +648,9 @@ body.bare { display: grid; place-items: center; padding: 24px; }
 .dinein-item-info b { display: block; }
 .dinein-cat-head { margin: 18px 0 2px; padding-bottom: 6px; border-bottom: 1px solid var(--line); color: var(--gold-light); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
 .dinein-cat-head:first-child { margin-top: 0; }
+#dinein-delivery-fields { display: contents; }
+.dinein-type { display: flex; margin-bottom: 12px; }
+.dinein-type a { flex: 1; justify-content: center; }
 
 .dinein-cart { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .dinein-cart-item { background: var(--card-2); border-radius: 8px; padding: 8px 10px; }
@@ -667,7 +670,7 @@ body.bare { display: grid; place-items: center; padding: 24px; }
 
 .dinein-total { font-weight: 600; color: var(--gold-light); font-size: 1.1rem; }
 
-.field input.error { border-color: var(--crit) !important; }
+.field input.error, .field textarea.error { border-color: var(--crit) !important; }
 
 /* --- Waiter Assistance --- */
 .waiter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }

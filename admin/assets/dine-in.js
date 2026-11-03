@@ -1,8 +1,9 @@
 /**
- * Dine-In waiter ordering interface.
+ * Staff ordering interface: dine-in, takeaway and delivery.
  *
- * Reads the menu from the data attribute, lets the waiter build an order
- * (table + items + notes), and submits it to api/dine-in.php.
+ * Reads the menu from the data attribute, lets staff build an order (type,
+ * table for dine-in, phone + address for delivery, items, notes), and submits
+ * it to the admin's api=dine-in endpoint.
  */
 (function () {
     'use strict';
@@ -20,8 +21,13 @@
     const itemsEl = document.getElementById('dinein-items');
     const cartEl = document.getElementById('dinein-cart');
     const cartEmpty = document.getElementById('dinein-cart-empty');
+    const typeEl = document.getElementById('dinein-type');
+    const tableField = document.getElementById('dinein-table-field');
     const tableInput = document.getElementById('dinein-table');
     const guestInput = document.getElementById('dinein-guest');
+    const deliveryFields = document.getElementById('dinein-delivery-fields');
+    const phoneInput = document.getElementById('dinein-phone');
+    const addressInput = document.getElementById('dinein-address');
     const notesInput = document.getElementById('dinein-notes');
     const totalEl = document.getElementById('dinein-total');
     const submitBtn = document.getElementById('dinein-submit');
@@ -29,7 +35,34 @@
 
     // state
     let activeCat = null;
+    let orderType = 'dine-in'; // 'dine-in' | 'pickup' (takeaway) | 'delivery'
     let cart = []; // { id, name, qty, price, variation, mods, note }
+
+    // --- order type: dine-in needs a table, delivery needs phone + address ---
+    function setOrderType(type) {
+        orderType = type;
+        typeEl.querySelectorAll('[data-type]').forEach(a => {
+            const on = a.dataset.type === type;
+            a.classList.toggle('on', on);
+            a.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        tableField.hidden = type !== 'dine-in';
+        tableInput.required = type === 'dine-in';
+        deliveryFields.hidden = type !== 'delivery';
+        (type === 'dine-in' ? tableInput : type === 'delivery' ? phoneInput : guestInput).focus();
+    }
+
+    typeEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        const a = e.target.closest('[data-type]');
+        if (a) setOrderType(a.dataset.type);
+    });
+
+    function flagMissing(input) {
+        input.focus();
+        input.classList.add('error');
+        setTimeout(() => input.classList.remove('error'), 2000);
+    }
 
     function esc(s) {
         const d = document.createElement('div');
@@ -193,11 +226,10 @@
     // --- submit ---
     submitBtn.addEventListener('click', async () => {
         const table = parseInt(tableInput.value, 10);
-        if (!table || table < 1) {
-            tableInput.focus();
-            tableInput.classList.add('error');
-            setTimeout(() => tableInput.classList.remove('error'), 2000);
-            return;
+        if (orderType === 'dine-in' && (!table || table < 1 || table > 999)) { flagMissing(tableInput); return; }
+        if (orderType === 'delivery') {
+            if (phoneInput.value.replace(/\D/g, '').length < 10) { flagMissing(phoneInput); return; }
+            if (!addressInput.value.trim()) { flagMissing(addressInput); return; }
         }
         if (cart.length === 0) return;
 
@@ -209,7 +241,10 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    table,
+                    type: orderType,
+                    table: orderType === 'dine-in' ? table : null,
+                    phone: orderType === 'delivery' ? phoneInput.value.trim() : '',
+                    address: orderType === 'delivery' ? addressInput.value.trim() : '',
                     guest: guestInput.value.trim(),
                     items: cart.map(c => ({
                         name: c.name,
@@ -226,9 +261,12 @@
             if (data.ok) {
                 resultEl.hidden = false;
                 resultEl.className = 'flash ok';
-                resultEl.innerHTML = '<b>Order #' + esc(data.orderNumber) + '</b> sent to kitchen! Table ' + data.table + ' · ' + data.items + (data.items === 1 ? ' item' : ' items');
+                const where = data.type === 'delivery' ? 'Delivery' : data.type === 'pickup' ? 'Takeaway' : 'Table ' + data.table;
+                resultEl.innerHTML = '<b>Order #' + esc(data.orderNumber) + '</b> sent to kitchen! ' + esc(where) + ' · ' + data.items + (data.items === 1 ? ' item' : ' items');
                 cart = [];
                 guestInput.value = '';
+                phoneInput.value = '';
+                addressInput.value = '';
                 notesInput.value = '';
                 renderCart();
                 setTimeout(() => { resultEl.hidden = true; }, 8000);
@@ -250,6 +288,5 @@
     renderTabs();
     renderCart();
 
-    // auto-focus table input
-    tableInput.focus();
+    setOrderType('dine-in'); // also focuses the table input
 })();

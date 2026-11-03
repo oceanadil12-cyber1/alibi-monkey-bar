@@ -1,17 +1,35 @@
 <?php
 /**
- * Dine-in order creation (included from admin/index.php when api=dine-in).
+ * Staff order creation: dine-in, takeaway or delivery (included from
+ * admin/index.php when api=dine-in).
  *
  * Expects POST with JSON body:
- *   { "table": 12, "items": [ { "name":"...", "qty":2, "price":899,
+ *   { "type": "dine-in" | "pickup" | "delivery",   (takeaway is stored as "pickup")
+ *     "table": 12,                                  (dine-in only)
+ *     "phone": "...", "address": "...",             (delivery only)
+ *     "items": [ { "name":"...", "qty":2, "price":899,
  *     "variation":"...", "mods":"...", "note":"..." }, ... ], "notes":"..." }
  */
 
 $req = json_decode((string) file_get_contents('php://input'), true);
 if (!is_array($req)) fail('Invalid request.');
 
-$table = (int) ($req['table'] ?? 0);
-if ($table < 1 || $table > 999) fail('Please select a table number.');
+$type = in_array($req['type'] ?? 'dine-in', ['dine-in', 'pickup', 'delivery'], true) ? (string) ($req['type'] ?? 'dine-in') : 'dine-in';
+$typeLabel = ['dine-in' => 'Dine-in', 'pickup' => 'Takeaway', 'delivery' => 'Delivery'][$type];
+
+$table = null;
+if ($type === 'dine-in') {
+    $table = (int) ($req['table'] ?? 0);
+    if ($table < 1 || $table > 999) fail('Please select a table number.');
+}
+
+$phone = $address = '';
+if ($type === 'delivery') {
+    $phone = trim(mb_substr((string) ($req['phone'] ?? ''), 0, 30));
+    $address = trim(mb_substr((string) ($req['address'] ?? ''), 0, 300));
+    if (strlen(preg_replace('/\D/', '', $phone)) < 10) fail('Please enter a phone number for the driver.');
+    if ($address === '') fail('Please enter the delivery address.');
+}
 
 $items = $req['items'] ?? [];
 if (!is_array($items) || count($items) === 0) fail('Please add at least one item.');
@@ -50,10 +68,13 @@ $number = strtoupper(bin2hex(random_bytes(3)));
 require_once __DIR__ . '/../../api/db.php';
 $saved = save_row('orders', [
     'number'       => $number,
-    'payment'      => 'dine-in',
-    'order_type'   => 'dine-in',
+    // Takeaway and delivery are paid when the guest gets the food, like the website's cash orders.
+    'payment'      => $type === 'dine-in' ? 'dine-in' : 'cash on delivery',
+    'order_type'   => $type,
     'table_number' => $table,
     'name'         => $guest,
+    'phone'        => $phone,
+    'address'      => $address,
     'items'        => json_encode($itemLines, JSON_UNESCAPED_UNICODE),
     'order_notes'  => $orderNotes,
     'subtotal'     => $subtotal,
@@ -63,22 +84,26 @@ $saved = save_row('orders', [
 ]);
 if (!$saved) fail('The order could not be saved. Please try again, or write it down for the kitchen.', 500);
 
-admin_log('order.dine-in', '#' . $number . ' table ' . $table . ' (' . count($itemLines) . ' items)');
+$where = $type === 'dine-in' ? "table $table" : strtolower($typeLabel);
+admin_log('order.' . ($type === 'pickup' ? 'takeaway' : $type), '#' . $number . ' ' . $where . ' (' . count($itemLines) . ' items)');
 
-notify("Dine-in order #$number (Table $table)", [
+notify("$typeLabel order #$number" . ($type === 'dine-in' ? " (Table $table)" : ''), array_filter([
     'Order'    => "#$number",
     'Placed'   => date('l, M j, Y g:i A'),
-    'Type'     => 'DINE-IN',
+    'Type'     => strtoupper($typeLabel),
     'Table'    => $table,
     'Guest'    => $guest ?: '(not provided)',
+    'Phone'    => $phone,
+    'Address'  => $address,
     'Items'    => implode("\n", $itemLines),
     'Notes'    => $orderNotes ?: '(none)',
     'Subtotal' => '$' . number_format($subtotal / 100, 2),
-]);
+], fn($v) => $v !== null && $v !== ''));
 
 send_json([
     'ok'          => true,
     'orderNumber' => $number,
+    'type'        => $type,
     'table'       => $table,
     'items'       => count($itemLines),
 ]);

@@ -1,9 +1,10 @@
 <?php
 /**
- * Dine-In: waiter ordering interface for in-house guests.
+ * Dine-In: staff ordering interface for dine-in, takeaway and delivery orders.
  *
- * Select a table, browse the menu, build an order, add special instructions,
- * and submit — the order appears on the Kitchen Display System automatically.
+ * Pick the order type (a table number for dine-in; phone and address for
+ * delivery), browse the menu, build an order, add special instructions, and
+ * submit — the order appears on the Kitchen Display System automatically.
  */
 if (!defined('ADMIN')) { http_response_code(403); exit('Forbidden'); }
 
@@ -51,7 +52,7 @@ function admin_page_dine_in(): void
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
     $body = page_head('Dine-In Order',
-        'Create an order for a table. It will appear on the Kitchen Display automatically.',
+        'Create a dine-in, takeaway or delivery order. It will appear on the Kitchen Display automatically.',
         btn_link('Open Kitchen Display', '../kds/', '', 'external', ' target="_blank"'))
     . '<div id="dine-in-app" data-menu=\'' . h($menuJson) . '\' data-api="' . h(admin_url('', ['api' => 'dine-in'])) . '">'
     . '<div class="split">'
@@ -69,12 +70,25 @@ function admin_page_dine_in(): void
     .   '<div class="card">'
     .     '<header class="card-head"><h2>Order</h2></header>'
     .     '<div class="card-body">'
-    .       '<label class="field"><span>Table Number</span>'
+    .       '<div id="dinein-type" class="tabs dinein-type" role="radiogroup" aria-label="Order type">'
+    .         '<a href="#" class="on" data-type="dine-in" role="radio" aria-checked="true">Dine-In</a>'
+    .         '<a href="#" data-type="pickup" role="radio" aria-checked="false">Takeaway</a>'
+    .         '<a href="#" data-type="delivery" role="radio" aria-checked="false">Delivery</a>'
+    .       '</div>'
+    .       '<label class="field" id="dinein-table-field"><span>Table Number</span>'
     .         '<input type="number" id="dinein-table" min="1" max="999" placeholder="Enter table #" required>'
     .       '</label>'
     .       '<label class="field"><span>Guest Name</span>'
     .         '<input type="text" id="dinein-guest" maxlength="80" placeholder="Optional">'
     .       '</label>'
+    .       '<div id="dinein-delivery-fields" hidden>'
+    .         '<label class="field"><span>Phone</span>'
+    .           '<input type="tel" id="dinein-phone" maxlength="30" placeholder="For the driver" autocomplete="off">'
+    .         '</label>'
+    .         '<label class="field"><span>Delivery Address</span>'
+    .           '<textarea id="dinein-address" rows="2" maxlength="300" placeholder="Street, unit, city, ZIP"></textarea>'
+    .         '</label>'
+    .       '</div>'
     .       '<div id="dinein-cart" class="dinein-cart">'
     .         '<p class="muted" id="dinein-cart-empty">No items added yet. Select items from the menu.</p>'
     .       '</div>'
