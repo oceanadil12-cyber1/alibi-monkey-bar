@@ -61,9 +61,8 @@ function admin_page_password(): void
             .   '<input type="password" name="new" autocomplete="new-password" minlength="' . TEAM_PASSWORD_MIN . '" maxlength="72" required></label>'
             . '<label class="field"><span>Confirm new password</span><input type="password" name="confirm" autocomplete="new-password" minlength="' . TEAM_PASSWORD_MIN . '" maxlength="72" required></label>'
             . '</div>'
-            . '<p class="muted">' . ($changed !== '' ? 'Last changed here on ' . h($changed) . '.' : 'Currently the password from <code>api/config.php</code>.')
-            . ' Saving signs out every other device, including kitchen screens.</p>')
-        . '<div class="savebar"><span class="muted">Forgot it? Delete <code>team-password.json</code> from the private data folder to go back to the <code>config.php</code> password.</span>'
-        . btn_submit('Change password', 'primary', '', '', 'lock') . '</div></form>';
+            . '<p class="muted">' . ($changed !== '' ? 'Last changed here on ' . h($changed) . '. ' : '')
+            . 'Saving signs out every other device, including kitchen screens.</p>')
+        . '<div class="savebar"><span></span>' . btn_submit('Change password', 'primary', '', '', 'lock') . '</div></form>';
     admin_render('Change password', $body, 'password');
 }
