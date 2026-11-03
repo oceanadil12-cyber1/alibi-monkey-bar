@@ -41,13 +41,15 @@
         return '$' + (cents / 100).toFixed(2);
     }
 
-    // --- category tabs ---
+    // --- category tabs ("Menu" first: every category on one page) ---
+    const ALL = '__all';
+
     function renderTabs() {
         const cats = Object.keys(categories);
         if (!cats.length) { tabsEl.innerHTML = '<span class="muted">No menu items found.</span>'; return; }
         if (!activeCat) activeCat = cats[0];
-        tabsEl.innerHTML = cats.map(cat =>
-            `<a href="#" class="${cat === activeCat ? 'on' : ''}" data-cat="${esc(cat)}">${esc(cat)}</a>`
+        tabsEl.innerHTML = [ALL, ...cats].map(cat =>
+            `<a href="#" class="${cat === activeCat ? 'on' : ''}" data-cat="${esc(cat)}">${cat === ALL ? 'Menu' : esc(cat)}</a>`
         ).join('');
         renderItems();
     }
@@ -62,10 +64,20 @@
 
     // --- menu items ---
     function renderItems() {
+        if (activeCat === ALL) {
+            itemsEl.innerHTML = Object.keys(categories).map(cat =>
+                `<h3 class="dinein-cat-head">${esc(cat)}</h3>` + itemRows(categories[cat] || [])
+            ).join('');
+            return;
+        }
         const ids = categories[activeCat] || [];
         if (!ids.length) { itemsEl.innerHTML = '<p class="muted">No items in this category.</p>'; return; }
-        // one row per size or choice, so the waiter can pick e.g. a small salad
-        itemsEl.innerHTML = ids.map(id => {
+        itemsEl.innerHTML = itemRows(ids);
+    }
+
+    // one row per size or choice, so the waiter can pick e.g. a small salad
+    function itemRows(ids) {
+        return ids.map(id => {
             const item = items[id];
             if (!item) return '';
             return (item.variations || []).filter(v => !v.soldOut).map(v => `<div class="dinein-item" data-id="${esc(id)}">

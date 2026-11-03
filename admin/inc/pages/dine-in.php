@@ -59,7 +59,7 @@ function admin_page_dine_in(): void
     // left: menu
     . '<div class="stack" id="dinein-menu-col">'
     .   '<div class="card">'
-    .     '<header class="card-head"><h2>Menu</h2><div id="dinein-cat-tabs" class="tabs"></div></header>'
+    .     '<header class="card-head"><div id="dinein-cat-tabs" class="tabs" aria-label="Menu categories"></div></header>'
     .     '<div class="card-body"><div id="dinein-items" class="dinein-items"></div></div>'
     .   '</div>'
     . '</div>'
