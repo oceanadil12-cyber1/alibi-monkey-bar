@@ -46,10 +46,31 @@ function save_happy_hour(): void
     ]);
 }
 
+/** The "Add a new item" form: append one item (or side) to the Happy Hour menu. Returns its name, or '' if incomplete. */
+function add_happy_hour_item(): string
+{
+    $name = trim(mb_substr((string) ($_POST['name'] ?? ''), 0, 60));
+    $price = hh_clean_price((string) ($_POST['price'] ?? ''));
+    if ($name === '' || $price === '') return '';
+    $hh = happy_hour_data();
+    if (($_POST['section'] ?? 'items') === 'sides') {
+        $hh['sides'][] = ['name' => $name, 'price' => $price];
+    } else {
+        $hh['items'][] = ['name' => $name, 'desc' => trim(mb_substr((string) ($_POST['desc'] ?? ''), 0, 90)), 'price' => $price];
+    }
+    return write_happy_hour($hh) ? $name : '';
+}
+
 function admin_page_happy_hour(): void
 {
     if (is_post()) {
         require_csrf();
+        if (($_POST['op'] ?? '') === 'add') {
+            $name = add_happy_hour_item();
+            if ($name !== '') { admin_log('happy.add', $name); flash('Added ' . $name . ' to Happy Hour. It is on the website menu now.'); }
+            else flash('Give the new item a name and a price.', 'err');
+            redirect(admin_url('happy-hour'));
+        }
         save_happy_hour();
         admin_log('happy.save', 'menu, times and ticker');
         flash('Saved. The website shows the new Happy Hour on the next page load.');
@@ -57,11 +78,8 @@ function admin_page_happy_hour(): void
     }
 
     $hh = happy_hour_data();
-    // Existing rows plus a few blank ones to add more.
     $items = $hh['items'];
-    for ($i = 0; $i < 3; $i++) $items[] = ['name' => '', 'desc' => '', 'price' => ''];
     $sides = $hh['sides'];
-    for ($i = 0; $i < 2; $i++) $sides[] = ['name' => '', 'price' => ''];
 
     $itemRows = '';
     foreach ($items as $k => $it) {
@@ -75,8 +93,19 @@ function admin_page_happy_hour(): void
             . '<td>' . money_input('sideprice[' . $k . ']', (string) $s['price'], '0') . '</td></tr>';
     }
 
-    $body = page_head('Happy Hour', 'The Happy Hour menu, its time, and the scrolling ticker across the site. Leave an item\'s name blank to drop it; the blank rows at the end are for adding new items. Prices in dollars.',
+    // "Add a new item" (its own form, like Menu & food).
+    $add = '<details class="card addcard"><summary><span>' . icon('plus', 16) . ' Add a new item</span><small>Your own Happy Hour dishes and sides</small></summary><div class="card-body">'
+        . form_open(admin_url('happy-hour')) . '<input type="hidden" name="op" value="add">'
+        . '<div class="form-grid">'
+        . '<label class="field"><span>Name</span><input name="name" maxlength="60" required></label>'
+        . '<label class="field sm"><span>Price</span>' . money_input('price', '', '', true) . '</label>'
+        . '<label class="field sm"><span>Add to</span><select name="section"><option value="items">Items</option><option value="sides">Sides</option></select></label>'
+        . '<label class="field wide"><span>Description (optional, items only)</span><input name="desc" maxlength="90"></label>'
+        . '</div><div class="bar">' . btn_submit('Add item', 'primary', '', '', 'plus') . '</div></form></div></details>';
+
+    $body = page_head('Happy Hour', 'The Happy Hour menu, its time, and the scrolling ticker across the site. Leave an item\'s name blank to drop it. Prices in dollars.',
             btn_link('View menu page', SITE_BASE . 'menu.html#happy-hour', 'sm', 'external', ' target="_blank" rel="noopener"'))
+        . $add
         . '<form method="post" action="' . h(admin_url('happy-hour')) . '">' . csrf_field()
         . card('Settings', '<div class="form-grid">'
             . '<label class="check"><input type="checkbox" name="enabled" value="1" ' . (!empty($hh['enabled']) ? 'checked' : '') . '> Show Happy Hour on the website</label>'
