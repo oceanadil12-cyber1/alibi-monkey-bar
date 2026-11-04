@@ -239,8 +239,8 @@ built from the site's own pages, not from the AI's text.
 
 A password-protected web app at **`/admin/`** for the restaurant team, and the one
 place to see what guests sent the website and to control what it shows. Sign in
-with `admin_password` from `api/config.php` (the older name
-`chat_admin_password` still works). It works on phones and tablets too. The full
+with the team password: `admin_password` from `api/config.php` (the older name
+`chat_admin_password` still works), or the one set under **System → Change password**. It works on phones and tablets too. The full
 guide is **[docs/ADMIN.md](docs/ADMIN.md)**.
 
 | Section | What it does |
@@ -254,10 +254,12 @@ guide is **[docs/ADMIN.md](docs/ADMIN.md)**.
 | **Insights** | What guests ask and order in the chat, and how orders are going (sales, busiest times, best sellers) |
 | **Knowledge** | Edit what the chat assistant knows (`data/chatbot-knowledge.md`), with one-click restore of earlier versions |
 | **Events** | Add weekly or one-night events with a poster (a size guide and cropping editor), host, description and tags, then publish them to the Events page and the home page slider |
-| **Menu & food** | Hide items, change prices, pickup-only or delivery-only, delivery surcharge, prep time, edit descriptions and options, add your own dishes |
-| **Happy Hour** | The Happy Hour menu, its times, and the scrolling ticker |
-| **Store settings** | Business details, hours, delivery area and fees |
-| **Activity log** | Who signed in and what they changed |
+| **Dine-In Order** | Staff place dine-in (table number), takeaway or delivery (phone and address) orders straight to the kitchen display, from the full menu or one category |
+| **Menu & food** | Hide items, change prices (with the "Last price" before each change), pickup-only or delivery-only, delivery surcharge, prep time, edit descriptions and options, add your own dishes, and **schedule specials** to show only on chosen days, times or dates |
+| **Happy Hour** | The Happy Hour menu ("Add a new item", "Last price"), its times and days, and the scrolling ticker |
+| **Store settings** | Business details, hours, delivery area and fees, Take Away and Delivery on/off |
+| **Activity log** | Who signed in and exactly what they changed ("Wings: price $6.99 → $7.49"), with optional email alerts for every change |
+| **Change password** | Set the one team password for the admin panel and the kitchen display |
 
 The sidebar shows live counts of new orders, reservation requests and messages.
 Statuses, notes and flags that the team adds are kept beside the guests' records
@@ -435,6 +437,8 @@ where the pages link to it, so visitors get the new version (see
 
 | Version | Date | Highlights |
 | --- | --- | --- |
+| **v6.1** | 2026-11-03 | Scheduled specials: menu items can show only on chosen days, between set times or for a date range (hidden everywhere else: website, checkout, table ordering, staff orders, chat); Happy Hour days (e.g. Mon–Fri) |
+| **v6.0** | 2026-11-03 | Change password, Take Away on/off, staff takeaway and delivery orders, detailed activity log with email alerts, "Last price", Happy Hour "Add a new item", new drinks menu |
 | **v5.2** | 2026-10-16 | Upload-and-go hand-off (any folder, database connected from the admin, one-click on cPanel), full QA fixes (online ordering restored, guest order email, busy-bar table limits), chat opens by itself, SEOBERG credits, Admin → Chat settings |
 | **v5.1** | 2026-10-14 | MySQL database, hosting.com upload package, QA fixes, phone and tablet admin layout |
 | **v5.0** | 2026-10-05 | Admin notifications, dine-in guest name, data protection |
