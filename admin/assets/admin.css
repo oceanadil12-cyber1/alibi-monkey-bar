@@ -869,3 +869,45 @@ ul.plain { margin: 0; padding-left: 18px; display: flex; flex-direction: column;
   .role-opt-body .role-ico { margin-bottom: 0; }
   .role-opt-body small { flex-basis: 100%; padding-left: 46px; margin-top: -6px; }
 }
+
+/* ---------- Table QR codes (inc/pages/table-qr.php) ---------- */
+.qr-controls { display: flex; flex-direction: column; gap: 14px; }
+.qr-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.qr-form .field { flex: 1 1 200px; }
+.qr-form .field.sm { flex: 0 0 auto; min-width: 110px; }
+.qr-form .field.sm input { width: 110px; }
+.qr-controls .callout { margin: 0; }
+.callout.warn { background: var(--warn-bg); border-color: rgba(244, 192, 85, .4); }
+.callout.warn > .i { color: var(--warn); }
+.qr-sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 16px; margin-top: 18px; }
+.qr-sheet.size-1 { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.qr-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 22px 18px 16px; border: 2px solid #c8a84e; border-radius: 18px; background: radial-gradient(ellipse at top, #1d1810, #0a0a0b 70%); color: #fff; text-align: center; break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.qr-logo { height: 46px; width: auto; }
+.qr-table { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.qr-table span { color: #c8a84e; font-size: 11px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; }
+.qr-table b { margin-top: 4px; font: 700 44px/1 Georgia, 'Times New Roman', serif; }
+.qr-code { width: 78%; max-width: 230px; padding: 8px; border-radius: 14px; background: #fff; }
+.qr-code svg { display: block; width: 100%; height: auto; }
+.qr-cta { margin-top: 2px; color: #e6cd7d; font: italic 700 22px/1.1 Georgia, 'Times New Roman', serif; }
+.qr-help { max-width: 230px; color: #c9c9cf; font-size: 12.5px; line-height: 1.4; }
+.qr-url { color: #8f8f98; font-size: 10.5px; letter-spacing: .3px; overflow-wrap: anywhere; }
+.qr-actions { display: flex; gap: 14px; margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .1); width: 100%; justify-content: center; }
+.qr-actions a { display: inline-flex; align-items: center; gap: 5px; color: #e6cd7d; font-size: 12.5px; font-weight: 600; text-decoration: none; }
+.size-1 .qr-logo { height: 64px; }
+.size-1 .qr-table b { font-size: 64px; }
+.size-1 .qr-code { max-width: 320px; }
+.size-1 .qr-cta { font-size: 30px; }
+.size-1 .qr-help { max-width: 300px; font-size: 14px; }
+.qr-tip { margin-top: 14px; }
+
+@media print {
+  @page { margin: 10mm; }
+  .qr-sheet { display: grid; gap: 8mm; margin: 0; }
+  .qr-sheet.size-4 { grid-template-columns: repeat(2, 1fr); }
+  .qr-sheet.size-4 .qr-card { height: 128mm; justify-content: center; }
+  .qr-sheet.size-1 { grid-template-columns: 1fr; }
+  .qr-sheet.size-1 .qr-card { height: 265mm; justify-content: center; break-after: page; }
+  .qr-sheet.size-1 .qr-card:last-child { break-after: auto; }
+  .qr-card { border-color: #c8a84e; background: radial-gradient(ellipse at top, #1d1810, #0a0a0b 70%) !important; color: #fff; }
+  .page-head, .qr-tip { display: none !important; }
+}

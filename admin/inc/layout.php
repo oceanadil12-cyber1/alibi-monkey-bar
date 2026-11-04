@@ -13,6 +13,7 @@ const ADMIN_NAV = [
     ['Guests', [
         ['orders', 'Orders', 'bag'],
         ['dine-in', 'Dine-In Order', 'edit'],
+        ['table-qr', 'Table QR codes', 'qr'],
         ['waiter-assistance', 'Waiter Assistance', 'bell'],
         ['reservations', 'Reservations', 'calendar'],
         ['gift-cards', 'Gift cards', 'gift'],
