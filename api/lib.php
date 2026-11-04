@@ -279,6 +279,37 @@ function square_error_message(array $body): string
     return $friendly[$err['code'] ?? ''] ?? ($err['detail'] ?? 'Payment could not be completed.');
 }
 
+// ---------- days and times (menu schedules, Happy Hour) ----------
+
+const WEEK_DAYS = ['MON' => 'Mon', 'TUE' => 'Tue', 'WED' => 'Wed', 'THU' => 'Thu', 'FRI' => 'Fri', 'SAT' => 'Sat', 'SUN' => 'Sun'];
+
+/** ['MON', 'TUE', 'WED', 'FRI'] → "Mon–Wed, Fri"; none or all seven → "Every day". */
+function days_label(array $days): string
+{
+    $keys = array_keys(WEEK_DAYS);
+    $on = array_values(array_filter(array_keys($keys), fn($i) => in_array($keys[$i], $days, true)));
+    if (!$on || count($on) === 7) return 'Every day';
+    $runs = [];
+    foreach ($on as $i) {
+        $last = count($runs) - 1;
+        if ($last >= 0 && $runs[$last][1] === $i - 1) $runs[$last][1] = $i;
+        else $runs[] = [$i, $i];
+    }
+    return implode(', ', array_map(function ($r) use ($keys) {
+        [$a, $b] = $r;
+        if ($a === $b) return WEEK_DAYS[$keys[$a]];
+        return WEEK_DAYS[$keys[$a]] . ($b - $a === 1 ? ', ' : '–') . WEEK_DAYS[$keys[$b]];
+    }, $runs));
+}
+
+/** "15:00" → "3 PM"; "15:30" → "3:30 PM". */
+function clock_label(string $hhmm): string
+{
+    if (!preg_match('/^(\d{1,2}):(\d{2})/', $hhmm, $m)) return $hhmm;
+    $h = (int) $m[1] % 24;
+    return (($h % 12) ?: 12) . ((int) $m[2] ? ':' . $m[2] : '') . ($h < 12 ? ' AM' : ' PM');
+}
+
 // ---------- form submissions (contact, reservations, newsletter) ----------
 
 /**

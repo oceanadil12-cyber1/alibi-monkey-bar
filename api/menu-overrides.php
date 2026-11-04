@@ -39,6 +39,50 @@ function write_menu_overrides(array $data): bool
     }
 }
 
+// ---------- schedules (specials on certain days, times or dates) ----------
+
+/**
+ * An item's schedule: ['days' => ['TUE'], 'from' => '11:00', 'to' => '15:00',
+ * 'start' => '2026-12-20', 'end' => '2027-01-02'], every part optional; no
+ * schedule = always on. True when the item should be on the menu at $now
+ * (restaurant time). A time window like 22:00–02:00 runs past midnight, and the
+ * hours after midnight count as the day it started.
+ */
+function schedule_active(?array $s, ?DateTimeImmutable $now = null): bool
+{
+    if (!$s) return true;
+    $now = $now ?? new DateTimeImmutable('now');
+    $date = $now->format('Y-m-d');
+    if (!empty($s['start']) && $date < $s['start']) return false;
+    if (!empty($s['end']) && $date > $s['end']) return false;
+    $time = $now->format('H:i');
+    $from = (string) ($s['from'] ?? '');
+    $to = (string) ($s['to'] ?? '');
+    $day = strtoupper($now->format('D'));
+    if ($from !== '' && $to !== '' && $from > $to) {
+        if ($time < $to) $day = strtoupper($now->modify('-1 day')->format('D'));
+        elseif ($time < $from) return false;
+    } else {
+        if ($from !== '' && $time < $from) return false;
+        if ($to !== '' && $time >= $to) return false;
+    }
+    return empty($s['days']) || in_array($day, $s['days'], true);
+}
+
+/** "Tue only · 11 AM–3 PM · Dec 20 – Jan 2"; '' for no schedule. */
+function schedule_text(?array $s): string
+{
+    if (!$s) return '';
+    $parts = [];
+    if (!empty($s['days'])) $parts[] = days_label($s['days']) . (count($s['days']) === 1 ? ' only' : '');
+    if (!empty($s['from']) && !empty($s['to'])) $parts[] = clock_label($s['from']) . '–' . clock_label($s['to']);
+    $date = fn($d) => date('M j' . (substr($d, 0, 4) !== date('Y') ? ', Y' : ''), (int) strtotime($d));
+    if (!empty($s['start']) && !empty($s['end'])) $parts[] = $date($s['start']) . ' – ' . $date($s['end']);
+    elseif (!empty($s['start'])) $parts[] = 'from ' . $date($s['start']);
+    elseif (!empty($s['end'])) $parts[] = 'until ' . $date($s['end']);
+    return implode(' · ', $parts);
+}
+
 // ---------- price history (the admin's "Last price") ----------
 
 /**
@@ -153,6 +197,8 @@ function apply_menu_overrides(array $menu): array
         $o = ($ov['items'] ?? [])[$id] ?? null;
         if (!$o) continue;
         if (!empty($o['hidden'])) { unset($menu['items'][$id]); continue; }
+        // Scheduled specials leave the menu (website, checkout, chat, table ordering) outside their days and times.
+        if (!schedule_active($o['schedule'] ?? null)) { unset($menu['items'][$id]); continue; }
         if (!empty($o['prices']) && is_array($o['prices'])) {
             foreach ($item['variations'] as &$v) {
                 if (isset($o['prices'][$v['id']])) $v['price'] = max(0, (int) $o['prices'][$v['id']]);
@@ -191,6 +237,7 @@ function apply_menu_overrides(array $menu): array
 
     // Custom items: add to the menu and to their chosen category (created if gone).
     foreach ($ov['custom'] ?? [] as $c) {
+        if (!schedule_active($c['schedule'] ?? null)) continue;
         $item = custom_menu_item((array) $c);
         if (!$item) continue;
         $id = $item['id'];

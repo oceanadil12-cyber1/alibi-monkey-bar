@@ -45,6 +45,7 @@ function happy_hour_changes(array $old, array $new): array
     if (!empty($old['enabled']) !== !empty($new['enabled'])) $out[] = 'Happy Hour ' . (!empty($new['enabled']) ? 'shown on the website' : 'hidden from the website');
     if (!empty($old['tickerEnabled']) !== !empty($new['tickerEnabled'])) $out[] = 'Scrolling ticker ' . (!empty($new['tickerEnabled']) ? 'on' : 'off');
     if ($old['start'] !== $new['start'] || $old['end'] !== $new['end']) $out[] = 'Time ' . hh_fmt($old['start']) . '–' . hh_fmt($old['end']) . ' → ' . hh_fmt($new['start']) . '–' . hh_fmt($new['end']);
+    if (days_label($old['days'] ?? []) !== days_label($new['days'] ?? [])) $out[] = 'Days ' . days_label($old['days'] ?? []) . ' → ' . days_label($new['days'] ?? []);
     if ($old['note'] !== $new['note']) $out[] = 'Intro line changed';
     foreach (['items' => 'item', 'sides' => 'side'] as $list => $kind) {
         $before = [];
@@ -94,6 +95,7 @@ function save_happy_hour(): array
         'tickerEnabled' => !empty($_POST['tickerEnabled']),
         'start'         => hh_clean_time((string) ($_POST['start'] ?? ''), '16:00'),
         'end'           => hh_clean_time((string) ($_POST['end'] ?? ''), '18:45'),
+        'days'          => ($days = array_values(array_intersect(array_keys(WEEK_DAYS), array_map('strval', (array) ($_POST['hhdays'] ?? []))))) && count($days) < 7 ? $days : [],
         'note'          => trim(mb_substr((string) ($_POST['note'] ?? ''), 0, 200)),
         'items'         => $items,
         'sides'         => $sides,
@@ -172,6 +174,9 @@ function admin_page_happy_hour(): void
             . '<label class="check"><input type="checkbox" name="tickerEnabled" value="1" ' . (!empty($hh['tickerEnabled']) ? 'checked' : '') . '> Show the scrolling ticker</label>'
             . '<label class="field sm"><span>Starts</span><input type="time" name="start" value="' . h($hh['start']) . '"></label>'
             . '<label class="field sm"><span>Ends</span><input type="time" name="end" value="' . h($hh['end']) . '"></label>'
+            . '<div class="field wide"><span>Days</span><div class="sched-days" role="group" aria-label="Happy Hour days">'
+            . implode('', array_map(fn($k) => '<label class="check"><input type="checkbox" name="hhdays[]" value="' . $k . '" ' . (empty($hh['days']) || in_array($k, $hh['days'], true) ? 'checked' : '') . '> ' . WEEK_DAYS[$k] . '</label>', array_keys(WEEK_DAYS)))
+            . '</div><small class="muted">Untick a day to have no Happy Hour that day. All ticked = every day.</small></div>'
             . '<label class="field wide"><span>Intro line</span><input name="note" value="' . h($hh['note']) . '" maxlength="200"></label></div>')
         . card('Items', '<div class="table flush"><table class="tbl ftable"><thead><tr><th>Name</th><th>Description</th><th>Price</th></tr></thead><tbody>' . $itemRows . '</tbody></table></div>')
         . card('Sides', '<div class="table flush"><table class="tbl ftable"><thead><tr><th>Name</th><th>Price</th></tr></thead><tbody>' . $sideRows . '</tbody></table></div>')

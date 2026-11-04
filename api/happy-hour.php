@@ -15,6 +15,7 @@ const HAPPY_HOUR_DEFAULTS = [
     'tickerEnabled' => true,
     'start'         => '16:00', // 4:00 PM
     'end'           => '18:45', // 6:45 PM
+    'days'          => [],      // e.g. ['MON', 'TUE', 'WED', 'THU', 'FRI']; empty = every day
     'note'          => 'Some of our most popular items, made and specially priced.',
     'items'         => [
         ['name' => 'Mini Nachos',            'desc' => 'Add chicken +$4 · add beef +$6', 'price' => '6.99'],
@@ -84,13 +85,16 @@ function happy_hour_public(): array
     $d = happy_hour_data();
     $start = hh_fmt($d['start']);
     $end = hh_fmt($d['end']);
+    $days = array_values(array_intersect(array_keys(WEEK_DAYS), (array) ($d['days'] ?? [])));
+    $every = !$days || count($days) === 7;
     return [
         'enabled'       => (bool) $d['enabled'],
         'tickerEnabled' => (bool) $d['tickerEnabled'],
         'startMin'      => hh_min($d['start']),
         'endMin'        => hh_min($d['end']),
-        'timeLabel'     => "Every Day · $start – $end",
-        'tickerLabel'   => "Happy Hour · Daily $start – $end",
+        'days'          => $every ? [] : $days, // empty = every day
+        'timeLabel'     => ($every ? 'Every Day' : days_label($days)) . " · $start – $end",
+        'tickerLabel'   => 'Happy Hour · ' . ($every ? 'Daily' : days_label($days)) . " $start – $end",
         'untilLabel'    => "until $end",
         'note'          => (string) $d['note'],
         'items'         => array_values(array_map(fn($i) => [

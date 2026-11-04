@@ -100,6 +100,37 @@ function dollars_to_cents(string $s): ?int
     return (int) round(((float) $s) * 100);
 }
 
+/** Day checkboxes, a time window and a date range for a menu item's schedule (fields sched_*). */
+function schedule_fields(?array $s): string
+{
+    $s = $s ?? [];
+    $days = '';
+    foreach (WEEK_DAYS as $k => $label) {
+        $days .= '<label class="check"><input type="checkbox" name="sched_days[]" value="' . $k . '" ' . (in_array($k, $s['days'] ?? [], true) ? 'checked' : '') . '> ' . $label . '</label>';
+    }
+    return '<div class="sched-days" role="group" aria-label="Days">' . $days . '</div>'
+        . '<div class="form-grid">'
+        . '<label class="field sm"><span>From</span><input type="time" name="sched_from" value="' . h($s['from'] ?? '') . '"></label>'
+        . '<label class="field sm"><span>Until</span><input type="time" name="sched_to" value="' . h($s['to'] ?? '') . '"></label>'
+        . '<label class="field sm"><span>Starting on</span><input type="date" name="sched_start" value="' . h($s['start'] ?? '') . '"></label>'
+        . '<label class="field sm"><span>Ending on</span><input type="date" name="sched_end" value="' . h($s['end'] ?? '') . '"></label>'
+        . '</div>';
+}
+
+/** Read schedule_fields() from the form: [schedule, or null for "always", and an error message or '']. */
+function schedule_from_post(): array
+{
+    $days = array_values(array_intersect(array_keys(WEEK_DAYS), array_map('strval', (array) ($_POST['sched_days'] ?? []))));
+    if (count($days) === 7) $days = []; // every day = no day limit
+    $time = fn($k) => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v = trim((string) ($_POST[$k] ?? ''))) ? $v : '';
+    $date = fn($k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', $v = trim((string) ($_POST[$k] ?? ''))) && strtotime($v) ? $v : '';
+    $s = array_filter(['days' => $days, 'from' => $time('sched_from'), 'to' => $time('sched_to'), 'start' => $date('sched_start'), 'end' => $date('sched_end')]);
+    if (isset($s['from']) !== isset($s['to'])) return [null, 'Give the schedule both a "From" and an "Until" time, or leave both blank.'];
+    if (isset($s['from']) && $s['from'] === $s['to']) return [null, 'The schedule\'s "From" and "Until" times are the same.'];
+    if (isset($s['start'], $s['end']) && $s['start'] > $s['end']) return [null, 'The schedule ends before it starts. Check the dates.'];
+    return [$s ?: null, ''];
+}
+
 /** "Last price $14.99" under a price box, from read_price_history(); '' when the price never changed here. */
 function last_price_html(array $history, string $key): string
 {

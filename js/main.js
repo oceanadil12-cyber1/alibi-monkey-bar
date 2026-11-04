@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // (editable in the admin). The static markup already in the page is the
   // fallback used if that can't be reached (e.g. the static preview).
   (function initHappyHour() {
-    let startMin = 16 * 60, endMin = 18 * 60 + 45, untilLabel = 'until 6:45 PM';
+    let startMin = 16 * 60, endMin = 18 * 60 + 45, untilLabel = 'until 6:45 PM', days = [];
     const esc = (s) => { const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; };
     const money = (p) => '$' + String(p).replace(/^\$/, '');
 
@@ -128,13 +128,14 @@ document.addEventListener('DOMContentLoaded', () => {
           if (sides) sides.innerHTML = hh.sides.map((s) => `<span>${esc(s.name)} <strong>${money(s.price)}</strong></span>`).join('');
         }
       }
-      startMin = hh.startMin; endMin = hh.endMin; untilLabel = hh.untilLabel;
+      startMin = hh.startMin; endMin = hh.endMin; untilLabel = hh.untilLabel; days = hh.days || [];
     }
 
     const updateStatus = () => {
-      const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
       const mins = Number(parts.find((p) => p.type === 'hour').value) * 60 + Number(parts.find((p) => p.type === 'minute').value);
-      const live = mins >= startMin && mins < endMin;
+      const today = parts.find((p) => p.type === 'weekday').value.toUpperCase(); // "TUE"
+      const live = (!days.length || days.includes(today)) && mins >= startMin && mins < endMin;
       document.querySelectorAll('[data-hh-status]').forEach((el) => {
         el.classList.toggle('is-live', live);
         const bar = el.closest('.hh-ticker');

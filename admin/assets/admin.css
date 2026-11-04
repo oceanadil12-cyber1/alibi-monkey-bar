@@ -648,6 +648,14 @@ body.bare { display: grid; place-items: center; padding: 24px; }
 .dinein-item-info b { display: block; }
 .dinein-cat-head { margin: 18px 0 2px; padding-bottom: 6px; border-bottom: 1px solid var(--line); color: var(--gold-light); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
 .dinein-cat-head:first-child { margin-top: 0; }
+/* --- Menu item schedules --- */
+.sched-days { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 14px; }
+.sched-chip { margin-top: 4px; color: var(--gold-light); border-color: var(--gold-line); text-decoration: none; }
+.sched-chip:hover { text-decoration: none; border-color: var(--gold); }
+.sched-link { display: inline-block; margin-top: 4px; font-size: 12px; }
+.sched-now { margin-top: 12px; }
+.sched-add { margin-top: 14px; }
+.sched-add > summary { cursor: pointer; color: var(--text-2); font-size: 13px; font-weight: 600; margin-bottom: 10px; }
 #dinein-delivery-fields { display: contents; }
 .dinein-type { display: flex; margin-bottom: 12px; }
 .dinein-type a { flex: 1; justify-content: center; }

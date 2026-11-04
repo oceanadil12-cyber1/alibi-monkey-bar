@@ -107,7 +107,8 @@ function admin_page_dashboard(): void
     $customItems = count($ov['custom'] ?? []);
     $hh = happy_hour_data();
     $nowMin = (int) date('G') * 60 + (int) date('i');
-    $hhLive = !empty($hh['enabled']) && $nowMin >= hh_min($hh['start']) && $nowMin < hh_min($hh['end']);
+    $hhToday = empty($hh['days']) || in_array(strtoupper(date('D')), $hh['days'], true);
+    $hhLive = !empty($hh['enabled']) && $hhToday && $nowMin >= hh_min($hh['start']) && $nowMin < hh_min($hh['end']);
     $pickupOn = $store && ($store['pickupEnabled'] ?? true);
     $pickupOpen = $pickupOn && admin_hours_open($store['pickupHours'] ?? [], $tz);
     $deliveryOpen = $store && !empty($store['deliveryEnabled']) && admin_hours_open($store['deliveryHours'] ?? [], $tz);
@@ -129,7 +130,7 @@ function admin_page_dashboard(): void
             'Delivery: ' . (empty($store['deliveryEnabled']) ? 'switched off' : ($deliveryOpen ? 'taking orders' : 'closed')),
             h(!empty($store['deliveryEnabled']) ? admin_hours_today($store['deliveryHours'] ?? [], $tz) . ' · fee ' . fmt_money((int) ($store['deliveryFee'] ?? 0)) : 'Turn it on in Store settings'), admin_url('settings'))
         . check_row($hhLive ? 'ok' : 'off', 'Happy Hour: ' . (empty($hh['enabled']) ? 'hidden on the site' : ($hhLive ? 'on now' : 'not right now')),
-            h(hh_fmt($hh['start']) . ' – ' . hh_fmt($hh['end']) . ' · ' . count($hh['items']) . ' items'), admin_url('happy-hour'))
+            h((empty($hh['days']) ? '' : days_label($hh['days']) . ' · ') . hh_fmt($hh['start']) . ' – ' . hh_fmt($hh['end']) . ' · ' . count($hh['items']) . ' items'), admin_url('happy-hour'))
         . $evRow
         . check_row('ok', 'Menu: ' . ($base ? plural(count($base['items']), 'item') : 'unavailable'),
             h(($hiddenItems ? $hiddenItems . ' hidden' : 'none hidden') . ($customItems ? ' · ' . plural($customItems, 'item') . ' you added' : '')), admin_url('menu'))

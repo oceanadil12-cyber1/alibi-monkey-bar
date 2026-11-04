@@ -56,8 +56,8 @@ function save_food_overrides(array $base): array
     foreach (array_map('strval', (array) ($_POST['ids'] ?? [])) as $id) {
         if (!isset($base['items'][$id])) continue;
         $o = [];
-        // Preserve per-item option/description edits made on the item editor page.
-        foreach (['description', 'hideGroups', 'hideChoices', 'choicePrices'] as $k) {
+        // Preserve per-item option/description/schedule edits made on the item editor page.
+        foreach (['description', 'hideGroups', 'hideChoices', 'choicePrices', 'schedule'] as $k) {
             if (isset($existingItems[$id][$k])) $o[$k] = $existingItems[$id][$k];
         }
         if (!isset($_POST['avail'][$id])) $o['hidden'] = true;
@@ -93,7 +93,7 @@ function food_categories(array $base): array
 }
 
 /** Add a brand-new custom item from the "Add item" form; returns its name, or '' if nothing was added. */
-function add_custom_item(array $base): string
+function add_custom_item(array $base, ?array $schedule = null): string
 {
     $name = trim(mb_substr((string) ($_POST['name'] ?? ''), 0, 80));
     $price = dollars_to_cents((string) ($_POST['price'] ?? ''));
@@ -113,7 +113,7 @@ function add_custom_item(array $base): string
         'deliveryOnly' => !empty($_POST['delonly']),
         'deliveryFee'  => max(0, (int) (dollars_to_cents((string) ($_POST['dfee'] ?? '')) ?? 0)),
         'prepMinutes'  => min(600, max(0, (int) ($_POST['prep'] ?? 0))),
-    ];
+    ] + ($schedule ? ['schedule' => $schedule] : []);
     write_menu_overrides($ov);
     return $name;
 }
@@ -159,7 +159,7 @@ function save_custom_items(array $base): array
             'deliveryOnly' => !empty($_POST['cdelonly'][$id]),
             'deliveryFee'  => max(0, (int) (dollars_to_cents((string) ($_POST['cdfee'][$id] ?? '')) ?? 0)),
             'prepMinutes'  => min(600, max(0, (int) ($_POST['cprep'][$id] ?? 0))),
-        ];
+        ] + (isset($was['schedule']) ? ['schedule' => $was['schedule']] : []); // set on the item's own page
     }
     $ov['custom'] = $out;
     write_menu_overrides($ov);
@@ -167,8 +167,8 @@ function save_custom_items(array $base): array
     return [count($out), $deleted, $changes];
 }
 
-/** Save description + option-group edits for one item (keeps its price/pickup/etc.); returns what changed. */
-function save_item_options(array $base): array
+/** Save description, schedule and option-group edits for one item (keeps its price/pickup/etc.); returns what changed. */
+function save_item_options(array $base, ?array $schedule): array
 {
     $id = (string) ($_POST['item'] ?? '');
     if (!isset($base['items'][$id])) return [];
@@ -199,6 +199,7 @@ function save_item_options(array $base): array
         if (isset($basePrice[$cid])) price_history_note($history, "choice:$id:$cid", $o['choicePrices'][$cid] ?? $basePrice[$cid], $c ?? $basePrice[$cid]);
     }
     if ($cp) $o['choicePrices'] = $cp; else unset($o['choicePrices']);
+    if ($schedule) $o['schedule'] = $schedule; else unset($o['schedule']);
 
     if ($o) $ov['items'][$id] = $o; else unset($ov['items'][$id]);
     write_menu_overrides($ov);
@@ -208,6 +209,7 @@ function save_item_options(array $base): array
     $name = $baseItem['name'];
     $changes = [];
     if (($was['description'] ?? '') !== ($o['description'] ?? '')) $changes[] = $name . ': description changed';
+    if ($line = schedule_change($name, $was['schedule'] ?? null, $schedule)) $changes[] = $line;
     foreach ($baseItem['modifiers'] as $g) {
         $gHid = in_array((string) $g['id'], $o['hideGroups'] ?? [], true);
         if (in_array((string) $g['id'], $was['hideGroups'] ?? [], true) !== $gHid) $changes[] = $name . ': option group "' . $g['name'] . '" ' . ($gHid ? 'hidden' : 'shown');
@@ -223,6 +225,36 @@ function save_item_options(array $base): array
     return $changes;
 }
 
+/** "Taco Tuesday: schedule set to Tue only · 11 AM–3 PM"; '' when unchanged. */
+function schedule_change(string $name, ?array $was, ?array $now): string
+{
+    $a = schedule_text($was);
+    $b = schedule_text($now);
+    if ($a === $b) return '';
+    return $name . ': ' . ($b === '' ? 'schedule removed (always on the menu)' : 'schedule set to ' . $b);
+}
+
+/** One of your own added items, by id, or null. */
+function custom_item_by_id(string $id): ?array
+{
+    foreach (read_menu_overrides()['custom'] ?? [] as $c) if ((string) ($c['id'] ?? '') === $id) return $c;
+    return null;
+}
+
+/** Save the schedule of an item you added; returns what changed. */
+function save_custom_schedule(string $id, ?array $schedule): array
+{
+    $ov = read_menu_overrides();
+    $changes = [];
+    foreach ($ov['custom'] ?? [] as $k => $c) {
+        if ((string) ($c['id'] ?? '') !== $id) continue;
+        if ($line = schedule_change((string) $c['name'], $c['schedule'] ?? null, $schedule)) $changes[] = $line;
+        if ($schedule) $ov['custom'][$k]['schedule'] = $schedule; else unset($ov['custom'][$k]['schedule']);
+    }
+    write_menu_overrides($ov);
+    return $changes;
+}
+
 // ---------- pages ----------
 
 function admin_page_menu(): void
@@ -234,10 +266,16 @@ function admin_page_menu(): void
     if ($itemId !== '') {
         if (is_post()) {
             require_csrf();
-            if ($base && ($_POST['op'] ?? '') === 'item' && isset($base['items'][(string) ($_POST['item'] ?? '')])) {
-                $changes = save_item_options($base);
-                if ($changes) admin_log('menu.item', '', $changes);
-                flash('Saved. The website menu is updated.');
+            $pid = (string) ($_POST['item'] ?? '');
+            if ($base && ($_POST['op'] ?? '') === 'item' && (isset($base['items'][$pid]) || custom_item_by_id($pid))) {
+                [$schedule, $error] = schedule_from_post();
+                if ($error !== '') {
+                    flash($error . ' Nothing was saved.', 'err');
+                } else {
+                    $changes = isset($base['items'][$pid]) ? save_item_options($base, $schedule) : save_custom_schedule($pid, $schedule);
+                    if ($changes) admin_log('menu.item', '', $changes);
+                    flash($changes ? 'Saved. The website menu is updated.' : 'Saved. Nothing had changed.');
+                }
             }
             redirect(admin_url('menu', ['item' => $itemId]));
         }
@@ -249,12 +287,15 @@ function admin_page_menu(): void
         if ($base) {
             $op = $_POST['op'] ?? 'items';
             if ($op === 'add') {
-                $name = add_custom_item($base);
-                if ($name !== '') {
+                [$schedule, $error] = schedule_from_post();
+                $name = $error === '' ? add_custom_item($base, $schedule) : '';
+                if ($error !== '') {
+                    flash($error . ' The item wasn\'t added.', 'err');
+                } elseif ($name !== '') {
                     $custom = read_menu_overrides()['custom'] ?? [];
                     $added = end($custom) ?: [];
-                    admin_log('menu.add', $name . ' — ' . food_money((int) ($added['price'] ?? 0)) . ' in ' . ($added['categoryName'] ?? 'More'));
-                    flash('Added ' . $name . '. It is on the website menu now.');
+                    admin_log('menu.add', $name . ' — ' . food_money((int) ($added['price'] ?? 0)) . ' in ' . ($added['categoryName'] ?? 'More') . ($schedule ? ' · ' . schedule_text($schedule) : ''));
+                    flash('Added ' . $name . ($schedule ? '. It shows on the website menu ' . schedule_text($schedule) . '.' : '. It is on the website menu now.'));
                 }
                 else flash('Give the new item a name and a price.', 'err');
             } elseif ($op === 'custom') {
@@ -316,7 +357,8 @@ function admin_menu_list_page(array $base): void
                 . '<input type="hidden" name="ids[]" value="' . h($id) . '"></td>'
                 . '<td class="fname"><a href="' . h(admin_url('menu', ['item' => $id])) . '" title="Edit description and options">' . h($it['name']) . '</a>'
                 . (!empty($it['soldOut']) ? ' <span class="badge tone-crit">sold out</span>' : '')
-                . (($it['modifiers'] ?? []) ? ' <span class="chip">' . plural(count($it['modifiers']), 'option') . '</span>' : '') . '</td>'
+                . (($it['modifiers'] ?? []) ? ' <span class="chip">' . plural(count($it['modifiers']), 'option') . '</span>' : '')
+                . schedule_tag($o['schedule'] ?? null, $id) . '</td>'
                 . '<td><div class="fprices">' . $prices . '</div></td>'
                 . '<td><label class="check"><input type="checkbox" name="pickup[' . h($id) . ']" value="1" ' . (!empty($o['pickupOnly']) ? 'checked' : '') . '> Pickup only</label>'
                 . '<label class="check"><input type="checkbox" name="delonly[' . h($id) . ']" value="1" ' . (!empty($o['deliveryOnly']) ? 'checked' : '') . '> Delivery only</label></td>'
@@ -338,7 +380,8 @@ function admin_menu_list_page(array $base): void
         . '<label class="field wide"><span>Description (optional)</span><input name="description" maxlength="300"></label>'
         . '<label class="check"><input type="checkbox" name="pickup" value="1"> Pickup only</label>'
         . '<label class="check"><input type="checkbox" name="delonly" value="1"> Delivery only</label>'
-        . '</div><div class="bar">' . btn_submit('Add item', 'primary', '', '', 'plus') . '</div></form></div></details>';
+        . '</div><details class="sched-add"><summary>Schedule (optional): only on certain days, times or dates</summary>' . schedule_fields(null) . '</details>'
+        . '<div class="bar">' . btn_submit('Add item', 'primary', '', '', 'plus') . '</div></form></div></details>';
 
     // Items you added.
     $customRows = '';
@@ -346,7 +389,8 @@ function admin_menu_list_page(array $base): void
         $id = (string) ($c['id'] ?? '');
         if ($id === '') continue;
         $customRows .= '<tr><td><input name="cname[' . h($id) . ']" value="' . h($c['name'] ?? '') . '" maxlength="80" aria-label="Name">'
-            . '<input type="hidden" name="cid[]" value="' . h($id) . '"><input type="hidden" name="cdesc[' . h($id) . ']" value="' . h($c['description'] ?? '') . '"></td>'
+            . '<input type="hidden" name="cid[]" value="' . h($id) . '"><input type="hidden" name="cdesc[' . h($id) . ']" value="' . h($c['description'] ?? '') . '">'
+            . (schedule_tag($c['schedule'] ?? null, $id) ?: ' <a class="sched-link" href="' . h(admin_url('menu', ['item' => $id])) . '">Set a schedule</a>') . '</td>'
             . '<td><div class="fp">' . money_input('cprice[' . $id . ']', number_format((int) ($c['price'] ?? 0) / 100, 2, '.', '')) . last_price_html($history, 'custom:' . $id) . '</div></td>'
             . '<td><select name="ccat[' . h($id) . ']" aria-label="Category">' . $catOptions((string) ($c['category'] ?? '')) . '</select></td>'
             . '<td><label class="check"><input type="checkbox" name="cpickup[' . h($id) . ']" value="1" ' . (!empty($c['pickupOnly']) ? 'checked' : '') . '> Pickup only</label>'
@@ -376,8 +420,17 @@ function admin_menu_list_page(array $base): void
 function admin_menu_item_page(?array $base, string $id): void
 {
     $listLink = '<p class="back"><a href="' . h(admin_url('menu')) . '">' . icon('left', 15) . ' Menu &amp; food</a></p>';
+    $open = '<form method="post" action="' . h(admin_url('menu', ['item' => $id])) . '">' . csrf_field() . '<input type="hidden" name="op" value="item"><input type="hidden" name="item" value="' . h($id) . '">';
+    $save = '<div class="savebar"><span class="muted">Changes go live as soon as you save.</span>' . btn_submit('Save item', 'primary', '', '', 'check') . '</div></form>';
+
+    // Items you added yourself: everything else is edited in the list, so this page is just the schedule.
+    $custom = $base ? custom_item_by_id($id) : null;
+    if ($custom) {
+        admin_render((string) $custom['name'], $listLink . page_head((string) $custom['name'], 'Choose when this item is on the menu. Its name, price and other details are edited on the Menu &amp; food page.')
+            . $open . schedule_card($custom['schedule'] ?? null) . $save, 'menu');
+    }
     if (!$base || !isset($base['items'][$id])) {
-        admin_render('Menu item', $listLink . empty_state('Item not found', 'Items you added yourself are edited on the Menu &amp; food page itself.', 'list'), 'menu');
+        admin_render('Menu item', $listLink . empty_state('Item not found', 'It may have been removed from the menu.', 'list'), 'menu');
     }
     $item = $base['items'][$id];
     $o = (read_menu_overrides()['items'] ?? [])[$id] ?? [];
@@ -402,10 +455,31 @@ function admin_menu_item_page(?array $base, string $id): void
     }
     if ($groups === '') $groups = '<p class="muted">This item has no options to edit.</p>';
 
-    $body = $listLink . page_head($item['name'], 'Change the description guests see, and re-price or hide individual options.')
-        . '<form method="post" action="' . h(admin_url('menu', ['item' => $id])) . '">' . csrf_field() . '<input type="hidden" name="op" value="item"><input type="hidden" name="item" value="' . h($id) . '">'
+    $body = $listLink . page_head($item['name'], 'Change the description guests see, choose when the item is on the menu, and re-price or hide individual options.')
+        . $open
         . card('Description', '<label class="field wide"><span class="sr">Description</span><textarea name="description" maxlength="300" rows="3">' . h($desc) . '</textarea></label>')
+        . schedule_card($o['schedule'] ?? null)
         . '<h2 class="sect">Options</h2><p class="muted">Re-price or hide individual choices, or hide a whole group.</p>' . $groups
-        . '<div class="savebar"><span class="muted">Changes go live as soon as you save.</span>' . btn_submit('Save item', 'primary', '', '', 'check') . '</div></form>';
+        . $save;
     admin_render($item['name'], $body, 'menu');
+}
+
+/** A tag in the Menu & food list for a scheduled item ("Tue only · 11 AM–3 PM", "not showing now"), linking to its page; '' if none. */
+function schedule_tag(?array $schedule, string $id): string
+{
+    if (!$schedule) return '';
+    $live = schedule_active($schedule);
+    return ' <a class="chip sched-chip" href="' . h(admin_url('menu', ['item' => $id])) . '" title="Change the schedule">' . icon('clock', 12) . ' ' . h(schedule_text($schedule)) . '</a>'
+        . ($live ? '' : ' <span class="badge tone-warn">not showing now</span>');
+}
+
+/** The "Schedule" card on an item's page: which days, times and dates it is on the menu. */
+function schedule_card(?array $schedule): string
+{
+    $now = $schedule ? (schedule_active($schedule) ? 'On the menu right now.' : 'Not on the menu right now — it shows again at its next scheduled time.') : '';
+    return card('Schedule',
+        '<p class="muted">Leave everything blank to keep the item on the menu all the time. Tick days to show it only on those days, add times to show it only between them, '
+        . 'or dates for a limited run (e.g. a holiday special). Outside its schedule the item is hidden from the website, online ordering, table ordering, staff orders and the chat assistant.</p>'
+        . schedule_fields($schedule)
+        . ($schedule ? '<p class="sched-now"><b>' . h(schedule_text($schedule)) . '</b> · ' . h($now) . '</p>' : ''));
 }
