@@ -3499,24 +3499,24 @@ body.ev-tabbed .ev-day-title {
 /* ====== END MEET OUR DANCERS ====== */
 
 /* ====== HEADER NAV FIT ======
-   Keep labels on one line; tighten slightly on mid-size desktops,
+   Keep labels on one line; tighten slightly on mid-size desktops (only while the nav shows),
    then switch to hamburger at 1280px so the nav never gets cramped. */
 .nav a { white-space: nowrap; }
 .logo, .btn-reserve { flex-shrink: 0; } /* the nav gives way, never the logo or the button */
 .btn-reserve { white-space: nowrap; }
 
-@media (max-width: 1600px) {
+@media (min-width: 1281px) and (max-width: 1600px) {
   .nav { gap: 2px; }
   .nav a { padding: 8px 9px; font-size: 12.5px; letter-spacing: 1.1px; }
 }
 
-@media (max-width: 1440px) {
+@media (min-width: 1281px) and (max-width: 1440px) {
   .header-inner { padding: 12px 28px; }
   .nav a { padding: 8px 8px; font-size: 12px; letter-spacing: 1px; }
   .btn-reserve { padding: 10px 18px; margin-left: 12px; letter-spacing: 1.5px; }
 }
 
-@media (max-width: 1360px) {
+@media (min-width: 1281px) and (max-width: 1360px) {
   .header-inner { padding: 12px 20px; }
   .logo img { height: 70px; }
   .nav a { padding: 8px 6px; font-size: 11.5px; letter-spacing: 0.8px; }
@@ -4842,6 +4842,8 @@ html, body {
 .gc-step-title { display: flex; align-items: center; gap: 14px; font-size: 26px; font-weight: 500; }
 .gc-num { flex: none; width: 34px; height: 34px; border: 1px solid var(--gold); border-radius: 50%; display: grid; place-items: center; color: var(--gold); font-family: 'Inter', sans-serif; font-size: 15px; }
 .gc-step-sub { color: var(--text-muted); font-size: 14px; margin-top: -10px; }
+.gc-step .form-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); } /* two side by side only when both fit */
+.gc-step .form-group input, .gc-step .form-group textarea { width: 100%; min-width: 0; }
 .gc-opt { text-transform: none; letter-spacing: 0; font-weight: 400; }
 .gc-hint { color: var(--text-muted); font-size: 13px; line-height: 1.6; }
 
@@ -4921,16 +4923,60 @@ html, body {
 .gc-how li::before { content: counter(gc); position: absolute; left: 0; top: -4px; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--gold); border-radius: 50%; color: var(--gold); font-size: 14px; }
 .gc-how li b { color: var(--white); font-weight: 600; }
 
+/* Tablets and unfolded foldables: keep the summary beside the form, a little narrower */
 @media (max-width: 1024px) {
-  .gc-grid { grid-template-columns: 1fr; }
+  .gc-grid { grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; }
+  .gc-side { top: 90px; }
+  .gc-summary { padding: 20px; }
+  .gc-extras-grid { grid-template-columns: minmax(0, 1fr); gap: 50px; }
+}
+/* Phones: one column, the summary (and the pay button) after the form */
+@media (max-width: 759px) {
+  .gc-grid { grid-template-columns: minmax(0, 1fr); }
   .gc-side { position: static; }
-  .gc-extras-grid { grid-template-columns: 1fr; gap: 50px; }
+  .gc-summary .gc-card-lg { max-width: 420px; }
 }
 @media (max-width: 600px) {
+  .gc-section { padding-top: 40px; }
   .gc-step, .gc-summary { padding: 20px 16px; }
+  .gc-step { gap: 16px; margin-bottom: 16px; }
   .gc-step-title { font-size: 22px; }
   .gc-designs { grid-template-columns: 1fr 1fr; gap: 12px; }
   .gc-amount { flex-basis: 70px; padding: 14px 6px; font-size: 19px; }
   .gc-card-face > .gc-card-amount { font-size: 14px; }
   .gc-code b { font-size: 20px; letter-spacing: 2px; }
+  .gc-toggle { display: flex; align-self: stretch; }
+  .gc-toggle button { flex: 1; padding: 11px 8px; }
+  .gc-date input { max-width: none; }
+  .gc-balance .section-title { font-size: 28px; }
+  .gc-message { font-size: 18px; }
+}
+/* Fold cover screens (about 280–340 px): the bits every page shares */
+@media (max-width: 340px) {
+  .header-inner { padding: 10px 14px; }
+  .logo img { height: 42px; }
+  .mobile-cta-bar a { gap: 6px; padding: 14px 6px; font-size: 11px; letter-spacing: 0.6px; }
+  .chat-head { gap: 8px; padding: 10px 6px 10px 10px; }
+  .chat-avatar { width: 34px; height: 34px; }
+  .chat-title strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-title span { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-icon-btn { width: 30px; height: 30px; }
+}
+
+/* Very narrow phones (Galaxy Fold / Z Fold cover screens, small Androids) */
+@media (max-width: 360px) {
+  .gc-step, .gc-summary { padding: 18px 12px; }
+  .gc-step-title { gap: 10px; font-size: 20px; }
+  .gc-num { width: 30px; height: 30px; font-size: 13px; }
+  .gc-designs { gap: 8px; }
+  .gc-design { font-size: 12px; }
+  .gc-card { border-radius: 8px; }
+  .gc-card-face > .gc-card-amount { padding: 2px 8px; font-size: 12px; }
+  .gc-amounts { gap: 8px; }
+  .gc-amount { flex-basis: 60px; padding: 12px 4px; font-size: 17px; }
+  .gc-toggle button { font-size: 13px; padding: 10px 4px; }
+  .gc-balance-form { flex-direction: column; }
+  .gc-code b { font-size: 17px; letter-spacing: 1px; }
+  .gc-lines .gc-total dd { font-size: 20px; }
+  .gc-buy { padding: 15px 10px; letter-spacing: 1px; }
 }
