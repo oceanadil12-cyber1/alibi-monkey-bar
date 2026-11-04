@@ -806,3 +806,66 @@ ul.plain { margin: 0; padding-left: 18px; display: flex; flex-direction: column;
 .side-who b { color: var(--text); font-weight: 600; }
 .side-who small { display: block; font-size: 11.5px; }
 .side-who .i { flex: none; }
+
+/* ---------- Team accounts (inc/pages/users.php) ---------- */
+.role-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0 26px; }
+.role-tile { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.role-tile > span:nth-child(2) { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.role-tile b { font-size: 14px; }
+.role-tile small { color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+.role-count { flex: none; min-width: 30px; height: 30px; padding: 0 8px; display: grid; place-items: center; border-radius: 999px; background: var(--card-2); font-weight: 700; font-size: 14px; }
+.role-ico { flex: none; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; }
+.role-admin .role-ico, .member-avatar.role-admin { background: var(--gold-dim); color: var(--gold-light); }
+.role-staff .role-ico, .member-avatar.role-staff { background: var(--info-bg); color: var(--info); }
+.role-kitchen .role-ico, .member-avatar.role-kitchen { background: var(--warn-bg); color: var(--warn); }
+
+.team-h { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 16px; }
+.team-h .count { padding: 1px 9px; border-radius: 999px; background: var(--card-2); color: var(--muted); font-size: 12.5px; }
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 12px; margin-bottom: 26px; }
+.member { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); color: inherit; text-decoration: none; transition: border-color .15s, transform .15s, background .15s; }
+.member:hover { border-color: var(--gold-line); background: var(--card-2); transform: translateY(-1px); }
+.member.owner { border-color: var(--gold-line); background: linear-gradient(160deg, var(--gold-dim), var(--card) 55%); }
+.member.off { opacity: .6; }
+.member-top { display: flex; align-items: center; gap: 12px; }
+.member-top > .i { flex: none; margin-left: auto; color: var(--muted); }
+.member-avatar { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; font-weight: 700; font-size: 17px; }
+.member-id { min-width: 0; display: flex; flex-direction: column; }
+.member-id b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-id span { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.member-meta { display: flex; align-items: center; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 12.5px; }
+.member-meta u { margin-left: auto; color: var(--gold-light); text-decoration: none; white-space: nowrap; }
+.member-empty { align-items: center; justify-content: center; text-align: center; border-style: dashed; color: var(--muted); }
+.member-empty .i { color: var(--gold); }
+.member-empty b { color: var(--text); }
+.member-empty small { font-size: 12.5px; line-height: 1.45; max-width: 260px; }
+
+.team-add { scroll-margin-top: 80px; }
+.team-add form { display: flex; flex-direction: column; gap: 20px; }
+.team-add-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.with-prefix { position: relative; display: block; }
+.with-prefix i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-style: normal; pointer-events: none; }
+.with-prefix input { padding-left: 28px; }
+.team-add .bar { flex-wrap: wrap; margin-top: 0; }
+
+.role-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.role-opt { position: relative; cursor: pointer; }
+.role-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.role-opt-body { height: 100%; display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card-2); transition: border-color .15s, background .15s; }
+.role-opt-body .role-ico { width: 34px; height: 34px; margin-bottom: 4px; }
+.role-opt-body b { font-size: 14px; color: var(--text); }
+.role-opt-body small { color: var(--muted); font-size: 12.5px; line-height: 1.4; font-weight: 400; }
+.role-opt:hover .role-opt-body { border-color: var(--field-line); }
+.role-opt input:checked + .role-opt-body { border-color: var(--gold); background: var(--gold-dim); box-shadow: 0 0 0 3px rgba(200, 168, 78, .12); }
+.role-opt input:focus-visible + .role-opt-body { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+.role-opt input:checked + .role-opt-body::after { content: "✓"; position: absolute; top: 10px; right: 12px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--gold); color: var(--ink); font-size: 12px; font-weight: 800; }
+
+@media (max-width: 900px) {
+  .role-guide { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}
+@media (max-width: 720px) {
+  .team-add-grid, .role-pick { grid-template-columns: minmax(0, 1fr); }
+  .role-opt-body { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 12px; padding-right: 40px; }
+  .role-opt-body .role-ico { margin-bottom: 0; }
+  .role-opt-body small { flex-basis: 100%; padding-left: 46px; margin-top: -6px; }
+}

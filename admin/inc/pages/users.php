@@ -23,12 +23,28 @@ function team_role_badge(string $role): string
     return badge(TEAM_ROLES[$role][0] ?? $role, ['admin' => 'gold', 'staff' => 'info', 'kitchen' => 'warn'][$role] ?? 'muted');
 }
 
-/** The role picker, with what each role can open. */
+const TEAM_ROLE_ICONS = ['admin' => 'lock', 'staff' => 'users', 'kitchen' => 'clock'];
+
+/** The role picker: three cards, each saying what that role can open. */
 function team_role_select(string $current): string
 {
-    $out = '<select name="role">';
-    foreach (TEAM_ROLES as $key => [$label, $what]) $out .= '<option value="' . h($key) . '"' . ($key === $current ? ' selected' : '') . '>' . h("$label: $what") . '</option>';
-    return $out . '</select>';
+    $out = '<div class="role-pick" role="radiogroup" aria-label="Role">';
+    foreach (TEAM_ROLES as $key => [$label, $what]) {
+        $out .= '<label class="role-opt role-' . h($key) . '"><input type="radio" name="role" value="' . h($key) . '"' . ($key === $current ? ' checked' : '') . '>'
+            . '<span class="role-opt-body"><span class="role-ico">' . icon(TEAM_ROLE_ICONS[$key], 18) . '</span><b>' . h($label) . '</b><small>' . h($what) . '</small></span></label>';
+    }
+    return $out . '</div>';
+}
+
+/** One person as a card: initial, name, username, role, status and last sign-in. */
+function team_member_card(string $href, string $name, string $username, string $role, string $statusHtml, string $metaHtml, string $class = ''): string
+{
+    return '<a class="member' . ($class !== '' ? ' ' . $class : '') . '" href="' . h($href) . '">'
+        . '<span class="member-top"><span class="member-avatar role-' . h($role) . '">' . h(initial($name !== '' ? $name : $username)) . '</span>'
+        . '<span class="member-id"><b>' . h($name !== '' ? $name : $username) . '</b><span>@' . h($username) . '</span></span>'
+        . icon('right', 16) . '</span>'
+        . '<span class="member-tags">' . team_role_badge($role) . $statusHtml . '</span>'
+        . '<span class="member-meta">' . $metaHtml . '</span></a>';
 }
 
 /** A new password from the form: [password, ''] or ['', reason]. */
@@ -145,8 +161,8 @@ function admin_user_detail(int $id): void
         . '<div class="split"><div class="stack">'
         .   card('Details', $form('edit', '<div class="form-grid">'
                 . '<label class="field"><span>Name</span><input name="name" maxlength="80" required value="' . h($u['name']) . '"></label>'
-                . '<label class="field"><span>Role' . info_tip('Admin: everything, including these accounts. Staff: the admin panel and the kitchen display. Kitchen: the kitchen display only.') . '</span>' . team_role_select($u['role']) . '</label>'
-                . '</div><div class="bar">' . btn_submit('Save', 'primary') . '</div>'))
+                . '</div><div class="field"><span>What can they open?</span>' . team_role_select($u['role']) . '</div>'
+                . '<div class="bar">' . btn_submit('Save', 'primary') . '</div>'))
         .   card($self ? 'Change your password' : 'Reset password', $form('password',
                 '<input type="text" name="username" value="' . h($u['username']) . '" autocomplete="username" hidden>'
                 . '<div class="form-grid">'
@@ -173,31 +189,50 @@ function admin_user_detail(int $id): void
 
 function admin_users_list(): void
 {
-    $rows = '';
-    foreach (team_users_all() as $u) {
-        $rows .= '<tr><td><a class="row-link" href="' . h(admin_url('users', ['id' => $u['id']])) . '">' . guest_cell($u['name'], $u['username']) . '</a></td>'
-            . '<td>' . team_role_badge($u['role']) . '</td>'
-            . '<td>' . ((int) $u['active'] ? badge('On', 'good') : badge('Switched off', 'crit')) . '</td>'
-            . '<td class="nowrap"><span class="cell-sub">' . ($u['last_login'] ? h(fmt_when($u['last_login'])) : 'Never') . '</span></td></tr>';
-    }
-    $owner = '<tr><td>' . guest_cell('Owner', TEAM_OWNER, '<span class="cell-sub">Signs in with the team password</span>') . '</td><td>' . team_role_badge('admin') . '</td><td>' . badge('Always on', 'good') . '</td>'
-        . '<td><a class="cell-sub" href="' . h(admin_url('password')) . '">Change password</a></td></tr>';
+    $users = team_users_all();
+    $count = ['admin' => 1, 'staff' => 0, 'kitchen' => 0]; // the owner is an admin
+    foreach ($users as $u) if ((int) $u['active']) $count[$u['role']] = ($count[$u['role']] ?? 0) + 1;
     $min = TEAM_USER_PASSWORD_MIN;
 
-    $add = form_open(admin_url('users')) . '<input type="hidden" name="action" value="add">'
-        . '<div class="form-grid">'
-        . '<label class="field"><span>Name</span><input name="name" maxlength="80" required placeholder="Maria Gomez"></label>'
-        . '<label class="field"><span>Username' . info_tip('What they type to sign in: 3 to 30 letters or numbers, with dots, dashes or underscores if you like. Not case-sensitive.') . '</span>'
-        .   '<input name="username" maxlength="30" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="maria"></label>'
-        . '<label class="field wide"><span>Role' . info_tip('Admin: everything, including these accounts. Staff: the admin panel and the kitchen display. Kitchen: the kitchen display only.') . '</span>' . team_role_select('staff') . '</label>'
-        . '<label class="field"><span>Password' . info_tip("At least $min characters. They can change it after signing in.") . '</span><input type="password" name="password" autocomplete="new-password" minlength="' . $min . '" maxlength="72" required></label>'
-        . '<label class="field"><span>Confirm password</span><input type="password" name="confirm" autocomplete="new-password" minlength="' . $min . '" maxlength="72" required></label>'
-        . '</div><div class="bar">' . btn_submit('Add account', 'primary', '', '', 'plus') . '</div></form>';
+    // What each role can open, with how many people have it.
+    $roles = '<div class="role-guide">';
+    foreach (TEAM_ROLES as $key => [$label, $what]) {
+        $roles .= '<div class="role-tile role-' . h($key) . '"><span class="role-ico">' . icon(TEAM_ROLE_ICONS[$key], 18) . '</span>'
+            . '<span><b>' . h($label) . '</b><small>' . h($what) . '</small></span><span class="role-count">' . (int) $count[$key] . '</span></div>';
+    }
+    $roles .= '</div>';
 
-    $body = page_head('Team accounts', 'Give each person their own username and password. The activity log then shows who did what.')
-        . '<div class="split wideleft"><div class="stack">'
-        . '<div class="table"><table class="tbl"><thead><tr><th>Person</th><th>Role</th><th>Status</th><th>Last sign-in</th></tr></thead><tbody>' . $owner . $rows . '</tbody></table></div>'
-        . ($rows === '' ? '<p class="muted small">No team accounts yet. Until you add some, everyone signs in as <b>admin</b> with the team password.</p>' : '')
-        . '</div>' . card('Add an account', $add) . '</div>';
+    $cards = team_member_card(admin_url('password'), 'Owner', TEAM_OWNER, 'admin', badge('Always on', 'good'),
+        icon('lock', 13) . ' Team password <u>Change password</u>', 'owner');
+    foreach ($users as $u) {
+        $cards .= team_member_card(admin_url('users', ['id' => $u['id']]), $u['name'], $u['username'], $u['role'],
+            (int) $u['active'] ? badge('On', 'good') : badge('Switched off', 'crit'),
+            icon('clock', 13) . ' ' . ($u['last_login'] ? 'Last signed in ' . h(fmt_ago((int) strtotime($u['last_login']))) : 'Hasn\'t signed in yet'),
+            (int) $u['active'] ? '' : 'off');
+    }
+    if (!$users) {
+        $cards .= '<a class="member member-empty" href="#add">' . icon('plus', 22) . '<b>Add your first team member</b>'
+            . '<small>Until you do, everyone signs in as <b>admin</b> with the team password, and the log can\'t tell people apart.</small></a>';
+    }
+
+    $add = '<section class="card team-add" id="add"><header class="card-head"><h2>Add a team member</h2></header><div class="card-body">'
+        . form_open(admin_url('users')) . '<input type="hidden" name="action" value="add">'
+        . '<div class="team-add-grid">'
+        . '<label class="field"><span>Full name</span><input name="name" maxlength="80" required placeholder="Maria Gomez" autocomplete="off"></label>'
+        . '<label class="field"><span>Username' . info_tip('What they type to sign in: 3 to 30 letters or numbers, with dots, dashes or underscores if you like. Not case-sensitive.') . '</span>'
+        .   '<span class="with-prefix"><i>@</i><input name="username" maxlength="30" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="maria"></span></label>'
+        . '<label class="field"><span>Password' . info_tip("At least $min characters. They can change it after signing in.") . '</span><input type="password" name="password" autocomplete="new-password" minlength="' . $min . '" maxlength="72" required placeholder="At least ' . $min . ' characters"></label>'
+        . '<label class="field"><span>Confirm password</span><input type="password" name="confirm" autocomplete="new-password" minlength="' . $min . '" maxlength="72" required placeholder="Type it again"></label>'
+        . '</div>'
+        . '<div class="field"><span>What can they open?</span>' . team_role_select('staff') . '</div>'
+        . '<div class="bar">' . btn_submit('Add team member', 'primary', '', '', 'plus') . '<span class="muted small">Give them their username and password in person. They can change the password after signing in.</span></div>'
+        . '</form></div></section>';
+
+    $body = page_head('Team accounts', 'Everyone signs in with their own username, so the activity log shows who did what.',
+            btn_link('Add team member', '#add', 'primary', 'plus') . btn_link('Activity log', admin_url('activity'), '', 'activity'))
+        . $roles
+        . '<h2 class="team-h">People <span class="count">' . (count($users) + 1) . '</span></h2>'
+        . '<div class="team-grid">' . $cards . '</div>'
+        . $add;
     admin_render('Team accounts', $body, 'users');
 }
