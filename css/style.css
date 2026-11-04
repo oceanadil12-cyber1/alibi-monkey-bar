@@ -2684,7 +2684,7 @@ body.order-lock {
   .visit-section { grid-template-columns: 1fr; }
   .entertainment-feature { grid-template-columns: 1fr; }
   .entertainment-feature.reverse { direction: ltr; }
-  .contact-grid { grid-template-columns: 1fr; }
+  .contact-grid { grid-template-columns: minmax(0, 1fr); }
   .about-story { grid-template-columns: 1fr; }
   .about-values { grid-template-columns: repeat(2, 1fr); }
   .menu-items { grid-template-columns: 1fr; }
@@ -3339,6 +3339,9 @@ body.ev-tabbed .ev-day-title {
   .careers-inner { flex-direction: column; text-align: center; padding: 28px 22px; gap: 18px; }
   .careers-text h2 { font-size: 28px; }
   .careers-btn { width: 100%; text-align: center; }
+}
+@media (max-width: 480px) {
+  .careers-btn { white-space: normal; padding-left: 16px; padding-right: 16px; }
 }
 /* ====== END JOIN OUR TEAM ====== */
 
@@ -4961,6 +4964,10 @@ html, body {
   .chat-title strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chat-title span { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chat-icon-btn { width: 30px; height: 30px; }
+  .container { padding: 0 14px; }
+  .awards-track { flex-wrap: wrap; gap: 8px; }
+  .award-item { width: 50px; height: 50px; }
+  .award-item:hover { transform: scale(1.8); }
 }
 
 /* Very narrow phones (Galaxy Fold / Z Fold cover screens, small Androids) */

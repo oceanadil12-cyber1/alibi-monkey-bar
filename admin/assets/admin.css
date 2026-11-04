@@ -776,3 +776,27 @@ body.bare { display: grid; place-items: center; padding: 24px; }
 .gc-design-row .field.sm { flex: 0 0 64px; }
 .gc-design-row .check { padding-bottom: 9px; }
 ul.plain { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; color: var(--text-2); }
+
+/* ---------- small and folding phones ---------- */
+@media (max-width: 720px) {
+  .bar, .btns { flex-wrap: wrap; }
+  .tbl.stacked .nowrap, .tbl.stacked td * { white-space: normal; }
+  .tbl.stacked td { min-width: 0; }
+}
+/* Fold, Flip and razr cover screens (about 260–340 px) */
+@media (max-width: 340px) {
+  .content { padding: 14px 10px 90px; }
+  .topbar { padding: 0 10px; gap: 8px; }
+  .crumbs > span:not(:last-child), .crumbs .sep { display: none; }
+  .stats { grid-template-columns: minmax(0, 1fr); }
+  .page-head h1 { font-size: 22px; }
+  .kv > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .tbl.stacked td { padding-left: 14px; padding-top: 26px; text-align: left; }
+  .tbl.stacked td::before { top: 8px; width: auto; right: 14px; }
+  .tbl.stacked td:not([data-label]), .tbl.stacked td[data-label=""] { padding-top: 8px; }
+  .side { width: min(284px, 88vw); }
+}
+/* Short screens (razr outer screen, phones turned sideways): keep the drawer scrollable */
+@media (max-height: 480px) {
+  .side { overflow-y: auto; }
+}

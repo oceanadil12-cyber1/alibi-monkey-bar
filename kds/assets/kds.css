@@ -442,3 +442,18 @@ body {
 
 /* print: hide for now */
 @media print { body { display: none; } }
+
+/* Fold, Flip and razr cover screens: the four counters wrap two by two */
+@media (max-width: 360px) {
+    .kds-header { padding: 6px; }
+    .kds-brand { font-size: .95rem; }
+    .kds-summary { flex-wrap: wrap; flex-basis: 100%; }
+    .kds-stat { flex: 1 1 calc(50% - 4px); min-width: 0; padding: 4px 6px; }
+    .kds-grid { padding: 6px; gap: 6px; }
+    .kds-btn { padding: 8px 10px; }
+}
+/* Short screens (razr outer screen, phones sideways): header scrolls away instead of covering orders */
+@media (max-height: 480px) {
+    .kds-header { position: static; }
+    .kds-grid { min-height: 0; }
+}
