@@ -188,9 +188,9 @@ function admin_page_dashboard(): void
     if (count($unread) > 5) $moreLinks .= '<a href="' . h(admin_url('messages', ['view' => 'new'])) . '">' . (count($unread) - 5) . ' more messages</a>';
     if ($flagged) $moreLinks .= '<a href="' . h(admin_url('chats', ['f' => 'flagged'])) . '">' . plural($flagged, 'chat') . ' flagged for follow-up</a>';
 
-    // ---- recent activity ----
+    // ---- recent activity (the owner and Admin accounts only, like the Activity log) ----
     $act = '';
-    foreach (admin_activity(6) as $a) {
+    foreach (admin_is_admin() ? admin_activity(6) : [] as $a) {
         [$label, $tone] = admin_action_label((string) $a['action']);
         $act .= '<li><div><span class="ck-main"><b>' . h($label) . '</b>' . ($a['detail'] !== '' ? '<small>' . h(snip((string) $a['detail'], 70)) . '</small>' : '') . '</span></div><time class="muted small">' . h(fmt_ago((int) strtotime((string) $a['time']))) . '</time></li>';
     }
@@ -216,7 +216,7 @@ function admin_page_dashboard(): void
         . '<div class="stack">'
         .   card('The website right now', $now)
         .   card('Setup checks', $checks)
-        .   card('Recent activity', $act !== '' ? '<ul class="rows act">' . $act . '</ul><div class="morelinks"><a href="' . h(admin_url('activity')) . '">See all activity</a></div>' : '<p class="muted">Nothing yet.</p>')
+        .   (!admin_is_admin() ? '' : card('Recent activity', $act !== '' ? '<ul class="rows act">' . $act . '</ul><div class="morelinks"><a href="' . h(admin_url('activity')) . '">See all activity</a></div>' : '<p class="muted">Nothing yet.</p>'))
         . '</div></div>';
     admin_render('Dashboard', $body, 'dashboard');
 }

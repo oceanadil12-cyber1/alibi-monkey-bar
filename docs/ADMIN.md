@@ -47,13 +47,15 @@ person; guests' waiter calls and table orders show as "Guest"). Roles:
 
 | Role | Can open |
 | --- | --- |
-| **Admin** | Everything, including Team accounts |
-| **Staff** | The admin panel and the kitchen display |
-| **Kitchen** | The kitchen display only |
+| **Admin** | Everything, including the Activity log, Team accounts and Change password |
+| **Staff** | The admin panel and the kitchen display, but not the Activity log (nor the Dashboard's Recent activity), Team accounts or Change password |
+| **Kitchen** | The kitchen display only. Their username and password are refused by the admin panel. |
 
 Open an account to change its name or role, reset its password, switch it off or
-delete it. Each of those signs that person out at once. Team members change their own
-password under **Change password**. The owner account (**admin** + the team
+delete it. Each of those signs that person out at once. **Only admins change
+passwords**, their own included: Staff and Kitchen users ask an admin to reset theirs.
+Typing the address of an admin-only page as Staff shows "Only admins can open this".
+The owner account (**admin** + the team
 password) always works and isn't listed, so nobody can be locked out. Accounts are
 in the `admin_users` table (passwords as hashes); the code is `api/team-users.php`.
 

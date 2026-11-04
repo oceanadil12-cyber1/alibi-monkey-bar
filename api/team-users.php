@@ -10,16 +10,18 @@
  *   a username from the admin_users table  made in Admin → Team accounts, each with
  *                                          its own password and role.
  *
- * Roles: admin (everything, including team accounts), staff (admin panel and kitchen
- * display) and kitchen (kitchen display only).
+ * Roles: admin (everything, including the activity log, team accounts and every
+ * password), staff (the admin panel without those, and the kitchen display) and kitchen
+ * (kitchen display only). Only admins change passwords, their own included; others ask one.
+ * The admin-only sections are ADMIN_ONLY_PAGES in admin/inc/bootstrap.php.
  */
 require_once __DIR__ . '/lib.php';
 require_once __DIR__ . '/db.php';
 
 const TEAM_OWNER = 'admin';
 const TEAM_ROLES = [
-    'admin'   => ['Admin',   'Everything, including team accounts'],
-    'staff'   => ['Staff',   'Admin panel and kitchen display'],
+    'admin'   => ['Admin',   'Everything, including the activity log, accounts and passwords'],
+    'staff'   => ['Staff',   'Admin panel and kitchen display, without the activity log, accounts or passwords'],
     'kitchen' => ['Kitchen', 'Kitchen display only'],
 ];
 const TEAM_USER_PASSWORD_MIN = 10;

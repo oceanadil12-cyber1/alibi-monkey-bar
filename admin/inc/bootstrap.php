@@ -32,3 +32,6 @@ const ADMIN_PAGES = [
     'dashboard', 'orders', 'dine-in', 'waiter-assistance', 'reservations', 'gift-cards', 'messages', 'subscribers',
     'chats', 'insights', 'knowledge', 'chat-settings', 'events', 'performers', 'menu', 'happy-hour', 'settings', 'activity', 'users', 'password',
 ];
+
+/** Sections only the owner and Admin accounts can open (hidden from Staff, refused if typed in). */
+const ADMIN_ONLY_PAGES = ['activity', 'users', 'password'];

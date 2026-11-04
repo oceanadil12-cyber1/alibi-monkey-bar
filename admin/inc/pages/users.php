@@ -80,7 +80,7 @@ function admin_users_post(): void
             'password_hash' => password_hash($password, PASSWORD_DEFAULT), 'created_by' => $me,
         ]);
         admin_log('user.add', "$username ($name), " . TEAM_ROLES[$role][0]);
-        flash("Account $username added. Give $name their username and password; they can change the password after signing in.");
+        flash("Account $username added. Give $name their username and password. " . ($role === 'admin' ? 'As an Admin, they can change it themselves.' : 'Only admins can change it: reset it here if they forget it.'));
         redirect(admin_url('users', ['id' => $id]));
     }
 
@@ -221,11 +221,11 @@ function admin_users_list(): void
         . '<label class="field"><span>Full name</span><input name="name" maxlength="80" required placeholder="Maria Gomez" autocomplete="off"></label>'
         . '<label class="field"><span>Username' . info_tip('What they type to sign in: 3 to 30 letters or numbers, with dots, dashes or underscores if you like. Not case-sensitive.') . '</span>'
         .   '<span class="with-prefix"><i>@</i><input name="username" maxlength="30" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="maria"></span></label>'
-        . '<label class="field"><span>Password' . info_tip("At least $min characters. They can change it after signing in.") . '</span><input type="password" name="password" autocomplete="new-password" minlength="' . $min . '" maxlength="72" required placeholder="At least ' . $min . ' characters"></label>'
+        . '<label class="field"><span>Password' . info_tip("At least $min characters. Only admins can change passwords: Staff and Kitchen users ask an admin to reset theirs.") . '</span><input type="password" name="password" autocomplete="new-password" minlength="' . $min . '" maxlength="72" required placeholder="At least ' . $min . ' characters"></label>'
         . '<label class="field"><span>Confirm password</span><input type="password" name="confirm" autocomplete="new-password" minlength="' . $min . '" maxlength="72" required placeholder="Type it again"></label>'
         . '</div>'
         . '<div class="field"><span>What can they open?</span>' . team_role_select('staff') . '</div>'
-        . '<div class="bar">' . btn_submit('Add team member', 'primary', '', '', 'plus') . '<span class="muted small">Give them their username and password in person. They can change the password after signing in.</span></div>'
+        . '<div class="bar">' . btn_submit('Add team member', 'primary', '', '', 'plus') . '<span class="muted small">Give them their username and password in person. Only admins can change passwords later.</span></div>'
         . '</form></div></section>';
 
     $body = page_head('Team accounts', 'Everyone signs in with their own username, so the activity log shows who did what.',

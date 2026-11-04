@@ -83,7 +83,7 @@ function admin_render(string $title, string $bodyHtml, string $active = '', arra
     foreach (ADMIN_NAV as [$group, $links]) {
         $nav .= '<div class="nav-group"><p class="nav-label">' . h($group) . '</p>';
         foreach ($links as [$page, $label, $ico]) {
-            if ($page === 'users' && !admin_is_admin()) continue;
+            if (in_array($page, ADMIN_ONLY_PAGES, true) && !admin_is_admin()) continue;
             $on = $page === $active;
             $badge = isset($counts[$page])
                 ? '<b class="nav-count" data-badge="' . h($page) . '"' . ($counts[$page] > 0 ? '' : ' hidden') . '>' . (int) $counts[$page] . '</b>'

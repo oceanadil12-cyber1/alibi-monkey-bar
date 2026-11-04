@@ -86,5 +86,9 @@ if (is_post() && isset($_POST['logout'])) {
 }
 
 $page = get_choice('page', ADMIN_PAGES, 'dashboard');
+if (in_array($page, ADMIN_ONLY_PAGES, true) && !admin_is_admin()) {
+    admin_render(admin_section_label($page), page_head(admin_section_label($page))
+        . empty_state('Only admins can open this', 'The activity log, team accounts and passwords are managed by the owner or an Admin account. Ask one of them if you need something changed, or if you\'ve forgotten your password.', 'lock'), $page);
+}
 require __DIR__ . '/inc/pages/' . $page . '.php';
 call_user_func('admin_page_' . str_replace('-', '_', $page));
