@@ -1,10 +1,9 @@
 <?php
 /**
- * Sign-in for the admin panel: one shared team password (config 'admin_password',
- * or the one changed under System → Change password; see team_password_check() in
- * api/lib.php), a PHP session cookie, a CSRF token on every form, and a limit on
- * password guesses. Nothing here is reachable without the password except the
- * sign-in page itself.
+ * Sign-in for the admin panel: a username and password (the owner "admin" with the
+ * team password, or a team account; see api/team-users.php), a PHP session cookie,
+ * a CSRF token on every form, and a limit on password guesses. Nothing here is
+ * reachable without signing in except the sign-in page itself.
  */
 if (!defined('ADMIN')) { http_response_code(403); exit('Forbidden'); }
 
@@ -44,14 +43,16 @@ function admin_session_start(): void
 /** Is this browser signed in? A real click ($touch) keeps the session alive; the background badge refresh doesn't. */
 function admin_signed_in(bool $touch = true): bool
 {
-    if (empty($_SESSION['admin_ok'])) return false;
-    if (time() - (int) ($_SESSION['admin_seen'] ?? 0) > ADMIN_IDLE_SECONDS
-        || ($_SESSION['admin_pw'] ?? '') !== team_password_version()) { // idle too long, or the password changed since
-        $_SESSION = [];
-        return false;
-    }
+    // Idle too long, or the password, role or account changed since: sign in again. Kitchen accounts only open /kds/.
+    if (!team_session_valid('admin', ADMIN_IDLE_SECONDS, ['admin', 'staff'])) return false;
     if ($touch) $_SESSION['admin_seen'] = time();
     return true;
+}
+
+/** True when the signed-in person may manage team accounts (the owner, or an Admin account). */
+function admin_is_admin(): bool
+{
+    return ($_SESSION['admin_role'] ?? '') === 'admin';
 }
 
 function admin_csrf(): string
@@ -78,20 +79,23 @@ function require_csrf(): void
 function admin_login(): void
 {
     $error = '';
+    $username = is_string($_POST['username'] ?? null) ? mb_substr(trim($_POST['username']), 0, 30) : '';
     if (is_post() && isset($_POST['password']) && is_string($_POST['password'])) {
+        $who = null;
         if (rate_limited('admin-login', 10, 900)) {
             $error = 'Too many attempts. Please wait a few minutes and try again.';
-        } elseif (team_password_check($_POST['password'])) {
+        } elseif (($who = team_check_login($username, $_POST['password'])) && $who['role'] === 'kitchen') {
+            admin_log('login.failed', 'kitchen account: kitchen display only', [], $who['username']);
+            $error = 'This account opens the kitchen display only.';
+        } elseif ($who) {
             session_regenerate_id(true);
-            $_SESSION['admin_ok'] = true;
-            $_SESSION['admin_seen'] = time();
-            $_SESSION['admin_pw'] = team_password_version();
+            team_session_start_as('admin', $who);
             unset($_SESSION['csrf']);
             admin_log('login');
             redirect(ADMIN_BASE . (($_SERVER['QUERY_STRING'] ?? '') !== '' ? '?' . $_SERVER['QUERY_STRING'] : ''));
         } else {
-            admin_log('login.failed');
-            $error = 'That password isn\'t right.';
+            admin_log('login.failed', '', [], strtolower($username) ?: TEAM_OWNER); // the name they tried
+            $error = 'That username or password isn\'t right.';
         }
     }
     admin_render_bare('Sign in',
@@ -99,8 +103,8 @@ function admin_login(): void
         . '<div class="login-logo"><img src="' . h(SITE_BASE) . 'images/logo.webp" alt="Georgie\'s Alibi Monkey Bar" height="56"></div>'
         . '<h1>Admin sign in</h1><p class="muted">Private area for the Alibi team.</p>'
         . ($error !== '' ? '<div class="flash err" role="alert">' . icon('alert', 16) . '<span>' . h($error) . '</span></div>' : '')
-        . '<input type="text" name="username" value="admin" autocomplete="username" hidden>'
-        . '<label class="field"><span>Password</span><input type="password" name="password" autocomplete="current-password" required autofocus></label>'
+        . '<label class="field"><span>Username</span><input type="text" name="username" value="' . h($username) . '" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30" placeholder="admin" required' . ($username === '' ? ' autofocus' : '') . '></label>'
+        . '<label class="field"><span>Password</span><input type="password" name="password" autocomplete="current-password" required' . ($username !== '' ? ' autofocus' : '') . '></label>'
         . '<button class="btn primary block" type="submit">' . icon('lock', 16) . '<span>Sign in</span></button>'
         . '</form>');
 }

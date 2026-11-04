@@ -546,6 +546,12 @@ const ADMIN_ACTIONS = [
     'giftcard.retry'     => ['Gift card created in Square', 'good'],
     'giftcard.settings'  => ['Gift card settings saved', 'gold'],
     'giftcard.design'    => ['Gift card designs changed', 'gold'],
+    'user.add'           => ['Team account added', 'gold'],
+    'user.edit'          => ['Team account changed', 'gold'],
+    'user.password'      => ['Team account password reset', 'warn'],
+    'user.disable'       => ['Team account switched off', 'warn'],
+    'user.enable'        => ['Team account switched on', 'good'],
+    'user.delete'        => ['Team account deleted', 'crit'],
 ];
 
 function admin_action_label(string $code): array
@@ -556,26 +562,29 @@ function admin_action_label(string $code): array
 /**
  * Note what someone did in the admin: $action is a short code (see the Activity page),
  * $detail plain text. $changes lists each individual change ("Wings: price $6.99 → $7.49");
- * the log keeps a short summary of them, the email alert lists them all.
+ * the log keeps a short summary of them, the email alert lists them all. $user is who did
+ * it: by default whoever is signed in (team_actor()), '' for a guest on the website.
  */
-function admin_log(string $action, string $detail = '', array $changes = []): void
+function admin_log(string $action, string $detail = '', array $changes = [], ?string $user = null): void
 {
     if ($changes) {
         $summary = implode('; ', $changes);
         $detail = trim($detail . ($detail !== '' ? ': ' : '') . $summary);
         if (mb_strlen($detail) > 300) $detail = mb_substr($detail, 0, 280) . '… (' . count($changes) . ' changes)';
     }
+    $user = mb_substr($user ?? (function_exists('team_actor') ? team_actor() : ''), 0, 30);
     try {
         db_insert('admin_activity', [
-            'action' => $action,
-            'detail' => mb_substr($detail, 0, 300),
-            'ip'     => client_ip(),
+            'action'   => $action,
+            'username' => $user,
+            'detail'   => mb_substr($detail, 0, 300),
+            'ip'       => client_ip(),
         ]);
         // Activity log trim disabled — all entries are kept until manually deleted.
     } catch (Throwable $e) {
         error_log('admin_log: ' . $e->getMessage());
     }
-    change_alert($action, $detail, $changes);
+    change_alert($action, $detail, $changes, null, $user);
 }
 
 // ---------- email alerts for changes ----------
@@ -618,7 +627,7 @@ function alert_wanted(string $action, array $s): bool
  * Passing $settings sends it to that recipient whatever the switches say (test alerts,
  * and the last alert when alerts are switched off).
  */
-function change_alert(string $action, string $detail, array $changes = [], ?array $settings = null): bool
+function change_alert(string $action, string $detail, array $changes = [], ?array $settings = null, ?string $user = null): bool
 {
     $s = $settings ?? alert_settings();
     if ($settings === null && !alert_wanted($action, $s)) return false;
@@ -641,6 +650,7 @@ function change_alert(string $action, string $detail, array $changes = [], ?arra
             ? "Changes:\n" . implode("\n", array_map(fn($c) => '  - ' . $c, $changes)) . "\n"
             : 'Details: ' . ($detail !== '' ? $detail : '(none)') . "\n")
         . 'When:    ' . date('l, M j, Y g:i A') . "\n"
+        . 'Who:     ' . (($user ?? (function_exists('team_actor') ? team_actor() : '')) ?: 'a guest on the website') . "\n"
         . 'Where:   ' . $where . "\n"
         . 'From:    ' . (client_ip() ?: 'unknown') . " (IP address)\n"
         . ($link !== '' ? "\nFull activity log: $link\n" : '')
@@ -654,9 +664,17 @@ function change_alert(string $action, string $detail, array $changes = [], ?arra
 }
 
 /** The newest $limit activity entries, newest first. */
-function admin_activity(int $limit = 100): array
+/** The latest log entries, optionally only one person's ($user = a username, or '-' for guests on the website). */
+function admin_activity(int $limit = 100, string $user = ''): array
 {
-    $stmt = db()->prepare("SELECT logged_at AS time, action, detail, ip FROM admin_activity ORDER BY id DESC LIMIT ?");
-    $stmt->execute([$limit]);
+    $where = $user === '' ? '' : 'WHERE username = ?';
+    $stmt = db()->prepare("SELECT logged_at AS time, action, username, detail, ip FROM admin_activity $where ORDER BY id DESC LIMIT ?");
+    $stmt->execute($user === '' ? [$limit] : [$user === '-' ? '' : $user, $limit]);
     return $stmt->fetchAll();
+}
+
+/** Every username that appears in the log, for the Activity page's filter. */
+function admin_activity_users(): array
+{
+    return db()->query("SELECT DISTINCT username FROM admin_activity WHERE username <> '' ORDER BY username")->fetchAll(PDO::FETCH_COLUMN);
 }

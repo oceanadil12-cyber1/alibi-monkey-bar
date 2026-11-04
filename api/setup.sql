@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS admin_activity (
     id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     logged_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     action      VARCHAR(40)  NOT NULL,
+    username    VARCHAR(30)  NOT NULL DEFAULT '',
     detail      VARCHAR(300) NOT NULL DEFAULT '',
     ip          VARCHAR(45)  NOT NULL DEFAULT '',
     INDEX idx_logged (logged_at),
@@ -217,4 +218,19 @@ CREATE TABLE IF NOT EXISTS gift_card_activity (
     detail          VARCHAR(255) NOT NULL DEFAULT '',
     INDEX idx_card (gift_card_id),
     CONSTRAINT fk_gift_card FOREIGN KEY (gift_card_id) REFERENCES gift_cards(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Team accounts for the admin panel and kitchen display (Admin → Team accounts).
+-- The owner signs in as "admin" with the team password, which is not stored here.
+CREATE TABLE IF NOT EXISTS admin_users (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    username        VARCHAR(30)  NOT NULL,
+    name            VARCHAR(80)  NOT NULL DEFAULT '',
+    password_hash   VARCHAR(255) NOT NULL,
+    role            ENUM('admin','staff','kitchen') NOT NULL DEFAULT 'staff',
+    active          TINYINT(1)   NOT NULL DEFAULT 1,
+    last_login      DATETIME     DEFAULT NULL,
+    created_by      VARCHAR(30)  NOT NULL DEFAULT '',
+    UNIQUE KEY uq_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

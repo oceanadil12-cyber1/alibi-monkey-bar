@@ -54,12 +54,12 @@ body {
 .kds-login h1 { font-size: 1.75rem; font-weight: 700; }
 .kds-login p { color: var(--text-dim); max-width: 24rem; }
 .kds-login form { display: flex; flex-direction: column; gap: .75rem; width: 100%; max-width: 20rem; }
-.kds-login input[type="password"] {
+.kds-login input[type="password"], .kds-login input[type="text"] {
     width: 100%; padding: 1rem; font-size: 1.1rem;
     background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
     color: var(--text); outline: none;
 }
-.kds-login input[type="password"]:focus { border-color: var(--blue); }
+.kds-login input[type="password"]:focus, .kds-login input[type="text"]:focus { border-color: var(--blue); }
 .kds-login button {
     padding: 1rem; font-size: 1.1rem; font-weight: 600;
     background: var(--blue); color: #fff; border: none; border-radius: 8px;
@@ -463,3 +463,5 @@ body {
     .kds-stat-num { font-size: 1.05rem; }
     .kds-stat-label { font-size: .55rem; }
 }
+.kds-who { padding: 2px 8px; border-radius: 999px; background: var(--bg); color: var(--text-dim); font-size: .72rem; font-weight: 600; }
+.kds-who:empty { display: none; }

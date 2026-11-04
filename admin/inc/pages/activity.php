@@ -70,19 +70,40 @@ function admin_page_activity(): void
         // Save first: pressing Enter in the address box uses the first button.
         . '<div class="bar">' . btn_submit('Save alert settings', 'primary', 'op', 'alerts', 'check') . btn_submit('Send a test alert', '', 'op', 'alert-test', 'mail') . '</div></form>');
 
+    // Filter by person: a username, or '-' for what guests did on the website (waiter calls, table orders).
+    $users = admin_activity_users();
+    $who = get_str('user', 30);
+    if ($who !== '-' && !in_array($who, $users, true)) $who = '';
+    $names = [];
+    try { foreach (team_users_all() as $u) $names[$u['username']] = $u['name']; } catch (Throwable $e) {}
+    $names[TEAM_OWNER] = 'Owner';
+
     $rows = '';
-    foreach (admin_activity(200) as $a) {
+    foreach (admin_activity(200, $who) as $a) {
         [$label, $tone] = admin_action_label((string) $a['action']);
         $ts = (int) strtotime((string) $a['time']);
+        $u = (string) $a['username'];
         $rows .= '<tr><td class="nowrap">' . h(fmt_when($ts)) . '<div class="cell-sub">' . h(fmt_ago($ts)) . '</div></td>'
+            . '<td class="nowrap">' . ($u !== ''
+                ? '<a href="' . h(admin_url('activity', ['user' => $u])) . '"><b>' . h($u) . '</b></a>' . (isset($names[$u]) && $names[$u] !== '' ? '<div class="cell-sub">' . h($names[$u]) . '</div>' : '')
+                : '<span class="muted">Guest</span>') . '</td>'
             . '<td>' . badge($label, $tone) . '</td>'
             . '<td class="q">' . h($a['detail']) . '</td>'
             . '<td class="nowrap muted">' . h($a['ip']) . '</td></tr>';
     }
-    $body = page_head('Activity log', 'Sign-ins and changes made in this admin and the kitchen display, newest first (the latest 200).')
+    $opts = '<option value="">Everyone</option>';
+    foreach ($users as $u) $opts .= '<option value="' . h($u) . '"' . ($u === $who ? ' selected' : '') . '>' . h($u . (isset($names[$u]) && $names[$u] !== '' ? ' (' . $names[$u] . ')' : '')) . '</option>';
+    $opts .= '<option value="-"' . ($who === '-' ? ' selected' : '') . '>Guests on the website</option>';
+    $filter = '<form class="toolbar" method="get"><input type="hidden" name="page" value="activity">'
+        . '<label class="field sm"><span>Who</span><select name="user">' . $opts . '</select></label>'
+        . '<button class="btn sm" type="submit">Show</button>'
+        . ($who !== '' ? btn_link('Everyone', admin_url('activity'), 'sm ghost') : '') . '</form>';
+
+    $body = page_head('Activity log', 'Who signed in and what they changed in this admin and the kitchen display, newest first (the latest 200).')
         . $alerts
+        . $filter
         . ($rows === ''
-            ? empty_state('Nothing yet', 'Sign-ins and changes made here will appear in this list.', 'activity')
-            : '<div class="table"><table class="tbl"><thead><tr><th>When</th><th>What</th><th>Details</th><th>From</th></tr></thead><tbody>' . $rows . '</tbody></table></div>');
+            ? empty_state('Nothing yet', $who !== '' ? 'Nothing logged for this person yet.' : 'Sign-ins and changes made here will appear in this list.', 'activity')
+            : '<div class="table"><table class="tbl"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th><th>From</th></tr></thead><tbody>' . $rows . '</tbody></table></div>');
     admin_render('Activity log', $body, 'activity');
 }

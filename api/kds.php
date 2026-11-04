@@ -15,8 +15,9 @@
 define('KDS', true);
 require_once __DIR__ . '/lib.php';
 require_once __DIR__ . '/../admin/inc/store.php';
+require_once __DIR__ . '/team-users.php';
 
-// --- session auth (same team password as admin, own session) ---
+// --- session auth (a username and password, like the admin, with its own session) ---
 if (!team_password_set()) fail('KDS is not configured.', 503);
 
 session_name('alibi_kds');
@@ -37,12 +38,8 @@ session_start();
 
 function kds_signed_in(): bool
 {
-    if (empty($_SESSION['kds_ok'])) return false;
-    if (time() - (int) ($_SESSION['kds_seen'] ?? 0) > 43200
-        || ($_SESSION['kds_pw'] ?? '') !== team_password_version()) { // idle too long, or the password changed since
-        $_SESSION = [];
-        return false;
-    }
+    // Same rules as kds/index.php: idle 12 hours, or the password, role or account changed since.
+    if (!team_session_valid('kds', 43200, array_keys(TEAM_ROLES))) return false;
     $_SESSION['kds_seen'] = time();
     return true;
 }

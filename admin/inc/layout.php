@@ -34,6 +34,7 @@ const ADMIN_NAV = [
     ]],
     ['System', [
         ['activity', 'Activity log', 'activity'],
+        ['users', 'Team accounts', 'users'],
         ['password', 'Change password', 'lock'],
     ]],
 ];
@@ -82,6 +83,7 @@ function admin_render(string $title, string $bodyHtml, string $active = '', arra
     foreach (ADMIN_NAV as [$group, $links]) {
         $nav .= '<div class="nav-group"><p class="nav-label">' . h($group) . '</p>';
         foreach ($links as [$page, $label, $ico]) {
+            if ($page === 'users' && !admin_is_admin()) continue;
             $on = $page === $active;
             $badge = isset($counts[$page])
                 ? '<b class="nav-count" data-badge="' . h($page) . '"' . ($counts[$page] > 0 ? '' : ' hidden') . '>' . (int) $counts[$page] . '</b>'
@@ -103,6 +105,8 @@ function admin_render(string $title, string $bodyHtml, string $active = '', arra
         .   '<span><b>Alibi Admin</b><small>Georgie\'s Alibi Monkey Bar</small></span></a>'
         .   '<nav class="side-nav">' . $nav . '</nav>'
         .   '<div class="side-foot">'
+        .     '<p class="side-who">' . icon('lock', 14) . '<span>Signed in as <b>' . h((string) ($_SESSION['admin_user'] ?? TEAM_OWNER)) . '</b>'
+        .       (($_SESSION['admin_name'] ?? '') !== '' && ($_SESSION['admin_user'] ?? '') !== TEAM_OWNER ? '<small>' . h((string) $_SESSION['admin_name']) . '</small>' : '') . '</span></p>'
         .     '<a class="nav-link" href="' . h(SITE_BASE) . 'kds/" target="_blank" rel="noopener">' . icon('clock', 18) . '<span>Kitchen Display</span></a>'
         .     '<a class="nav-link" href="' . h(SITE_BASE) . '" target="_blank" rel="noopener">' . icon('external', 18) . '<span>View website</span></a>'
         .     form_open(admin_url(), 'signout') . '<input type="hidden" name="logout" value="1">'

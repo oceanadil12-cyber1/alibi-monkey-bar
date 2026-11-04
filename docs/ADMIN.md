@@ -20,7 +20,8 @@ Set a long password in `api/config.php`:
 'admin_password' => 'a long password only the team knows',
 ```
 
-Open `/admin/` and sign in. With no password set, the panel is switched off. (The
+Open `/admin/` and sign in with the username **admin** and that password (the
+owner account). With no password set, the panel is switched off. (The
 older setting name `chat_admin_password` still works.) You are signed out after 12
 hours without a click, or with **Sign out** in the sidebar. More than ten sign-in
 attempts in 15 minutes lock sign-in for a while, to stop password guessing.
@@ -37,6 +38,24 @@ folder (`api/data/`, or `data_dir`) and replaces `admin_password` from
 `config.php`. Uploading a new site package doesn't undo it. **Forgot it?** Delete
 `team-password.json` in cPanel → File Manager; the `config.php` password works
 again.
+
+### Team accounts
+
+**System → Team accounts** (owner and Admin accounts only) gives each person their
+own username and password, so the **Activity log** shows who did what (filter it by
+person; guests' waiter calls and table orders show as "Guest"). Roles:
+
+| Role | Can open |
+| --- | --- |
+| **Admin** | Everything, including Team accounts |
+| **Staff** | The admin panel and the kitchen display |
+| **Kitchen** | The kitchen display only |
+
+Open an account to change its name or role, reset its password, switch it off or
+delete it. Each of those signs that person out at once. Team members change their own
+password under **Change password**. The owner account (**admin** + the team
+password) always works and isn't listed, so nobody can be locked out. Accounts are
+in the `admin_users` table (passwords as hashes); the code is `api/team-users.php`.
 
 The old address `api/chats.php` still works: it forwards to the new panel.
 
@@ -58,7 +77,8 @@ The old address `api/chats.php` still works: it forwards to the new panel.
 | **Menu & food** | Turn items on and off, change prices, make an item pickup-only or delivery-only, add a delivery surcharge or longer prep time, edit descriptions and options, and add your own dishes. Changes are live as soon as you save. |
 | **Happy Hour** | The Happy Hour menu, its start and end times, and the scrolling ticker. |
 | **Store settings** | Business name, address and phone; pickup and delivery hours; delivery area (ZIP codes), fees and minimums; prep time. |
-| **Activity log** | Who signed in and what they changed, newest first. |
+| **Activity log** | Who signed in and what they changed, newest first, with each person's username; filter by person. |
+| **Team accounts** | Add a username and password for each person, with a role (Admin, Staff or Kitchen). See [Team accounts](#team-accounts). |
 
 The numbers next to **Orders**, **Reservations** and **Messages** in the sidebar
 count what is waiting. They refresh every 30 seconds, the page title shows the

@@ -4,7 +4,8 @@
  *
  * A standalone panel for kitchen staff: shows incoming orders (dine-in,
  * delivery, pickup), timers, status workflow, and a settings page.
- * Protected by the same password as /admin/ but with its own session.
+ * Signed in with a username and password (the owner "admin" + team password, or a
+ * team account from Admin → Team accounts), with its own session.
  */
 define('KDS', true);
 
@@ -16,6 +17,7 @@ if ($requested !== '' && substr($requested, -1) !== '/' && substr($requested, -9
 
 require_once __DIR__ . '/../api/lib.php';
 require_once __DIR__ . '/../admin/inc/store.php';
+require_once __DIR__ . '/../api/team-users.php';
 
 $KDS_BASE = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/kds/index.php'), '/\\') . '/';
 $SITE_BASE = rtrim(dirname(rtrim($KDS_BASE, '/')), '/\\') . '/';
@@ -59,12 +61,8 @@ session_start();
 
 function kds_signed_in(): bool
 {
-    if (empty($_SESSION['kds_ok'])) return false;
-    if (time() - (int) ($_SESSION['kds_seen'] ?? 0) > 43200
-        || ($_SESSION['kds_pw'] ?? '') !== team_password_version()) { // idle too long, or the password changed since
-        $_SESSION = [];
-        return false;
-    }
+    // Idle 12 hours, or the password, role or account changed since: sign in again. Every role may open the kitchen display.
+    if (!team_session_valid('kds', 43200, array_keys(TEAM_ROLES))) return false;
     $_SESSION['kds_seen'] = time();
     return true;
 }
@@ -102,6 +100,7 @@ function kds_page(string $title, string $body, bool $withApp = false): void
 
 // --- sign-in ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['kds_logout'])) {
+    if (!empty($_SESSION['kds_ok'])) admin_log('logout', 'kitchen display');
     $_SESSION = [];
     $p = session_get_cookie_params();
     setcookie(session_name(), '', ['expires' => time() - 3600, 'path' => $p['path'], 'domain' => $p['domain'] ?? '', 'secure' => $p['secure'], 'httponly' => true, 'samesite' => 'Lax']);
@@ -112,31 +111,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['kds_logout'])) {
 
 if (!kds_signed_in()) {
     $error = '';
+    $username = is_string($_POST['username'] ?? null) ? mb_substr(trim($_POST['username']), 0, 30) : '';
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && is_string($_POST['password'])) {
         if (rate_limited('kds-login', 10, 900)) {
             $error = 'Too many attempts. Please wait.';
-        } elseif (team_password_check($_POST['password'])) {
+        } elseif ($who = team_check_login($username, $_POST['password'])) {
             session_regenerate_id(true);
-            $_SESSION['kds_ok'] = true;
-            $_SESSION['kds_seen'] = time();
-            $_SESSION['kds_pw'] = team_password_version();
+            team_session_start_as('kds', $who);
             admin_log('kds.login');
             header('Location: ' . $KDS_BASE);
             exit;
         } else {
-            admin_log('kds.login.failed');
-            $error = 'Wrong password.';
+            admin_log('kds.login.failed', '', [], strtolower($username) ?: TEAM_OWNER); // the name they tried
+            $error = 'Wrong username or password.';
         }
     }
     kds_page('Kitchen Sign In',
         '<div class="kds-login">'
         . '<div class="kds-login-logo"><img src="' . h($SITE_BASE) . 'images/logo.webp" alt="" height="48"></div>'
         . '<h1>Kitchen Display</h1>'
-        . '<p>Enter the team password to open the kitchen display.</p>'
+        . '<p>Sign in with your username and password.</p>'
         . ($error !== '' ? '<div class="kds-error">' . h($error) . '</div>' : '')
         . '<form method="post" action="' . h($KDS_BASE) . 'index.php">'
-        . '<input type="text" name="username" value="kitchen" autocomplete="username" hidden>'
-        . '<input type="password" name="password" autocomplete="current-password" placeholder="Password" required autofocus>'
+        . '<input type="text" name="username" value="' . h($username) . '" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30" placeholder="Username" required' . ($username === '' ? ' autofocus' : '') . '>'
+        . '<input type="password" name="password" autocomplete="current-password" placeholder="Password" required' . ($username !== '' ? ' autofocus' : '') . '>'
         . '<button type="submit">Open Kitchen Display</button>'
         . '</form></div>');
 }
@@ -148,6 +146,7 @@ kds_page('Kitchen Display', '
         <div class="kds-brand">
             <img src="' . h($SITE_BASE) . 'images/logo.webp" alt="" height="32">
             <span>Kitchen Display</span>
+            <small class="kds-who" title="Signed in">' . h((string) ($_SESSION['kds_user'] ?? '')) . '</small>
         </div>
         <div class="kds-summary" id="kds-summary">
             <div class="kds-stat" data-stat="queue"><span class="kds-stat-num" id="stat-queue">0</span><span class="kds-stat-label">Queue</span></div>

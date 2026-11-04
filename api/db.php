@@ -134,6 +134,7 @@ function db_add_missing_columns(PDO $pdo): void
 {
     $later = [
         'chat_sessions' => ['phone' => "VARCHAR(30) NOT NULL DEFAULT '' AFTER email"], // Admin → Chat settings can ask for it
+        'admin_activity' => ['username' => "VARCHAR(30) NOT NULL DEFAULT '' AFTER action"], // who did it (team accounts)
     ];
     $has = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
     foreach ($later as $table => $columns) {
