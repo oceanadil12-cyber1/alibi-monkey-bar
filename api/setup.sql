@@ -168,3 +168,53 @@ CREATE TABLE IF NOT EXISTS waiter_calls (
     INDEX idx_status_table (status, table_number),
     INDEX idx_created      (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Gift cards sold on gift-cards.html or issued from Admin → Gift cards. 'square'
+-- cards live in Square (code = its GAN, redeemed on the POS); 'local' cards are
+-- kept here only (bought while card payments are off, or issued by the team) and
+-- are redeemed in the admin panel. Amounts are in cents.
+CREATE TABLE IF NOT EXISTS gift_cards (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    code            VARCHAR(32)  NOT NULL,
+    token           CHAR(32)     NOT NULL,
+    source          ENUM('local','square') NOT NULL DEFAULT 'local',
+    origin          ENUM('online','admin') NOT NULL DEFAULT 'online',
+    status          ENUM('pending','active','used','void','error') NOT NULL DEFAULT 'pending',
+    design          VARCHAR(40)  NOT NULL DEFAULT '',
+    design_title    VARCHAR(60)  NOT NULL DEFAULT '',
+    photo           VARCHAR(40)  NOT NULL DEFAULT '',
+    amount          INT          NOT NULL DEFAULT 0,
+    balance         INT          NOT NULL DEFAULT 0,
+    buyer_name      VARCHAR(80)  NOT NULL DEFAULT '',
+    buyer_email     VARCHAR(120) NOT NULL DEFAULT '',
+    buyer_phone     VARCHAR(30)  NOT NULL DEFAULT '',
+    recipient_name  VARCHAR(80)  NOT NULL DEFAULT '',
+    recipient_email VARCHAR(120) NOT NULL DEFAULT '',
+    message         TEXT         NOT NULL DEFAULT (''),
+    deliver_on      DATE         DEFAULT NULL,
+    sent_at         DATETIME     DEFAULT NULL,
+    square_card_id  VARCHAR(64)  NOT NULL DEFAULT '',
+    square_payment_id VARCHAR(64) NOT NULL DEFAULT '',
+    receipt_url     VARCHAR(255) NOT NULL DEFAULT '',
+    note            TEXT         NOT NULL DEFAULT (''),
+    ip              VARCHAR(45)  NOT NULL DEFAULT '',
+    UNIQUE KEY uq_code  (code),
+    UNIQUE KEY uq_token (token),
+    INDEX idx_created   (created_at),
+    INDEX idx_status    (status),
+    INDEX idx_deliver   (status, sent_at, deliver_on)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Every change to a gift card's balance or state (issued, activated, redeemed, adjusted, voided, emailed)
+CREATE TABLE IF NOT EXISTS gift_card_activity (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    gift_card_id    INT UNSIGNED NOT NULL,
+    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    type            VARCHAR(20)  NOT NULL,
+    amount          INT          NOT NULL DEFAULT 0,
+    balance_after   INT          NOT NULL DEFAULT 0,
+    detail          VARCHAR(255) NOT NULL DEFAULT '',
+    INDEX idx_card (gift_card_id),
+    CONSTRAINT fk_gift_card FOREIGN KEY (gift_card_id) REFERENCES gift_cards(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

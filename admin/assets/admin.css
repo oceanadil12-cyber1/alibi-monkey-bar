@@ -748,3 +748,31 @@ body.bare { display: grid; place-items: center; padding: 24px; }
   .cs-layout { grid-template-columns: minmax(0, 1fr); }
   .cs-preview { position: static; max-width: 380px; }
 }
+
+/* ---------- Gift cards (inc/pages/gift-cards.php) ---------- */
+.gc-face { position: relative; display: flex; flex-direction: column; justify-content: space-between; flex: none; aspect-ratio: 1.6; padding: 6% 7%; overflow: hidden; border-radius: 10px; background: linear-gradient(135deg, #1c1c24, #000) center / cover no-repeat; color: #fff; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
+.gc-face.is-custom::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .45), transparent 45%, rgba(0, 0, 0, .55)); }
+.gc-face > span { position: relative; }
+.gc-face-brand { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; opacity: .85; }
+.gc-face-title { margin-top: auto; padding-right: 30%; font: italic 20px/1.15 Georgia, serif; text-shadow: 0 2px 8px rgba(0, 0, 0, .6); }
+.gc-face > .gc-face-amount { position: absolute; right: 6%; bottom: 8%; padding: 2px 10px; border: 1px solid var(--gold-line); border-radius: 999px; background: rgba(0, 0, 0, .6); color: var(--gold-light); font-size: 14px; font-weight: 600; }
+.gc-face.lg { width: min(100%, 340px); }
+.gc-face.sm { width: 72px; padding: 0; border-radius: 6px; box-shadow: none; }
+.gc-face.sm > span { display: none; }
+.gc-row { display: flex; align-items: center; gap: 12px; }
+.gc-row > span:last-child { display: flex; flex-direction: column; }
+.gc-detail { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+.gc-detail > div:last-child { flex: 1 1 260px; display: flex; flex-direction: column; gap: 14px; }
+.gc-detail form { display: inline; }
+.gc-code { font-size: 15px; letter-spacing: 1px; white-space: nowrap; color: var(--text); }
+.field > span small { margin-left: 5px; font-weight: 400; }
+.gc-bal { font-size: 18px; color: var(--gold-light); }
+.gc-mode { margin: 14px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.gc-checks { flex-direction: column; align-items: flex-start; margin-bottom: 16px; }
+.gc-sub { margin: 22px 0 10px; font-size: 14px; color: var(--text-2); }
+.gc-design-list { display: flex; flex-direction: column; gap: 10px; }
+.gc-design-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card-2); }
+.gc-design-row .field { flex: 1 1 160px; }
+.gc-design-row .field.sm { flex: 0 0 64px; }
+.gc-design-row .check { padding-bottom: 9px; }
+ul.plain { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; color: var(--text-2); }

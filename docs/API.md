@@ -124,6 +124,28 @@ field records which page the visitor signed up from.
 - When Square is configured, also adds the person to the **Square Customer
   Directory**, so the restaurant can email them with Square Marketing.
 
+## `GET` / `POST api/gift-cards.php`
+
+The Gift Cards page (`gift-cards.html`, `js/gift-cards.js`). The shared code is in
+`api/gift-cards-lib.php` (private). Amounts are in cents.
+
+- `GET` returns the designs, amounts and limits set in Admin → Gift cards, and
+  `mode`: `square` when card payments are set up (Square application ID, access
+  token and location in `api/config.php`), otherwise `request`. It also emails
+  any cards whose delivery day has come (there's no cron job; the admin panel
+  does the same).
+- `GET ?photo=<id>` serves a picture a buyer uploaded for their own design.
+- `POST { "action": "buy", ... }`: in `square` mode it charges the card
+  (Payments API), creates a digital gift card in Square and loads it
+  (`/v2/gift-cards`, then an `ACTIVATE` activity), saves it and emails it. If
+  Square takes the payment but doesn't create the card, the card is saved as
+  *Needs attention* and the team is emailed (Admin → **Retry in Square**). In
+  `request` mode it saves a request the team takes payment for.
+- `POST { "action": "balance", "code": "..." }` returns a card's balance (Square
+  cards sold at the bar too). Limited to 10 tries per 10 minutes per visitor.
+- `POST { "action": "view", "token": "..." }` returns the card behind an emailed
+  link (`gift-cards.html#card=<token>`), with its code once it's active.
+
 ## `GET api/chat-settings.php`
 
 How the chat looks and behaves, as JSON (title, button, position, opening by

@@ -13,7 +13,7 @@ if (strpos($path, ':') !== false
     || preg_match('#(^|/)\.#', $path) // dot-files and folders: .git, .env, .htaccess...
     || preg_match('#\.(md|log|bak|sql|ini|sh|zip|bat|ps1)(/|$)#', $path)
     || preg_match('#^/(docs|temp-performers|admin/inc|api/data|api/cache|api/vendor)(/|$)#', $path)
-    || preg_match('#^/api/(config(\.example)?|site-settings|lib|db|chat-claude|chat-order|chat-log|chat-cards|chat-insights|composer)\.(php|json|lock)(/|$)#', $path)
+    || preg_match('#^/api/(config(\.example)?|site-settings|lib|db|chat-claude|chat-order|chat-log|chat-cards|chat-insights|gift-cards-lib|composer)\.(php|json|lock)(/|$)#', $path)
     || preg_match('#^/make-site-settings\.php(/|$)#', $path)) {
     require __DIR__ . '/404.php';
     return true;

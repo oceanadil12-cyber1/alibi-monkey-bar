@@ -47,6 +47,7 @@ The old address `api/chats.php` still works: it forwards to the new panel.
 | **Dashboard** | See what needs attention now (new orders, reservation requests, unread messages), orders and chats per day for two weeks, whether pickup, delivery and Happy Hour are on right now, and setup checks (email alerts, the chat assistant's daily limit, HTTPS, password strength). |
 | **Orders** | Orders placed on the website (cash on delivery). Tap **Start**, **Mark ready**, then **Picked up** / **Delivered** to move an order along, or open it to add a note, print a ticket, or cancel. Filter by status and date, search by name, phone or item, download a spreadsheet. |
 | **Reservations** | Table requests from the reservation form. **Confirm** or **Decline**, and use the ready-made email buttons to reply in your own mail program. The website only takes requests, so nothing is booked until you answer. |
+| **Gift cards** | Gift cards sold on the website's **Gift Cards** page and cards the team issues. While Square card payments aren't set up, the website takes *requests*: call the buyer, take payment, then press **Mark paid & activate** and the card is emailed (straight away, or on the day the buyer chose). Open a card to **Redeem** what a guest spent, adjust or void it, resend the email or change the recipient. **Issue a gift card** makes a card for any amount (sold at the bar, a comp, a prize). **Designs & settings** switches the page on or off and sets the amounts, the custom-amount limits, whether buyers can design their own card (photo and words), and the designs: upload the client's artwork as WebP/JPG/PNG (about 1600 × 1000 px; export a PDF as a picture first). Once Square is set up, cards bought online are created in Square and redeemed on the Square POS. |
 | **Messages** | The contact-form inbox. Unread messages are bold; mark them replied or archived, reply by email, or delete spam. |
 | **Subscribers** | Newsletter sign-ups, one row per address. Search, download, or remove someone who asks to leave. |
 | **Conversations** | Every chat guests had with the assistant. Returning guests and reservation requests are flagged. Flag a chat for follow-up and add a note. |
@@ -148,7 +149,10 @@ into the website itself.
 | Events working copy | `api/data/events.json` |
 | Earlier copies of the Events page | `api/data/events-backups/` |
 | Earlier chat knowledge | `api/data/knowledge-history/` |
+| Gift cards and their history (issued, activated, redeemed, emailed) | `gift_cards` and `gift_card_activity` tables |
 | Menu overrides, store settings, Happy Hour, KDS settings, chat settings | `settings` table |
+| Gift card designs and amounts | `settings` table (`gift-cards`); pictures in `images/giftcards/` |
+| Pictures buyers upload for their own card design | `api/data/gift-card-photos/` |
 | The chat logo, if one was uploaded | `images/chat/` |
 | Sign-in sessions | `api/data/sessions/` |
 | Chat knowledge | `data/chatbot-knowledge.md` |

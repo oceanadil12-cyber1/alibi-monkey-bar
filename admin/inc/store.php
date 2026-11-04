@@ -321,7 +321,17 @@ function admin_counts(): array
     $wa = 0;
     try { $wa = (int) db()->query("SELECT COUNT(*) FROM waiter_calls WHERE status = 'active'")->fetchColumn(); } catch (\Exception $e) {}
 
-    return ['orders' => $orders, 'reservations' => $reservations, 'messages' => $messages, 'waiter-assistance' => $wa];
+    // Gift card requests to take payment for (and paid cards Square didn't create). This also
+    // emails the cards whose day has come, as it runs on every admin page and every 30 seconds.
+    $gc = 0;
+    if (function_exists('giftcards_send_due')) {
+        try {
+            $gc = (int) db()->query("SELECT COUNT(*) FROM gift_cards WHERE status IN ('pending','error')")->fetchColumn();
+            giftcards_send_due();
+        } catch (\Exception $e) {}
+    }
+
+    return ['orders' => $orders, 'reservations' => $reservations, 'gift-cards' => $gc, 'messages' => $messages, 'waiter-assistance' => $wa];
 }
 
 // ---------- notification alerts ----------
@@ -525,6 +535,17 @@ const ADMIN_ACTIONS = [
     'waiter.call'        => ['Waiter called', 'gold'],
     'waiter.resolve'     => ['Waiter call resolved', 'muted'],
     'db.unsaved'         => ['Backed-up records moved into the database', 'good'],
+    'giftcard.issue'     => ['Gift card issued', 'gold'],
+    'giftcard.activate'  => ['Gift card paid & activated', 'good'],
+    'giftcard.redeem'    => ['Gift card redeemed', 'gold'],
+    'giftcard.adjust'    => ['Gift card balance changed', 'warn'],
+    'giftcard.void'      => ['Gift card voided', 'crit'],
+    'giftcard.email'     => ['Gift card emailed', 'muted'],
+    'giftcard.edit'      => ['Gift card recipient changed', 'muted'],
+    'giftcard.note'      => ['Gift card note saved', 'muted'],
+    'giftcard.retry'     => ['Gift card created in Square', 'good'],
+    'giftcard.settings'  => ['Gift card settings saved', 'gold'],
+    'giftcard.design'    => ['Gift card designs changed', 'gold'],
 ];
 
 function admin_action_label(string $code): array
