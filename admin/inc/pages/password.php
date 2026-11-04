@@ -49,7 +49,7 @@ function admin_page_password(): void
 
     $rec = team_password_record();
     $changed = $rec && !empty($rec['changed']) ? date('M j, Y g:i A', (int) strtotime((string) $rec['changed'])) : '';
-    $i = fn(string $text) => '<span class="itip" data-info="' . h($text) . '">' . icon('info', 12) . '</span>';
+    $i = fn(string $text) => info_tip($text);
 
     $body = page_head('Change password', 'One team password opens both the admin panel and the kitchen display (/kds/).')
         . ($error !== '' ? '<div class="flash err" role="alert">' . icon('alert', 16) . '<span>' . h($error) . '</span></div>' : '')

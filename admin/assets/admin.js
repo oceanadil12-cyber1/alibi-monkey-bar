@@ -131,10 +131,15 @@
   let bubbleTarget = null;
   // Capture-phase pointer events also fire for the document itself, which has no closest().
   const itipOf = (target) => (target instanceof Element ? target.closest('.itip') : null);
-  document.addEventListener('pointerenter', (e) => {
-    const el = itipOf(e.target);
-    if (!el || !el.dataset.info) return;
+  const hideTip = () => {
+    if (bubbleTarget) bubbleTarget.setAttribute('aria-expanded', 'false');
+    bubble.classList.remove('on');
+    bubbleTarget = null;
+  };
+  const showTip = (el) => {
+    if (bubbleTarget && bubbleTarget !== el) bubbleTarget.setAttribute('aria-expanded', 'false');
     bubbleTarget = el;
+    el.setAttribute('aria-expanded', 'true');
     bubble.textContent = el.dataset.info;
     bubble.classList.add('on');
     const r = el.getBoundingClientRect();
@@ -150,10 +155,26 @@
     bubble.style.top = top + 'px';
     const arrowLeft = r.left + r.width / 2 - left;
     bubble.style.setProperty('--arrow', arrowLeft + 'px');
+  };
+  // Mouse: hover. Touch screens and keyboards: tap or focus, then tap anywhere / Escape to close.
+  document.addEventListener('pointerenter', (e) => {
+    const el = itipOf(e.target);
+    if (el && el.dataset.info && e.pointerType === 'mouse') showTip(el);
   }, true);
   document.addEventListener('pointerleave', (e) => {
-    if (bubbleTarget && itipOf(e.target) === bubbleTarget) { bubble.classList.remove('on'); bubbleTarget = null; }
+    if (e.pointerType === 'mouse' && bubbleTarget && itipOf(e.target) === bubbleTarget) hideTip();
   }, true);
+  document.addEventListener('click', (e) => {
+    const el = itipOf(e.target);
+    if (el && el.dataset.info) {
+      e.preventDefault(); // inside a <label>: don't tick its checkbox
+      if (bubbleTarget === el && e.pointerType !== 'mouse') hideTip(); else showTip(el);
+    } else if (bubbleTarget) hideTip();
+  });
+  document.addEventListener('focusin', (e) => { const el = itipOf(e.target); if (el && el.dataset.info && el.matches(':focus-visible')) showTip(el); }); // keyboard only; taps go through click
+  document.addEventListener('focusout', (e) => { if (itipOf(e.target) === bubbleTarget) hideTip(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bubbleTarget) hideTip(); });
+  window.addEventListener('scroll', () => { if (bubbleTarget) hideTip(); }, { passive: true, capture: true });
 
   // ----- Toasts -----
   const toasts = $('#toasts');

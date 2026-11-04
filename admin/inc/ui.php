@@ -295,6 +295,12 @@ function icon(string $name, int $size = 18): string
         . ($paths[$name] ?? '') . '</svg>';
 }
 
+/** A round "i" next to a label that shows $text on hover, tap or keyboard focus (admin.js). */
+function info_tip(string $text): string
+{
+    return '<button type="button" class="itip" data-info="' . h($text) . '" aria-label="' . h('More info: ' . $text) . '" aria-expanded="false">i</button>';
+}
+
 /** The little symbol in front of a status label, so meaning never rests on colour alone. */
 function tone_icon(string $tone): string
 {

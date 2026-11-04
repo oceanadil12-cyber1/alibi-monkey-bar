@@ -131,7 +131,7 @@ function admin_page_settings(): void
         return '<div class="table flush"><table class="tbl hours"><thead><tr><th>Day</th><th>Open</th><th>Close</th></tr></thead><tbody>' . $rows . '</tbody></table></div>';
     };
 
-    $i = fn(string $text) => '<span class="itip" data-info="' . h($text) . '">' . icon('info', 12) . '</span>';
+    $i = fn(string $text) => info_tip($text);
 
     $body = page_head('Store settings', 'Hours, delivery area and fees for the website\'s ordering. Leave a day\'s times blank to mark it closed.')
         . '<form method="post" action="' . h(admin_url('settings')) . '">' . csrf_field()
