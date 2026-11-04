@@ -457,3 +457,9 @@ body {
     .kds-header { position: static; }
     .kds-grid { min-height: 0; }
 }
+@media (max-height: 480px) and (max-width: 900px) {
+    .kds-summary { flex-wrap: nowrap; flex-basis: 100%; order: 3; }
+    .kds-stat { flex: 1 1 0; min-width: 0; padding: 2px 4px; }
+    .kds-stat-num { font-size: 1.05rem; }
+    .kds-stat-label { font-size: .55rem; }
+}

@@ -484,7 +484,7 @@ tr.cat td { padding: 9px 16px; background: var(--card-2); color: var(--gold-ligh
 }
 
 /* ---------- events ---------- */
-.weekgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; align-items: start; }
+.weekgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 12px; align-items: start; }
 .wday { padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
 .wday header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .wday h3 { font-size: 14px; }
@@ -681,7 +681,7 @@ body.bare { display: grid; place-items: center; padding: 24px; }
 .field input.error, .field textarea.error { border-color: var(--crit) !important; }
 
 /* --- Waiter Assistance --- */
-.waiter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.waiter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; }
 .waiter-card { background: var(--card); border: 2px solid var(--crit); border-radius: var(--radius); overflow: hidden; animation: waiter-pulse 1.5s ease-in-out infinite; }
 .waiter-card-header { background: var(--crit-bg); padding: 10px 16px; }
 .waiter-card-badge { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--crit); }
