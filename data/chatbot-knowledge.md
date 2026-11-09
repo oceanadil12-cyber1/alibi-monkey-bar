@@ -31,7 +31,7 @@
 - Outdoor Patio: open-air dining with a tropical feel.
 
 ## Food and ordering
-- Scratch kitchen: burgers, wings, sandwiches, wraps, salads, flatbreads, Chinese-style mains, tacos, desserts.
+- Scratch kitchen: burgers, wings, sandwiches, wraps, salads, flatbreads, Chinese-style mains, tacos.
 - Popular dishes: Chicken Wings (guests love them with BBQ, Hot or Mild sauce), The Champ Burger, Mexican Street Tacos, Mucho Nachos and flatbreads.
 - Light bites and snacks: Edamame, salads, flatbreads and appetizers.
 - Shareable plates: Mucho Nachos, Chicken Wings (8 or 12), and appetizers to share.
